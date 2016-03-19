@@ -17,21 +17,21 @@ graph information
 Features
 --------
 
-- create a document with graph information of hip, knee and ankle angles
- (sagittal plane).
+- create a document with graph information of hip, knee and ankle angles 
+(sagittal plane).
 
 Authors and Contributors
 ------------------------
 
 :Authors & Maintenance:
-    Mariano A. Ramis
-    <ramismariano at gmail.com>
+                       Mariano A. Ramis
+                       <ramismariano at gmail.com>
 
 How use it
 ----------
 
 Read the `WIKI
-https://bitbucket.org/mramis/angulosapp/wiki/Home/>`_.
+<https://bitbucket.org/mramis/angulosapp/wiki/Home/>`_.
 
 License
 -------
