@@ -17,8 +17,7 @@ graph information
 Features
 --------
 
-- create a document with graph information of hip, knee and ankle angles 
-(sagittal plane).
+- create a document with graph information of hip, knee and ankle angles (sagittal plane).
 
 Authors and Contributors
 ------------------------
