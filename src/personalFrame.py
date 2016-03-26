@@ -22,30 +22,24 @@
 import Tkinter as tk
 from entryField import entry
 
-class labelframe(tk.LabelFrame):
+class labelframe(tk.Frame):
 
     def __init__(self, VenMaster):
-        tk.LabelFrame.__init__(
+        tk.Frame.__init__(
                 self,
                 master=VenMaster,
-                text=u'Información Personal',
                 )
-        self.grid(padx=20, pady=20, sticky='N')
+        label = tk.Label(
+                self,
+                text='Información Personal',
+                )
+        label.pack()
+        self.pack()
 
     def buildEntrys(self):
         localFrame = tk.Frame(self)
-        localFrame.grid()
-        self._name = entry(localFrame, u'NOMBRE', 0, 0, 10)
-        self._age = entry(localFrame, u'EDAD', 0, 1, 10)
-        self._diagnosis = entry(
-                localFrame,
-                u'DIAGNÓSTICO'.encode('utf-8')
-                , 0, 2, 10
-                )
+        localFrame.pack()
+        self._name = entry(localFrame, u'NOMBRE')
+        self._age = entry(localFrame, u'EDAD')
+        self._diagnosis = entry(localFrame, u'DIAGNÓSTICO'.encode('utf-8'))
 
-
-if __name__ == '__main__':
-    root = tk.Tk()
-    personal = labelframe(root)
-    personal.buildEntrys()
-    root.mainloop()

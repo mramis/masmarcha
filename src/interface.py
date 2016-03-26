@@ -1,7 +1,7 @@
 #!usr/bin/env python
 # coding: utf-8
 
-'''This is the App intercafe powered by Tkinter
+'''This is the App intercafe powered by Tkinter.
 '''
 
 # Copyright (C) 2016  Mariano Ramis
@@ -22,27 +22,47 @@
 import Tkinter as tk
 from folders import ANGULOSAPPDIRECTORY
 from personalFrame import labelframe
+from reportButton import printButton
+from openFile import openFileFrame
 
 class Root(tk.Tk):
 
     def __init__(self, title):
         tk.Tk.__init__(self)
         self.title(title)
+        self._AppColor = '#5f92d0'
+        self.configure(background=self._AppColor)
         self._directory = ANGULOSAPPDIRECTORY 
         return
 
     def getAppDirectory(self):
         return self._directory
 
+    def getAppColor(self):
+        return self._AppColor
+
+    def getAppWidth(self):
+        return self._AppWidth
+
+    def getPersonalFrame(self):
+        return self._personal
+
     def buildPersonalWidget(self):
-        localFrame = tk.Frame(self)
-        localFrame.grid()
-        personal = labelframe(localFrame)
+        personal = labelframe(self)
         personal.buildEntrys()
+        self._personal = personal
         return
+
+    def buildFileWidget(self):
+        fileframe = openFileFrame(self)
+
+    def buildGenerateButton(self):
+        boton = printButton(self)
 
 if __name__ == '__main__':
     App = Root('Angulos App')
     App.buildPersonalWidget()
+    App.buildFileWidget()
+    App.buildGenerateButton()
     App.mainloop()
 

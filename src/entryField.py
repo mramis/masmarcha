@@ -23,21 +23,21 @@ import Tkinter as tk
 
 class entry(tk.Entry):
 
-    def __init__(self, VenMaster, field, COL, ROW, TAB):
+    def __init__(self, VenMaster, field):
         labelFrame = tk.Frame(VenMaster)
-        labelFrame.grid(column=COL, row=ROW, sticky='w')
+        labelFrame.pack()
         entryFrame = tk.Frame(VenMaster)
-        entryFrame.grid(column=(COL + 1), row=ROW, sticky='w')
+        entryFrame.pack()
         tk.Entry.__init__(
                 self,
                 master=entryFrame
                 )
-        var = tk.StringVar(self, name='entryfield')
+        var = tk.StringVar(self)
         self.configure(textvariable=var)
         label = tk.Label(labelFrame, text=('{}:'.format(field)))
-        label.grid(padx=TAB)
-        self.grid(padx=10)
+        label.pack()
+        self.pack()
 
     def getField(self):
-        return self.get('entryfiled').decode('utf-8')
+        return self.get()
 
