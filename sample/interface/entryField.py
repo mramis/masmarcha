@@ -1,7 +1,7 @@
 #!usr/bin/env python
 # coding: utf-8
 
-'''This Tkinter Button collect all information and print it.
+'''Especial tk.Entry with methods defined to get the field information
 '''
 
 # Copyright (C) 2016  Mariano Ramis
@@ -19,29 +19,32 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
 import Tkinter as tk
 
-class printButton(tk.Button):
+class entry(tk.Entry):
 
-    def __init__(self, VenMaster):
-        local = tk.Frame(VenMaster)
-        tk.Button.__init__(
-                self,
-                master=local,
-                text='Generar',
-                width=17,
-                command=self.generar
+    def __init__(self, VenMaster, field):
+        labelFrame = tk.Frame(
+                VenMaster,
                 )
-        local.pack(ipadx=1, ipady=5)
+        labelFrame.pack(expand=True)
+        entryFrame = tk.Frame(
+                VenMaster,
+                )
+        entryFrame.pack()
+        tk.Entry.__init__(
+                self,
+                master=entryFrame
+                )
+        var = tk.StringVar(self)
+        self.configure(textvariable=var)
+        label = tk.Label(
+                labelFrame,
+                text=('{}:'.format(field)),
+                )
+        label.pack(expand=True)
         self.pack()
 
-    def generar(self):
-        App = self.master
-        personal = App.getPersonalFrame()
-        entryName = personal._name.getField()
-        entryAge = personal._age.getField()
-        entryDiagnosis = personal._diagnosis.getField()
-        print entryName, entryAge, entryDiagnosis
+    def getField(self):
+        return self.get()
 
-  

@@ -28,12 +28,7 @@ class labelframe(tk.Frame):
         tk.Frame.__init__(
                 self,
                 master=VenMaster,
-                )
-        label = tk.Label(
-                self,
-                text='Información Personal',
-                )
-        label.pack()
+                background=VenMaster.master.getAppColor(0))
         self.pack()
 
     def buildEntrys(self):

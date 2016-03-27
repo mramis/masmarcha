@@ -20,26 +20,38 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import Tkinter as tk
-from folders import ANGULOSAPPDIRECTORY
 from personalFrame import labelframe
 from reportButton import printButton
 from openFile import openFileFrame
+from context import ANGULOSAPPDIRECTORY
 
 class Root(tk.Tk):
 
     def __init__(self, title):
         tk.Tk.__init__(self)
         self.title(title)
-        self._AppColor = '#5f92d0'
-        self.configure(background=self._AppColor)
-        self._directory = ANGULOSAPPDIRECTORY 
+        self._directory = ANGULOSAPPDIRECTORY
+        self._AppColors = ('#9fb9d2', '#5f92d0', '#4b5992')
+        self._MasterFrame = tk.Frame(
+                self,
+                highlightcolor=self._AppColors[2],
+                highlightthickness=2
+                )
+        self._MasterFrame.pack(expand=True)
+        self._MasterFrame.focus()
+        self.configure(background=self._AppColors[1])
+        CentroPantallaX = (self.winfo_screenwidth() / 2) - 105
+        CentroPantallaY = (self.winfo_screenheight() / 2) - 105
+        geometria = '180x210+{}+{}'.format(CentroPantallaX, CentroPantallaY)
+        self.geometry(geometria)
+        self.pack_propagate(False)
         return
 
     def getAppDirectory(self):
         return self._directory
 
-    def getAppColor(self):
-        return self._AppColor
+    def getAppColor(self, n):
+        return self._AppColors[n]
 
     def getAppWidth(self):
         return self._AppWidth
@@ -48,16 +60,16 @@ class Root(tk.Tk):
         return self._personal
 
     def buildPersonalWidget(self):
-        personal = labelframe(self)
+        personal = labelframe(self._MasterFrame)
         personal.buildEntrys()
         self._personal = personal
         return
 
     def buildFileWidget(self):
-        fileframe = openFileFrame(self)
+        fileframe = openFileFrame(self._MasterFrame)
 
     def buildGenerateButton(self):
-        boton = printButton(self)
+        boton = printButton(self._MasterFrame)
 
 if __name__ == '__main__':
     App = Root('Angulos App')

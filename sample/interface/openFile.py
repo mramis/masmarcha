@@ -24,7 +24,7 @@ import os
 import Tkinter as tk
 from tkFileDialog import askopenfilename
 
-from folders import HOME
+from context import HOME
 
 class openFileFrame(tk.Frame):
 
@@ -37,6 +37,7 @@ class openFileFrame(tk.Frame):
                 self,
                 text='"Abrir Archivo"',
                 width=17,
+                relief='groove',
                 command=self.abrir
                 )
         self._boton.pack(padx=1, pady=5)
