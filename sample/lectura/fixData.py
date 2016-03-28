@@ -25,8 +25,13 @@ def dataToTime(data):
     time = list(data)
     if ':' in time:
         h, m, s, cs = data.split(':')
-        newTime = int(h) / 3600.0 + int(m) / 60.0 + int(s) + int(cs) * 0.01
-        return round(newTime, 2)
+        newTime = (
+                float(h) / 3600 +
+                float(m) / 60 +
+                float(s) +
+                float(cs) * 0.01
+                )
+        return newTime
 
 def dataToFloat(data):
     if type(data) is not str:
