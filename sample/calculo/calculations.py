@@ -22,11 +22,30 @@
 import numpy as np
 
 def Angle(A, B):
-    if not (type(A) is np.ndarray) and not (type(B) is np.ndarray):
-        raise ValueError('A and B must be numpy array')
-    normA = np.sqrt((A.dot(A.T).diagonal()))
-    normB = np.sqrt((B.dot(B.T).diagonal()))
-    pInternoAB = A.dot(B.T).diagonal()
-    radiansAngle = np.arccos(pInternoAB / (normA * normB))
+    if type(A) is np.ndarray and type(B) is np.ndarray:
+        normA = np.sqrt((A.dot(A.T).diagonal()))
+        normB = np.sqrt((B.dot(B.T).diagonal()))
+        pInternoAB = A.dot(B.T).diagonal()
+        radiansAngle = np.arccos(pInternoAB / (normA * normB))
+    else:
+        raise Exception('A&B must be numpy arrays')
     return np.degrees(radiansAngle)
+
+def Direction(MasterArray):
+    if type(MasterArray) is np.ndarray:
+        rows, columns = MasterArray.shape[0], 1
+        Xdirection = np.ndarray((rows, columns))
+        for index, array in enumerate(MasterArray):
+            firstRow, lastRow = array[0], array[-1]
+            Xdirection[index] = (lastRow - firstRow)[1]
+        average = np.average(Xdirection)
+        if average > 0:
+            directionValue = 1
+        elif average < 0:
+            directionValue = -1
+        else:
+            raise Exception('Direction value was not found')
+    else:
+        raise Exception('MasterArray must be numpy array')
+    return directionValue
 

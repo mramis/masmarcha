@@ -21,13 +21,52 @@
 
 
 import numpy as np
-from canonicalVectors import positiveY, negativeY
-from calculations import Angle
 
-def hipAngles(hipArrayPoints, kneeArrayPoints):
-    HAP = hipArrayPoints
-    KAP = kneeArrayPoints
-    if type(HAP) != np.ndarray and type(KAP) != np.ndarray:
-        raise ValueError('Arrays must be Numpy Arrays')
-    thigh = KAP - HAP
-    return Angle(negativeY, thigh)
+from canonicalVectors import positiveX, negativeX
+from calculations import Angle, Direction
+
+def hipAngles(hipArray, kneeArray, direction):
+    HAP = hipArray[:, 1:] # without time
+    KAP = kneeArray[:, 1:] # same here
+    if type(HAP) is  np.ndarray and type(KAP) is  np.ndarray:
+        thigh = KAP - HAP
+        if direction is 1:
+            hipAngle = Angle(thigh, positiveX(thigh.shape[0])) - 90
+        else:
+            hipAngle = Angle(thigh, negativeX(thigh.shape[0])) - 90
+    else:
+        raise Exception('hipArray&kneeArray must be numpy arrays')
+    return  hipAngle
+
+def kneeAngles(hipArray, kneeArray, ankleArray, direction):
+    KAP = kneeArray[:, 1:]
+    AAP = ankleArray[:, 1:] 
+    TruthValueAnkle = type(AAP) is np.ndarray
+    TruthValueKnee = type(KAP) is np.ndarray
+    if TruthValueKnee and TruthValueAnkle:
+        leg = AAP - KAP
+        hipAngle = hipAngles(hipArray, kneeArray, direction)
+        if direction is 1:
+            lowKneeAngle = Angle(leg, positiveX(leg.shape[0])) - 90
+        else:
+            lowKneeAngle = Angle(leg, negativeX(leg.shape[0])) - 90
+        kneeAngle = lowKneeAngle + hipAngle
+    else:
+        raise Exception('kneeArray&ankleArray must be numpy arrays')
+    return kneeAngle
+
+def ankleAngles(kneeArray, ankleArray, mttArray):
+    KAP = kneeArray[:, 1:]
+    AAP = ankleArray[:, 1:]
+    MAP = mttArray[:, 1:]
+    TruthValueKnee = type(KAP) is np.ndarray
+    TruthValueAnkle = type(AAP) is np.ndarray
+    TruthValueMtt = type(MAP) is np.ndarray
+    if TruthValueKnee and (TruthValueAnkle and TruthValueMtt):
+        leg = KAP - AAP
+        foot = AAP - MAP
+        ankleAngle = 90 - Angle(leg, foot)
+    else:
+        raise Exception('kneeArray&ankleArray&mttArray must be numpy arrays')
+    return ankleAngle
+
