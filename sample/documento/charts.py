@@ -22,6 +22,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 
 import plotParams
 
@@ -37,13 +38,28 @@ def timeJointPlot(jointAngles, key='joint'):
     plt.show()
     plt.close()
 
-def jointJointPLot(jointX, jointY, key='joints'):
-    plt.scatter(jointX, jointY)
+def jointJointPlot(jointX, jointY, key='joints'):
+    axes = plt.gca()
+    axes.set_aspect('equal', adjustable='box')
+    plotParams.personalizePlot(
+            u'Angulos {}'.format(key[0]),
+            u'Angulos {}'.format(key[-1]),
+            (-5, 5))
+    colorMap = plt.cm.Greys(np.arange(jointX.size))
+    startPatch = mpatches.Patch(
+            edgecolor = '.5',
+            facecolor=str(colorMap[0,0]),
+            label='Start'
+            )
+    endPatch = mpatches.Patch(color=str(colorMap[-1,0]), label='End')
+    plt.legend(handles=[startPatch, endPatch], frameon=False)
+    plt.scatter(jointX, jointY, c=colorMap, edgecolor='0.5')
     plt.show()
     plt.close()
 
 if __name__ == '__main__':
-    X = np.linspace(-5, 5, 100)
-    Y = np.exp2(X, np.ndarray(X.shape))
+    X = np.linspace(-np.pi, np.pi, 100)
+    Y = np.sqrt(10 - np.square(X)) 
+    _Y = -np.sqrt(10 - np.square(X))
 
-    timeJointPlot(Y)
+    jointJointPlot(np.append(X, -X), np.append(Y, _Y))
