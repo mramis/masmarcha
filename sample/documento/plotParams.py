@@ -52,7 +52,7 @@ textParams = {'color' : '0.2'      ,
               'weight': 'light'    , 
               'style' : 'italic'   }
 
-def personalizePlot(xLabel, yLabel, ylim=(-10, 10)):
+def personalizePlot(xLabel, yLabel, xlim=(-10, 10), ylim=(-10, 10)):
     ax = plt.gca()
     ax.set_xlabel(xLabel, **textParams)
     ax.set_ylabel(yLabel, **textParams)
@@ -73,6 +73,7 @@ def personalizePlot(xLabel, yLabel, ylim=(-10, 10)):
     ax.tick_params(axis=u'both',**ticksMinorParams)
     ax.set_prop_cycle(cycler(color=('0.2', '0.3', '0.4')))
     ax.set_ylim(ylim)
+    ax.set_xlim(xlim)
     ax.axhline(linewidth=0.75, color='k', linestyle='--')
     fig = ax.figure
     fig.tight_layout(pad=1.5)

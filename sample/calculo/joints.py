@@ -31,9 +31,9 @@ def hipAngles(hipArray, kneeArray, direction):
     if type(HAP) is  np.ndarray and type(KAP) is  np.ndarray:
         thigh = KAP - HAP
         if direction is 1:
-            hipAngle = Angle(thigh, positiveX(thigh.shape[0])) - 90
+            hipAngle = 90 - Angle(thigh, positiveX(thigh.shape[0]))
         else:
-            hipAngle = Angle(thigh, negativeX(thigh.shape[0])) - 90
+            hipAngle = 90 - Angle(thigh, negativeX(thigh.shape[0]))
     else:
         raise Exception('hipArray&kneeArray must be numpy arrays')
     return  hipAngle
@@ -64,7 +64,7 @@ def ankleAngles(kneeArray, ankleArray, mttArray):
     TruthValueMtt = type(MAP) is np.ndarray
     if TruthValueKnee and (TruthValueAnkle and TruthValueMtt):
         leg = KAP - AAP
-        foot = AAP - MAP
+        foot = MAP - AAP
         ankleAngle = 90 - Angle(leg, foot)
     else:
         raise Exception('kneeArray&ankleArray&mttArray must be numpy arrays')

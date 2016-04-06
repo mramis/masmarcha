@@ -23,43 +23,49 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+import matplotlib.cm as colorMap
+import matplotlib.ticker as ticker
 
 import plotParams
 
 
-def timeJointPlot(jointAngles, key='joint'):
-    time = np.arange(jointAngles.size)
-    plotParams.personalizePlot(
-            u'% Ciclo(tiempo)',
-            u'Angulos(extensión-flexión)',
-            (-20, 70)
-            )
-    plt.plot(time, jointAngles, linewidth=3.0, color='0.7')
-    plt.show()
-    plt.close()
+def getPercentaje(array):
+    reference = array.size
+    newArray = np.ndarray(array.shape)
+    for index, item in enumerate(array):
+        newArray[index] = item * 100.0 / reference
+    return newArray
 
-def jointJointPlot(jointX, jointY, key='joints'):
+def percentajeLabel(value, pos):
+    return '{:0.1f}%'.format(value)
+
+def timeJointPlot(jointAngles,XLimits, YLimits, keys='joint'):
     axes = plt.gca()
-    axes.set_aspect('equal', adjustable='box')
+    axes.xaxis.set_major_formatter(ticker.FuncFormatter(percentajeLabel))
+    time = getPercentaje(np.arange(jointAngles.size))
     plotParams.personalizePlot(
-            u'Angulos {}'.format(key[0]),
-            u'Angulos {}'.format(key[-1]),
-            (-5, 5))
-    colorMap = plt.cm.Greys(np.arange(jointX.size))
-    startPatch = mpatches.Patch(
-            edgecolor = '.5',
-            facecolor=str(colorMap[0,0]),
-            label='Start'
+            u'Ciclo',
+            u'-Extensión / +Flexión',
+            xlim=XLimits,
+            ylim=YLimits
             )
-    endPatch = mpatches.Patch(color=str(colorMap[-1,0]), label='End')
-    plt.legend(handles=[startPatch, endPatch], frameon=False)
-    plt.scatter(jointX, jointY, c=colorMap, edgecolor='0.5')
-    plt.show()
+    plt.plot(time, jointAngles, linewidth=4.0, color='0.7')
+    plt.savefig(keys)
     plt.close()
 
-if __name__ == '__main__':
-    X = np.linspace(-np.pi, np.pi, 100)
-    Y = np.sqrt(10 - np.square(X)) 
-    _Y = -np.sqrt(10 - np.square(X))
+def jointJointPlot(jointX, jointY, XLimits, YLimits, keys='joints'):
+    plotParams.personalizePlot(
+            u'Angulos de {}'.format(keys[0]),
+            u'Angulos de {}'.format(keys[-1]),
+            xlim=XLimits,
+            ylim=YLimits
+            )
+    colormap = colorMap.hsv(np.arange(jointX.size))
+    startPatch = mpatches.Patch(color=colormap[0], label='Start')
+    endPatch = mpatches.Patch(color=colormap[-1], label='End')
+    plt.legend(handles=[startPatch, endPatch], frameon=False)
+    for i, point in enumerate(jointX):
+        plt.scatter(jointX[i], jointY[i], color=colormap[i])
+    plt.savefig('{}-{}'.format(*keys))
+    plt.close()
 
-    jointJointPlot(np.append(X, -X), np.append(Y, _Y))
