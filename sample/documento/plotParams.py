@@ -80,5 +80,6 @@ def personalizePlot(xLabel, yLabel, xlim=(-10, 10), ylim=(-10, 10)):
     fig.set_figwidth(10, forward=True)
     fig.set_figheight(6, forward=True)
     fig.set_facecolor('white')
+    fig.set_dpi(100)
     return
 

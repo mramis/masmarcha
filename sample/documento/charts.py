@@ -49,7 +49,7 @@ def timeJointPlot(jointAngles,XLimits, YLimits, keys='joint'):
             xlim=XLimits,
             ylim=YLimits
             )
-    plt.plot(time, jointAngles, linewidth=4.0, color='0.7')
+    plt.plot(time, jointAngles, linewidth=3.0, color='0.7')
     plt.savefig(keys)
     plt.close()
 

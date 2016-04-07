@@ -33,6 +33,7 @@ class report(Canvas):
         self._heightUnit = A4[1] / 30.0
         self._widthUnit = A4[0] / 21.0
         self._margin = inch
+        self._lastCursorPosition = None
 
     def introduceTitle(self):
         Title = (u'REPORTE DE ANÁLISIS DE MARCHA')
@@ -52,11 +53,13 @@ class report(Canvas):
         for field in order:
             self.drawString(X, Y, '{}: {}'.format(field, Data[field]))
             Y -= self._heightUnit*0.7
+        self._lastCursorPosition = X, Y
 
     def introducePlots(self, plotList):
-        X = self._margin
-        Y = A4[1] - self._heightUnit*25
-        self.drawImage(plotList[1], X, Y, width=360, preserveAspectRatio=True)
+        listSize = len(plotList)
+        X, Y = self._lastCursorPosition
+        Y -= 100
+        self.drawImage(plotList[0], 0, 0)
 
 if __name__ == '__main__':
     import os
