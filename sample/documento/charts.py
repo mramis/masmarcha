@@ -39,7 +39,7 @@ def getPercentaje(array):
 def percentajeLabel(value, pos):
     return '{:0.1f}%'.format(value)
 
-def timeJointPlot(jointAngles,XLimits, YLimits, keys='joint'):
+def timeJointPlot(jointAngles, polyFit, XLimits, YLimits, keys='joint'):
     axes = plt.gca()
     axes.xaxis.set_major_formatter(ticker.FuncFormatter(percentajeLabel))
     time = getPercentaje(np.arange(jointAngles.size))
@@ -49,7 +49,31 @@ def timeJointPlot(jointAngles,XLimits, YLimits, keys='joint'):
             xlim=XLimits,
             ylim=YLimits
             )
-    plt.plot(time, jointAngles, linewidth=3.0, color='0.7')
+    KinoveaData = plt.plot(
+            time,
+            jointAngles,
+            linestyle='-',
+            color='r',
+            linewidth='0.5',
+            marker='o',
+            markeredgecolor='r',
+            #markerfacecolor='none'
+            )
+    polynomialFit = plt.plot(
+            time,
+            polyFit[0],
+            linewidth=3.5,
+            color='0.6'
+            )
+    plt.legend(
+            (u'DatosKinovea', u'RegeresiónPolinómica'),
+            fontsize='x-small',
+            numpoints=1,
+            fancybox=True,
+            framealpha=.5,
+            borderaxespad=1,
+            )
+    plt.axhline(0, linestyle='--', linewidth=0.7, color='0.1')
     plt.savefig(keys)
     plt.close()
 
@@ -61,11 +85,20 @@ def jointJointPlot(jointX, jointY, XLimits, YLimits, keys='joints'):
             ylim=YLimits
             )
     colormap = colorMap.hsv(np.arange(jointX.size))
-    startPatch = mpatches.Patch(color=colormap[0], label='Start')
-    endPatch = mpatches.Patch(color=colormap[-1], label='End')
-    plt.legend(handles=[startPatch, endPatch], frameon=False)
+    startPatch = mpatches.Patch(color=colormap[0], label='InicioCiclo')
+    endPatch = mpatches.Patch(color=colormap[-1], label='FinalCiclo')
+    plt.legend(
+            handles=[startPatch, endPatch],
+            fontsize='x-small',
+            numpoints=1,
+            fancybox=True,
+            framealpha=.5,
+            borderaxespad=1
+            )
     for i, point in enumerate(jointX):
         plt.scatter(jointX[i], jointY[i], color=colormap[i])
+    plt.axvline(0, linestyle='--', linewidth=0.7, color='0.1')
+    plt.axhline(0, linestyle='--', linewidth=0.7, color='0.1')
     plt.savefig('{}-{}'.format(*keys))
     plt.close()
 

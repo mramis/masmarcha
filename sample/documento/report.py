@@ -25,6 +25,8 @@ from reportlab.pdfgen.canvas import Canvas
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import inch
 
+from graphics import chartBackground
+
 class report(Canvas):
 
     def __init__(self, filename):
@@ -36,7 +38,7 @@ class report(Canvas):
         self._lastCursorPosition = None
 
     def introduceTitle(self):
-        Title = (u'REPORTE DE ANÁLISIS DE MARCHA')
+        Title = (u'REPORTE GONIOMÉTRICO DE MARCHA')
         titleWidth = self.stringWidth(Title)
         X = (A4[0] - titleWidth) / 2.0
         Y = A4[1] - self._margin
@@ -59,7 +61,11 @@ class report(Canvas):
         listSize = len(plotList)
         X, Y = self._lastCursorPosition
         Y -= 100
-        self.drawImage(plotList[0], 0, 0)
+        self.scale(0.35, 0.35)
+        chartBackground(self, 100, 100, 1000, 600, 'nada')
+        white = [255, 255, 255, 255, 255, 255]
+        self.drawImage(plotList[1], 100, 100, mask=white)
+        self.scale(1,1)
 
 if __name__ == '__main__':
     import os

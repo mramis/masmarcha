@@ -1,7 +1,8 @@
 #!usr/bin/env python
 # coding: utf-8
 
-'''Calculate the angle between two vectors.
+'''Calculate the angle between two vectors, the direction of movement,
+and a little of statics
 '''
 
 # Copyright (C) 2016  Mariano Ramis
@@ -48,4 +49,16 @@ def Direction(MasterArray):
     else:
         raise Exception('MasterArray must be numpy array')
     return directionValue
+
+def polynomialRegression(A, degree):
+    coeff, residual, __, __, __ = np.polyfit(np.arange(A.size),
+                                             A,
+                                             degree,
+                                             full=True)
+    polynomial = np.polyval(coeff, np.arange(A.size))
+    St = np.square(A - A.mean()).sum()
+    R2 = 1 - residual/St
+    return polynomial, R2
+
+
 
