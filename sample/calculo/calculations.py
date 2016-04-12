@@ -51,10 +51,12 @@ def Direction(MasterArray):
     return directionValue
 
 def polynomialRegression(A, degree):
-    coeff, residual, __, __, __ = np.polyfit(np.arange(A.size),
-                                             A,
-                                             degree,
-                                             full=True)
+    coeff, residual, __, __, __ = np.polyfit(
+            np.arange(A.size),
+            A,
+            degree,
+            full=True
+            )
     polynomial = np.polyval(coeff, np.arange(A.size))
     St = np.square(A - A.mean()).sum()
     R2 = 1 - residual/St

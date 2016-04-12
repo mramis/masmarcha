@@ -34,20 +34,30 @@ class report(Canvas):
         self.setTitle('REPORTE SIMPLE DE MARCHA')
         self._heightUnit = A4[1] / 30.0
         self._widthUnit = A4[0] / 21.0
-        self._margin = inch
+        self._leftMargin = inch
+        self._bottomMargin = inch
+        self._anotherMargins = inch * .8
         self._lastCursorPosition = None
+        self._printsHeight = (A4[1] - self._anotherMargins - self._bottomMargin) / 3.0
+        self._sectors = {
+                'bottom' : (self._leftMargin, self._bottomMargin),
+                'middle' : (self._leftMargin, self._printsHeight +
+                self._anotherMargins),
+                'top'    : (self._leftMargin, self._printsHeight*2 +
+                self._anotherMargins)
+                }
 
     def introduceTitle(self):
         Title = (u'REPORTE GONIOMÉTRICO DE MARCHA')
         titleWidth = self.stringWidth(Title)
         X = (A4[0] - titleWidth) / 2.0
-        Y = A4[1] - self._margin
+        Y = A4[1] - self._leftMargin
         self.drawString(X, Y, Title)
 
     def introducePersonalData(self, Data):
         today = str(date.today()).split('-')
         today.reverse()
-        X = self._margin
+        X = self._leftMargin
         Y = A4[1] - self._heightUnit*4.0
         self.drawString(X, Y, ('{}-{}-{}'.format(*today)))
         Y -= self._heightUnit
@@ -61,11 +71,11 @@ class report(Canvas):
         listSize = len(plotList)
         X, Y = self._lastCursorPosition
         Y -= 100
-        self.scale(0.35, 0.35)
-        chartBackground(self, 100, 100, 1000, 600, 'nada')
-        white = [255, 255, 255, 255, 255, 255]
-        self.drawImage(plotList[1], 100, 100, mask=white)
-        self.scale(1,1)
+        for index, sector in enumerate(('middle', 'bottom')):
+            x, y = self._sectors[sector]
+            chartBackground(self, x, y, 300, 180, 'nada')
+            white = [255, 255, 255, 255, 255, 255]
+            self.drawImage(plotList[index], x, y, width=300, height=180, mask=white)
 
 if __name__ == '__main__':
     import os
