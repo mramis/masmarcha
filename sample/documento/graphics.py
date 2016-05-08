@@ -20,22 +20,46 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-def chartBackground(pdfObject, x, y, width, height, title):
-    pdfObject.setFillColor('#DCDCDD')
-    pdfObject.roundRect(x,
-                        y + height - 65,
-                        width=width*0.5,
-                        height=height*0.23,
-                        radius=20,
-                        stroke=0,
-                        fill=1)
+from fonts import Fonts
+from constants import colors
 
-    pdfObject.setFillColor('#F5F5F5')
-    pdfObject.roundRect(x,
-                        y,
-                        width=width,
-                        height=height,
-                        radius=10,
-                        stroke=0,
-                        fill=1)
+def drawChart(canvas, plot, x, y, width, height, title):
 
+# drawingTitleField
+    titleBGSizes = width*0.5, height*0.29
+    titleBGXY = x, y + height*0.8
+    titleWidth = canvas.stringWidth(title, Fonts[0], 11)
+    titleXY = x + (titleBGSizes[0] - titleWidth)*0.5, y + height*1.005
+    canvas.setFillColor('#DCDCDD')
+    canvas.roundRect(x, y + height*0.8,
+                     width=width*0.5,
+                     height=height*0.29,
+                     radius=15,
+                     stroke=0,
+                     fill=1)
+
+    canvas.setFont(Fonts[0], 11)
+    canvas.setFillColor(colors['grey'])
+    canvas.drawString(titleXY[0], titleXY[1], title)
+
+# drawingChartField
+    canvas.setFillColor('#F5F5F5')
+    canvas.roundRect(x, y,
+                     width=width,
+                     height=height,
+                     radius=10,
+                     stroke=0,
+                     fill=1)
+# drawingPlot
+    white = [255, 255, 255, 255, 255, 255]
+    canvas.drawImage(plot, x, y, width=width, height=height, mask=white)
+    return
+
+
+if __name__ == '__main__':
+    from reportlab.pdfgen import canvas
+    pdf = canvas.Canvas('bodyTest.pdf')
+    plot = './muestra/Cadera.png'
+    drawChart(pdf, plot, 200, 500, 250, 150, 'Rodilla(t)')
+    pdf.showPage()
+    pdf.save()

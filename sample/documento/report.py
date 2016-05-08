@@ -23,59 +23,147 @@ from datetime import date
 
 from reportlab.pdfgen.canvas import Canvas
 from reportlab.lib.pagesizes import A4
-from reportlab.lib.units import inch
+from reportlab.lib.units import cm
 
-from graphics import chartBackground
+from sequenceString import drawStringSequence
+from fonts import Fonts
+from constants import (TYPOGRAPHYS, IMAGES,
+                       leftMargin, commonMargins,
+                       heightUnit, widthUnit,
+                       colors)
 
-class report(Canvas):
+class baseReport(Canvas):
 
-    def __init__(self, filename):
+    def __init__(self, filename, **kwargs):
         Canvas.__init__(self, filename, pagesize=A4)
-        self.setTitle('REPORTE SIMPLE DE MARCHA')
-        self._heightUnit = A4[1] / 30.0
-        self._widthUnit = A4[0] / 21.0
-        self._leftMargin = inch
-        self._bottomMargin = inch
-        self._anotherMargins = inch * .8
-        self._lastCursorPosition = None
-        self._printsHeight = (A4[1] - self._anotherMargins - self._bottomMargin) / 3.0
-        self._sectors = {
-                'bottom' : (self._leftMargin, self._bottomMargin),
-                'middle' : (self._leftMargin, self._printsHeight +
-                self._anotherMargins),
-                'top'    : (self._leftMargin, self._printsHeight*2 +
-                self._anotherMargins)
-                }
+        self.setTitle('Goniometría de Marcha')
+        self._data = kwargs
+        self._data['date'] = '{:%d-%m-%Y}'.format(date.today())
+        self._data['pagenumber'] = '01'
+        return
 
-    def introduceTitle(self):
-        Title = (u'REPORTE GONIOMÉTRICO DE MARCHA')
-        titleWidth = self.stringWidth(Title)
-        X = (A4[0] - titleWidth) / 2.0
-        Y = A4[1] - self._leftMargin
-        self.drawString(X, Y, Title)
+    def drawHeader(self):
+# date
+        x = leftMargin
+        y = A4[1] - commonMargins
+        self.setFont(Fonts[5], 10)
+        self.setFillColor(colors['grey'])
+        self.drawString(x, y, self._data['date'])
+# title
+        title = u'GONIOMETRÍA DE MARCHA'
+        y = A4[1] - commonMargins*1.6
+        self.setFont(Fonts[4], 29.7)
+        self.setFillColor(colors['lightblue'])
+        self.drawString(x, y, title)
+# personal data
+        y -= cm
+        fontSeq = ((Fonts[1], 12),)*2
+        colorSeq = (colors['red'], colors['grey'])
+        keys = ('name', 'age', 'dx')
+        tags = ('Nombre ', 'Edad ', 'Dx ')
+        for i, key in enumerate(keys):
+            try:
+                string = (tags[i], self._data[key])
+            except:
+                string = (key, 'Anonimous')
+            drawStringSequence(
+                      self, x, y,
+                      stringSequence=string,
+                      fontSequence=fontSeq,
+                      colorSequence=colorSeq
+                      )
+            y -= cm*0.7
+        return
 
-    def introducePersonalData(self, Data):
-        today = str(date.today()).split('-')
-        today.reverse()
-        X = self._leftMargin
-        Y = A4[1] - self._heightUnit*4.0
-        self.drawString(X, Y, ('{}-{}-{}'.format(*today)))
-        Y -= self._heightUnit
-        order = ('Nombre', 'Edad', 'Dx')
-        for field in order:
-            self.drawString(X, Y, '{}: {}'.format(field, Data[field]))
-            Y -= self._heightUnit*0.7
-        self._lastCursorPosition = X, Y
+    def drawFootPage(self):
+# constants
+        line1 = u'Pág. & {pagenumber} & | & {name} & | & {date}'
+        line2 = u'Reporte Goniométrico de la marcha'
 
-    def introducePlots(self, plotList):
-        listSize = len(plotList)
-        X, Y = self._lastCursorPosition
-        Y -= 100
-        for index, sector in enumerate(('middle', 'bottom')):
-            x, y = self._sectors[sector]
-            chartBackground(self, x, y, 300, 180, 'nada')
+        c1, c2 = colors['grey'], colors['lightblue']
+        colorSequence = (c1, c1, c2, c1, c2, c1)
+
+        f1, f2 = (Fonts[1], 10), (Fonts[0], 10)
+        fontSequence = (f1, f1, f1, f2, f1, f1)
+
+        CreativeCommons = os.path.join(IMAGES, 'CreativeCommons-BY-SA.png')
+# first line
+        firstLine = line1.format(**self._data)
+        sequence = firstLine.split('&')
+        y = commonMargins*0.7
+        drawStringSequence(
+                self, Y=y,
+                stringSequence=sequence,
+                fontSequence=fontSequence,
+                colorSequence=colorSequence
+                )
+# second line
+        self.setFillColor(colors['red'])
+        self.setFont(f1[0], size=8)
+        x = A4[0]*0.5
+        y = commonMargins - cm
+        self.drawCentredString(x, y, line2)
+# creative commons image
+        x = A4[0] - 3*cm
+        y = commonMargins - 1.6*cm
+        self.drawImage(CreativeCommons, x, y)
+        return
+
+    def drawCharts(self):
+
+        width = 300
+        height = 180
+
+        x = leftMargin
+        y = A4[1] - 14*cm
+        
+        for i, plot in enumerate(self._data['plots']):
+            title = os.path.basename(plot).split('.')[0]
+
+# drawingTitleField
+            titleBGSizes = width*0.5, height*0.29
+            titleBGXY = x, y + height*0.8
+            titleWidth = self.stringWidth(title, Fonts[0], 11)
+            titleXY = (x + (titleBGSizes[0] - titleWidth)*0.5,
+                       y + height*1.005)
+            self.setFillColor('#DCDCDD')
+            self.roundRect(x, y + height*0.8,
+                           width=width*0.5,
+                           height=height*0.29,
+                           radius=15,
+                           stroke=0,
+                           fill=1)
+# drawingChartField
+            self.setFillColor('#F5F5F5')
+            self.roundRect(x, y,
+                           width=width,
+                           height=height,
+                           radius=10,
+                           stroke=0,
+                           fill=1)
+# drawing title
+            self.setFont(Fonts[0], 11)
+            self.setFillColor(colors['grey'])
+            self.drawString(titleXY[0], titleXY[1], title)
+# drawingPlot
             white = [255, 255, 255, 255, 255, 255]
-            self.drawImage(plotList[index], x, y, width=300, height=180, mask=white)
+            self.drawImage(plot, x, y,
+                           width=width,
+                           height=height,
+                           mask=white)
+            y -= width
+            
+            if i % 2 == 1:
+                self.showPage()
+                y = A4[1] - 14*cm
+                pageNumber = int(self._data['pagenumber']) + 1
+                self._data['pagenumber'] = '0{}'.format(pageNumber)
+                self.drawHeader()
+                self.drawFootPage()
+
+        return
+
+
 
 if __name__ == '__main__':
     import os
@@ -83,13 +171,17 @@ if __name__ == '__main__':
             os.path.join(os.path.abspath('./muestra'), dirpath)
             for dirpath in os.listdir('./muestra')
             ]
-    print plots
-    DatosPersonales = {'Nombre':'Mariano',
-                       'Edad':'29',
-                        'Dx':'Nada'}
-    pdf = report('pdftest.pdf')
-    pdf.introduceTitle()
-    pdf.introducePersonalData(DatosPersonales)
-    pdf.introducePlots(plots)
+    
+    context = {'name'  : 'Estefania Lodeiro Urruchaga',
+               'age'   : '29 Años',
+               'dx'    : 'Sin clínica aparente',
+               'plots' : plots}
+
+    pdf = baseReport('pdfTest.pdf', **context)
+    pdf.drawHeader()
+    pdf.drawFootPage()
+    pdf.drawCharts()
+    
     pdf.showPage()
     pdf.save()
+
