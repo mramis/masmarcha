@@ -28,13 +28,13 @@ class labelframe(tk.Frame):
         tk.Frame.__init__(
                 self,
                 master=VenMaster,
-                background=VenMaster.master.getAppColor(0))
-        self.pack()
+                background=VenMaster.master.master.getAppColor(0))
+        self.pack(side='left')
 
     def buildEntrys(self):
         localFrame = tk.Frame(self)
         localFrame.pack()
-        self._name = entry(localFrame, u'NOMBRE')
-        self._age = entry(localFrame, u'EDAD')
-        self._diagnosis = entry(localFrame, u'DIAGNÓSTICO'.encode('utf-8'))
+        self._name = entry(localFrame, u'Nombre')
+        self._age = entry(localFrame, u'Edad')
+        self._diagnosis = entry(localFrame, u'Diagnóstico'.encode('utf-8'))
 

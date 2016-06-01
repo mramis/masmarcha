@@ -23,6 +23,7 @@ import Tkinter as tk
 from personalFrame import labelframe
 from reportButton import printButton
 from openFile import openFileFrame
+from textScriptList import textList
 from context import ANGULOSAPPDIRECTORY
 
 class Root(tk.Tk):
@@ -32,19 +33,26 @@ class Root(tk.Tk):
         self.title(title)
         self._directory = ANGULOSAPPDIRECTORY
         self._AppColors = ('#9fb9d2', '#5f92d0', '#4b5992')
-        self._MasterFrame = tk.Frame(
+        self._files = []
+        MasterFrame = tk.Frame(
                 self,
                 highlightcolor=self._AppColors[2],
                 highlightthickness=2
                 )
-        self._MasterFrame.pack(expand=True)
-        self._MasterFrame.focus()
+        MasterFrame.grid()
         self.configure(background=self._AppColors[1])
-        CentroPantallaX = (self.winfo_screenwidth() / 2) - 105
-        CentroPantallaY = (self.winfo_screenheight() / 2) - 105
-        geometria = '180x210+{}+{}'.format(CentroPantallaX, CentroPantallaY)
-        self.geometry(geometria)
-        self.pack_propagate(False)
+        MasterFrame.focus()
+        self._TopLeftFrame = tk.Frame(MasterFrame)
+        self._TopRightFrame = tk.Frame(MasterFrame)
+        self._LowerFrame = tk.Frame(MasterFrame)
+        self._TopLeftFrame.grid(row=0, column=0, ipadx=3)
+        self._TopRightFrame.grid(row=0, column=1, ipadx=3)
+        self._LowerFrame.grid(row=1, column=0, columnspan=2, pady=3)
+        CentroPantallaX = (self.winfo_screenwidth() / 2) - 155
+        CentroPantallaY = (self.winfo_screenheight() / 2) - 155
+#        geometria = '450x310+{}+{}'.format(CentroPantallaX, CentroPantallaY)
+#        self.geometry(geometria)
+        self.propagate(False)
         return
 
     def getAppDirectory(self):
@@ -59,21 +67,32 @@ class Root(tk.Tk):
     def getPersonalFrame(self):
         return self._personal
 
+    def getFileList(self):
+        return self._fileList
+
     def buildPersonalWidget(self):
-        personal = labelframe(self._MasterFrame)
+        personal = labelframe(self._TopLeftFrame)
         personal.buildEntrys()
         self._personal = personal
         return
 
+    def buildFileList(self):
+        self._fileList = textList(self._TopRightFrame)
+        return
+
     def buildFileWidget(self):
-        fileframe = openFileFrame(self._MasterFrame)
+        fileframe = openFileFrame(self._TopRightFrame)
+        return
 
     def buildGenerateButton(self):
-        boton = printButton(self._MasterFrame)
+        boton = printButton(self._LowerFrame)
+        return
+
 
 if __name__ == '__main__':
     App = Root('Angulos App')
     App.buildPersonalWidget()
+    App.buildFileList()
     App.buildFileWidget()
     App.buildGenerateButton()
     App.mainloop()

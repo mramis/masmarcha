@@ -28,17 +28,17 @@ from context import HOME
 
 class openFileFrame(tk.Frame):
 
-    def __init__(self, VenMaster):
+    def __init__(self, VenMaster, path=None):
         tk.Frame.__init__(
                 self,
                 master=VenMaster,
                 )
         self._boton = tk.Button(
                 self,
-                text='"Abrir Archivo"',
-                width=17,
+                text='Seleccionar Archivo',
+                width=19,
                 relief='groove',
-                command=self.abrir
+                command=self.openFile
                 )
         self._boton.pack(padx=1, pady=5)
         self.pack()
@@ -48,15 +48,14 @@ class openFileFrame(tk.Frame):
                 ('text files', '.txt'),
                 ('all files', '.*')
                 ]
-        self._options['initialdir'] = HOME
+        self._options['initialdir'] = HOME 
 
-    def abrir(self):
-        self._file = askopenfilename(**self._options)
-        try:
-            filename = os.path.basename(self._file)
-            if filename:
-                self._boton.configure(text=filename)
-            else:
-                self._boton.configure(text='"Abrir Archivo"')
-        except:
-            pass
+    def openFile(self):
+        _file = askopenfilename(**self._options)
+        if _file:
+            self._options['initialdir'] = os.path.dirname(_file)
+            filename = os.path.basename(_file)
+            App = self.master.master.master
+            App.getFileList().insert(len(App._files), filename)
+            App._files.append(_file)
+        return

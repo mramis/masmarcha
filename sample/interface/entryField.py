@@ -40,7 +40,7 @@ class entry(tk.Entry):
         self.configure(textvariable=var)
         label = tk.Label(
                 labelFrame,
-                text=('{}:'.format(field)),
+                text=field,
                 )
         label.pack(expand=True)
         self.pack()

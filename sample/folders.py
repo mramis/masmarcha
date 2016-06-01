@@ -24,6 +24,9 @@ import os
 HOME = os.environ['HOME']
 ANGULOSAPPDIRECTORY = os.path.join(HOME, 'AngulosApp')
 
+
+
+
 if __name__ == '__main__':
     try:
         os.mkdir(ANGULOSAPPDIRECTORY)
