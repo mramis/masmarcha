@@ -24,6 +24,7 @@ from personalFrame import labelframe
 from reportButton import printButton
 from openFile import openFileFrame
 from textScriptList import textList
+from textWidget import Text
 from context import ANGULOSAPPDIRECTORY
 
 class Root(tk.Tk):
@@ -47,7 +48,7 @@ class Root(tk.Tk):
         self._LowerFrame = tk.Frame(MasterFrame)
         self._TopLeftFrame.grid(row=0, column=0, ipadx=3)
         self._TopRightFrame.grid(row=0, column=1, ipadx=3)
-        self._LowerFrame.grid(row=1, column=0, columnspan=2, pady=3)
+        self._LowerFrame.grid(row=1, column=0, columnspan=2, pady=5)
         CentroPantallaX = (self.winfo_screenwidth() / 2) - 155
         CentroPantallaY = (self.winfo_screenheight() / 2) - 155
 #        geometria = '450x310+{}+{}'.format(CentroPantallaX, CentroPantallaY)
@@ -67,8 +68,14 @@ class Root(tk.Tk):
     def getPersonalFrame(self):
         return self._personal
 
-    def getFileList(self):
+    def getFilesWidget(self):
         return self._fileList
+
+    def getFiles(self):
+        return self._files
+
+    def getComment(self):
+        return self._comment.get('1.0','4.end')
 
     def buildPersonalWidget(self):
         personal = labelframe(self._TopLeftFrame)
@@ -84,6 +91,9 @@ class Root(tk.Tk):
         fileframe = openFileFrame(self._TopRightFrame)
         return
 
+    def buildCommentWidget(self):
+        self._comment = Text(self._LowerFrame)
+
     def buildGenerateButton(self):
         boton = printButton(self._LowerFrame)
         return
@@ -94,6 +104,7 @@ if __name__ == '__main__':
     App.buildPersonalWidget()
     App.buildFileList()
     App.buildFileWidget()
+    App.buildCommentWidget()
     App.buildGenerateButton()
     App.mainloop()
 

@@ -40,6 +40,7 @@ class textList(tk.Listbox):
         self.bind('<Key>', self.deleteFile)
         self.pack()
         self.propagate(False)
+        return
 
     def deleteFile(self, event):
         App = self.master.master.master.master
@@ -52,9 +53,3 @@ class textList(tk.Listbox):
                 print('No existe elemento para borrar')
         return
 
-
-if __name__ == '__main__':
-    top = tk.Tk()
-    lista = textList(top)
-
-    top.mainloop()

@@ -35,13 +35,16 @@ class printButton(tk.Button):
                 )
         local.pack(ipadx=1, ipady=5)
         self.pack()
+        return
 
     def generar(self):
-        App = self.master.master.master
-        personal = App.getPersonalFrame()
-        entryName = personal._name.getField()
-        entryAge = personal._age.getField()
-        entryDiagnosis = personal._diagnosis.getField()
-        print entryName, entryAge, entryDiagnosis
-
-  
+        App = self.master.master.master.master
+        data_interface_output = {
+                'name'     : App.getPersonalFrame()._name.getField(),
+                'age'      : App.getPersonalFrame()._age.getField(),
+                'diagnosis': App.getPersonalFrame()._diagnosis.getField(),
+                'comment'  : App.getComment(),
+                'files'    : App.getFiles()
+        }
+        print(data_interface_output)
+        return

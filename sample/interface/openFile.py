@@ -56,6 +56,6 @@ class openFileFrame(tk.Frame):
             self._options['initialdir'] = os.path.dirname(_file)
             filename = os.path.basename(_file)
             App = self.master.master.master
-            App.getFileList().insert(len(App._files), filename)
-            App._files.append(_file)
+            App.getFilesWidget().insert(len(App._files), filename)
+            App._files.append(_file); print(_file)
         return
