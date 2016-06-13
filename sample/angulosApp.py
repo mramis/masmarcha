@@ -19,26 +19,15 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from interface.interface import Root
 
-import Tkinter as tk
 
-class Text(tk.Text):
+App = Root('Angulos App')
+App.buildPersonalWidget()
+App.buildFileList()
+App.buildFileWidget()
+App.buildCommentWidget()
+App.buildGenerateButton()
+App.mainloop()
 
-    def __init__(self, VenMaster):
-        local = tk.Frame(VenMaster)
-        local.pack(pady=8)
-        label = tk.Label(
-                local,
-                text='Reseña (opcional ~ 150 caracteres)'
-                )
-        label.pack(anchor='w')
-        tk.Text.__init__(
-                self,
-                master=local,
-                height=4,
-                width=50,
-                wrap='word',
-                )
-        self.pack()
-        return
 

@@ -40,6 +40,9 @@ AngCadera = hipAngles(cadera, rodilla, Direction(master))
 AngRodilla = kneeAngles(cadera, rodilla, tobillo, Direction(master))
 AngTobillo = ankleAngles(rodilla, tobillo, mtt)
 
+print(AngCadera)
+
+
 #master = textToArray(os.path.join(os.path.abspath('.'), 'lectura/kinoveatext/MPlano.txt'))
 #
 #cadera, rodilla, tobillo, mtt = master

@@ -46,9 +46,6 @@ def interpolateArray(array, domain):
     out = np.append(out, P1)
     return out.reshape(out.size/2, 2)
 
-#### casi listo!!!
-        
-
 def cycleEqualizer(Arrays):
     cycleArrays = np.array([np.arange(array.size) for array in Arrays])
     sizes = [(array.size - 1) for array in cycleArrays]
@@ -64,24 +61,6 @@ def cycleEqualizer(Arrays):
     return equalizedArrays, np.unique(common)  
 
 
-
-def linearInterpolation(Arrays):
-    equalizedArrays, toInterpolate = cycleEqualizer(Arrays)
-    fromInterpolate = np.ndarray(Arrays.shape, dtype=object)
-    for index, array in enumerate(equalizedArrays):
-        fromInterpolate[index] =  np.interp(
-                toInterpolate,
-                array[0],
-                array[1]
-                )
-    return (
-            fromInterpolate.mean(),
-            fromInterpolate.std(),
-            fromInterpolate.std().mean()
-            )
-
-
-
 if __name__ == '__main__':
     
     A = np.arange(15, dtype=float)
@@ -90,6 +69,5 @@ if __name__ == '__main__':
     D = np.arange(15, dtype=float)
     E = np.arange(14, dtype=float)
 
-    master = np.array((A, B, C, D, E))
 
-    linearInterpolation(master)
+

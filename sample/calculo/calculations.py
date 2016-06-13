@@ -33,6 +33,9 @@ def Angle(A, B):
     return np.degrees(radiansAngle)
 
 def Direction(MasterArray):
+    '''Esta función asume que cada matriz de MasterArray contiene
+    tres elementos: tiempo, x, y
+    '''
     if type(MasterArray) is np.ndarray:
         rows, columns = MasterArray.shape[0], 1
         Xdirection = np.ndarray((rows, columns))
@@ -50,17 +53,20 @@ def Direction(MasterArray):
         raise Exception('MasterArray must be numpy array')
     return directionValue
 
-def polynomialRegression(A, degree):
-    coeff, residual, __, __, __ = np.polyfit(
-            np.arange(A.size),
-            A,
-            degree,
-            full=True
-            )
-    polynomial = np.polyval(coeff, np.arange(A.size))
-    St = np.square(A - A.mean()).sum()
-    R2 = 1 - residual/St
-    return polynomial, R2
+def polynomialRegression(master, degree):
+    out = []
+    for A in master:
+        coeff, residual, __, __, __ = np.polyfit(
+                np.arange(A.size),
+                A,
+                degree,
+                full=True
+        )
+        polynomial = np.polyval(coeff, np.arange(A.size))
+        St = np.square(A - A.mean()).sum()
+        R2 = 1 - residual/St
+        out.append([polynomial, R2])
+    return(out)
 
 
 
