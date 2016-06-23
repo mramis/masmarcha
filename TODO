@@ -1,0 +1,13 @@
+# interface @hecho
+
+# lectura
+por cada archivo verificar que los datos sean de kinovea @hecho
+por cada archivo verificar que la cantidad n de marcadores sea n=4 @hecho
+por cada archivo extraer y almacenar por archivo los datos (i.e {}) @hecho
+
+# calculo
+procesar los datos por nombre de archivo (acceso múltiple) @en_proceso
+
+@gráfico
+generar las graficas por orden de archivo (si existe más de uno)
+generar el documento
