@@ -1,7 +1,7 @@
 #!usr/bin/env python
 # coding: utf-8
 
-'''DOCSTRING
+'''The context.py file import all the package to testing modules.
 '''
 
 # Copyright (C) 2016  Mariano Ramis
@@ -25,5 +25,14 @@ import sys
 
 sys.path.append(os.path.abspath('..'))
 
+from sample.lectura import authorizedText
+from sample.lectura import extractArrays
+from sample.processData import extractJointMarkersArraysFromFiles
+
+from sample.calculo import interpolation
+
 from sample.base import sqlite
+
+TEST_FILE = os.path.abspath('./kinoveatext/MPlano.txt')
+
 

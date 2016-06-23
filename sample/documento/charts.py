@@ -39,14 +39,18 @@ def getPercentaje(array):
 def percentajeLabel(value, pos):
     return '{:0.1f}%'.format(value)
 
-def timeJointPlot(jointAngles, polyFit, XLimits, YLimits, keys='joint'):
+def timeJointPlot(jointAngles, X=None, polyFit=None, YLimits=(0, 10), filename='joint'):
     axes = plt.gca()
     axes.xaxis.set_major_formatter(ticker.FuncFormatter(percentajeLabel))
-    time = getPercentaje(np.arange(jointAngles.size))
+    if isinstance(X, np.ndarray):
+        print(X)
+        time = getPercentaje(X)
+    else:
+        time = getPercentaje(np.arange(jointAngles.size))
+    print('time>>', time)
     plotParams.personalizePlot(
             u'Ciclo',
             u'-Extensión / +Flexión',
-            xlim=XLimits,
             ylim=YLimits
             )
     KinoveaData = plt.plot(
@@ -59,14 +63,12 @@ def timeJointPlot(jointAngles, polyFit, XLimits, YLimits, keys='joint'):
             markeredgecolor='r',
             #markerfacecolor='none'
             )
-    polynomialFit = plt.plot(
-            time,
-            polyFit[0],
-            linewidth=3.5,
-            color='0.6'
-            )
+    legend_labels = u'DatosKinovea'
+    if isinstance(polyFit, np.ndarray):
+        polynomialFit = plt.plot(time, polyFit[0], linewidth=3.5, color='0.6')
+        legend_labels = (legend_labels, u'RegeresiónPolinómica')
     plt.legend(
-            (u'DatosKinovea', u'RegeresiónPolinómica'),
+            legend_labels,
             fontsize='x-small',
             numpoints=1,
             fancybox=True,
@@ -74,7 +76,7 @@ def timeJointPlot(jointAngles, polyFit, XLimits, YLimits, keys='joint'):
             borderaxespad=1,
             )
     plt.axhline(0, linestyle='--', linewidth=0.7, color='0.1')
-    plt.savefig(keys)
+    plt.savefig(filename)
     plt.close()
 
 def jointJointPlot(jointX, jointY, XLimits, YLimits, keys='joints'):
