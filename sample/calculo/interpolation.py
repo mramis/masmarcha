@@ -96,7 +96,7 @@ def interpolateArray(array_to_interpolate, domain):
     result_array = np.vstack((result_array, P1))
     # the first element is removed because it's a random element iniciated
     # when result_array
-    return(result_array[1:])
+    return(result_array[1:].T)
 
 def extendArraysDomain(*arrays):
     '''Take a group of 1-D arrays (the joint-angles arrays) and extend the

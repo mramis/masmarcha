@@ -64,5 +64,3 @@ def polynomialRegression(master, degree):
         out.append([polynomial, R2])
     return(out)
 
-
-

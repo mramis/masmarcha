@@ -1,1 +1,7 @@
 # the next code generation
+
+Una vez que los ángulos son calculados estos debería ser guardados en una base
+de datos junto con un nombre(el del archivo) y una fecha. (posibilidad de usar
+pickle o sqlite; es mucho más sencillo el primero!)
+El lugar a intervenir para este tema es "angulosapp/sample/processData.py"
+línea 71 en la función "extractJointAnglesFromJointMarkersArrays"

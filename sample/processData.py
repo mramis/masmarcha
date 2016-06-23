@@ -28,7 +28,7 @@ from lectura.extractArrays import textToArray
 from calculo.joints import hipAngles, kneeAngles, ankleAngles, Direction
 from calculo.calculations import polynomialRegression
 from calculo.interpolation import extendArraysDomain, interpolateArray
-from documento.charts import timeJointPlot, jointJointPlot
+from plots.charts import timeJointPlot, jointJointPlot
 
 def extractJointMarkersArraysFromFiles(files):
     '''Args:
@@ -48,7 +48,7 @@ def extractJointMarkersArraysFromFiles(files):
         output[filename] = array
     return output
 
-def operateOverJointMarkersArrays(points_array):
+def extractJointAnglesFromJointMarkersArrays(points_array):
     '''Args:
         Dictionary of joint-markers-array.
     Return:
@@ -70,12 +70,14 @@ def operateOverJointMarkersArrays(points_array):
             raise Exception(message)
     return angles_array
 
-def operateOverJointAnglesArrays(angles_array):
-    
+def plotJointAnglesArrays(angles_array):
+    '''
+    '''
+
     hip = [joint['hip'] for joint in angles_array.values()]
     knee = [joint['knee'] for joint in angles_array.values()]
     ankle = [joint['ankle'] for joint in angles_array.values()]
-    
+
     if len(hip) > 1: # or knee or ankle, all must've the same length
         fixed_hip, hip_domain = extendArraysDomain(*hip)
         fixed_knee, knee_domain = extendArraysDomain(*knee)
@@ -86,30 +88,25 @@ def operateOverJointAnglesArrays(angles_array):
         knee = [interpolateArray(array, knee_domain) for array in fixed_knee]
         ankle = [interpolateArray(array, ankle_domain) for array in fixed_ankle]
 
-    ####
-    import matplotlib.pyplot as plt
-    for data in hip:
-        plt.plot(data.T[0], data.T[1])
-    plt.show()
-
-    for data in knee:
-        plt.plot(data.T[0], data.T[1])
-    plt.show()
-
-    for data in ankle:
-        plt.plot(data.T[0], data.T[1])
-    plt.show()
+    for array in hip:# no está bien para cuando hip es un solo dato!!!
+        y_sup_lim = int(max(array[1]))
+        y_inf_lim = int(min(array[1]))
+        y_limits = [-20, 50]
+        if y_sup_lim > 50:
+            y_limits[1] = y_sup_lim + 10
+        if y_inf_lim < -20:
+            y_limits[0] = y_inf_lim - 10
+        timeJointPlot(array[1], array[0], YLimits=y_limits)
 
 
 if __name__ == '__main__':
     import os
     kinovea_files = [
-            os.path.abspath('../test/kinoveatext/TPlano.txt'),
-            os.path.abspath('../test/kinoveatext/MPlano.txt')
+            ('./test/kinoveatext/TPlano.txt'),
+            ('./test/kinoveatext/MPlano.txt')
     ]
 
     joint_markers_array = extractJointMarkersArraysFromFiles(kinovea_files)
-    joint_angles_array = operateOverJointMarkersArrays(joint_markers_array)
-
-    operateOverJointAnglesArrays(joint_angles_array)
+    joint_angles_array = extractJointAnglesFromJointMarkersArrays(joint_markers_array)
+    plotJointAnglesArrays(joint_angles_array)
 
