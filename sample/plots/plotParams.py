@@ -79,6 +79,9 @@ def personalizePlot(xLabel, yLabel, xlim=None, ylim=None):
     if xlim is not None and ylim is not None:
         ax.set_ylim(ylim)
         ax.set_xlim(xlim)
+    else:
+        ax.set_ylim((0, 100))
+        ax.set_xlim((0, 100))
     fig = ax.figure
     fig.tight_layout(pad=1.5)
     fig.set_figwidth(10, forward=True)

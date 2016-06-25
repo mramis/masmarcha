@@ -1,7 +1,19 @@
-# the next code generation
+# the next version mains
 
 Una vez que los ángulos son calculados estos debería ser guardados en una base
 de datos junto con un nombre(el del archivo) y una fecha. (posibilidad de usar
 pickle o sqlite; es mucho más sencillo el primero!)
 El lugar a intervenir para este tema es "angulosapp/sample/processData.py"
 línea 71 en la función "extractJointAnglesFromJointMarkersArrays"
+
+Se va a agregar la posibilidad de crear una gráfica con ajuste polínómico (la
+función que se necesita ya está hecha en parte).
+
+Hasta ahora la aplicación sólo sirve para cuando la persona que es medida camina
+sobre el suelo, la próxima meta establecer las mismas funciones para la medición
+sobre una cinta(treadmill)
+
+Poder identificar de manera numérica el momento en el que se produce el cambio
+de fase: apoyo -> balanceo.
+
+

@@ -1,14 +1,16 @@
-# interface @hecho
++angulosapp
 
-# lectura
-por cada archivo verificar que los datos sean de kinovea
-por cada archivo verificar que la cantidad n de marcadores sea n=4
-por cada archivo extraer y almacenar por archivo los datos (i.e {}) @hecho
+(B) crear un sistema de ficheros. Mejorar el uso de las direcciones(problemas
+    con /test) @paths @testmodule
+(A) terminar y documentar sample/processData.py (evaluar posible cambio de
+    nombre) @graficos @docs
+x documentar sample/calculo/joints.py @calculo @docs
 
-# calculo
-procesar los datos por nombre de archivo (acceso múltiple)
+x por cada archivo verificar que los datos sean de kinovea @lectura
+x por cada archivo verificar que la cantidad n de marcadores sea n=4 @lectura
+x por cada archivo extraer y almacenar(en memoria) por archivo los datos 
+  (i.e {}) @lectura
+x procesar los datos por nombre de archivo (acceso múltiple) @calculo
+x generar las graficas por orden de archivo (si existe más de uno) @graficos
 
-
-# gráfico
-generar las graficas por orden de archivo (si existe más de uno)
-generar el documento
+generar el documento @reporte
