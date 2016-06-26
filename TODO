@@ -1,9 +1,20 @@
 +angulosapp
 
-(B) escribir una recomendación acerca del nombre de los archivos.
-(A) crear un sistema de ficheros. Mejorar el uso de las direcciones(problemas
-    con /test) @paths @testmodule
-x terminar y documentar sample/processData.py @lectura @calculo @graficos @docs
+(A) crear una clase particular de Excepciones para la aplicación así es más
+    sencillo capturarlas con el módulo logging.
+(A) se implementará el módulo logging. Ser más presiso en la definición de todas
+    las excepciones con las que se ha ido trabajando, de manera que loggin en
+    el final de la aplicación pueda determinar con presición de que tipo de 
+    error se está trabajando. @logging @debugg @Exceptions
+(B) inciar la generarción del reporte @reporte
+(C) escribir una recomendación acerca del nombre de los archivos.
+(C) Mejorar el uso de las direcciones(problemas con /test) @paths @testmodule
+
+x agregar a sample/angulosApp.py el uso de ficheros @paths
+
+x crear un sistema de ficheros para el uso de la aplicación.
+
+x documentar sample/processData.py @lectura @calculo @graficos @docs
 x documentar sample/calculo/joints.py @calculo @docs
 
 x por cada archivo verificar que los datos sean de kinovea @lectura

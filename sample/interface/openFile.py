@@ -24,8 +24,6 @@ import os
 import Tkinter as tk
 from tkFileDialog import askopenfilename
 
-from context import HOME
-
 class openFileFrame(tk.Frame):
 
     def __init__(self, VenMaster, path=None):
@@ -48,7 +46,7 @@ class openFileFrame(tk.Frame):
                 ('text files', '.txt'),
                 ('all files', '.*')
                 ]
-        self._options['initialdir'] = HOME 
+        self._options['initialdir'] = os.environ['HOME'] 
 
     def openFile(self):
         _file = askopenfilename(**self._options)

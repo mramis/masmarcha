@@ -19,27 +19,29 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import logging
+
 import Tkinter as tk
+
 from personalFrame import labelframe
 from reportButton import printButton
 from openFile import openFileFrame
 from textScriptList import textList
 from textWidget import Text
-from context import ANGULOSAPPDIRECTORY
 
 class Root(tk.Tk):
 
-    def __init__(self, title):
+    def __init__(self, title, path_tree):
         tk.Tk.__init__(self)
         self.title(title)
-        self._directory = ANGULOSAPPDIRECTORY
+        self._directory = path_tree
         self._AppColors = ('#9fb9d2', '#5f92d0', '#4b5992')
         self._files = []
         MasterFrame = tk.Frame(
                 self,
                 highlightcolor=self._AppColors[2],
                 highlightthickness=2
-                )
+        )
         MasterFrame.grid()
         self.configure(background=self._AppColors[1])
         MasterFrame.focus()
@@ -94,8 +96,8 @@ class Root(tk.Tk):
     def buildCommentWidget(self):
         self._comment = Text(self._LowerFrame)
 
-    def buildGenerateButton(self):
-        boton = printButton(self._LowerFrame)
+    def buildGenerateButton(self, functions):
+        boton = printButton(self._LowerFrame, functions)
         return
 
 

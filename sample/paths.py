@@ -33,7 +33,7 @@ BASEDIRECTORY = os.path.join(ANGULOSAPPDIRECTORY, 'Bases')
 
 def checkPaths():
     '''Revisa que existan las rutas definidas de la aplicación, y si no es así,
-        en el caso de que el programa se ejecute por primera vez, o por
+        en el caso de que el programa se ejecute por primera vez, o que por
         descuido, hayan sido eliminadas; se crean los directorios.
     Args:
         None
@@ -44,7 +44,7 @@ def checkPaths():
         if not os.path.isdir(path):
             os.mkdir(path)
 
-def casePath(name='case'):
+def casePath(name='anonimous'):
     '''Crea el directorio donde se van a guardar los resultados del proceso de
         los archivos de Kinovea ouput plain/text, si este ya no existe.
     Args:
@@ -57,7 +57,7 @@ def casePath(name='case'):
         os.mkdir(path_name)
     return path_name
 
-def copyToBase(files, name='case', info=''):
+def copyToBase(files, name='anonimous', comment=''):
     '''Hace una copia de los archivos que se le pasan a través de una lista 
         dirección de la base de datos. Si el archivo ya existe en el directorio
         será reemplazado. Además se crea un archivo de registro por cada vez que
@@ -68,10 +68,10 @@ def copyToBase(files, name='case', info=''):
     Args:
         files: Lista(list) de direcciones(absolute_paths) de los archivos que
             son la entrada a la aplicación (Kinovea output plain/text).
-        name: default('case'), es el nombre del directorio dentro de Bases donde
-            se van a guardar las copias de los archivos utilizados en al
+        name: default('anonimous'), es el nombre del directorio dentro de Bases
+            donde se van a guardar las copias de los archivos utilizados en la
             lectura.
-        info: default(''), es la reseña que se escribe en el archivo de registro
+        comment: default(''), es la reseña que se escribe en el archivo de registro
             de la actividad.
     Returns:
         None.
@@ -87,10 +87,10 @@ def copyToBase(files, name='case', info=''):
     today = datetime.datetime.today().strftime('%d-%m-%Y %H:%M')
     with open(record_file, 'a') as fh:
         fh.write('Fecha: {}\n'.format(today))
-        fh.write('Reseña: {}\n'.format(info))
+        fh.write('Reseña: {}\n'.format(comment))
         fh.write('Archivos: {}\n\n'.format(str(files)))
 
 if __name__ == '__main__':
     
     checkPaths()
-    copyToBase(['processData.py', 'statisticsProbe.ipynb'], info='another test')
+    copyToBase(['process.py', 'paths.py'], comment='pequeño reporte')
