@@ -19,24 +19,27 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
 
 import pytest
 from numpy import ndarray
-from context import TEST_FILE
+from context import TESTFILES
 from context import authorizedText, extractArrays
 from context import extractJointMarkersArraysFromFiles
+
+single_file_test = os.path.join(TESTFILES, 'MPlano.txt')
 
 def test_autorizedText():
     '''Test: if the file it's the correct one, the function
     returns True value.
     '''
-    assert authorizedText.evaluated(TEST_FILE) == True
+    assert authorizedText.evaluated(single_file_test) == True
     return
 
 def test_extractArrays():
     '''Test: lookup the file and extract all data as a numpy array.
     '''
-    array = extractArrays.textToArray(TEST_FILE)
+    array = extractArrays.textToArray(single_file_test)
     assert isinstance(array, ndarray)
     assert array.size > 0
     return
@@ -45,6 +48,7 @@ def test_processTextFiles():
     '''Test: return a dictionary with the arrays of joints
     markers as values from a filename as key.
     '''
-    info = extractJointMarkersArraysFromFiles('../kinoveatext/MPlano.txt')
+    print single_file_test
+    info = extractJointMarkersArraysFromFiles(single_file_test)
     assert isinstance(info, dict)
     return

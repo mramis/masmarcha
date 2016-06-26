@@ -25,6 +25,8 @@ import sys
 
 sys.path.append(os.path.abspath('..'))
 
+from sample.paths import TESTFILES
+
 from sample.lectura import authorizedText
 from sample.lectura import extractArrays
 from sample.processData import extractJointMarkersArraysFromFiles
@@ -32,7 +34,5 @@ from sample.processData import extractJointMarkersArraysFromFiles
 from sample.calculo import interpolation
 
 from sample.base import sqlite
-
-TEST_FILE = os.path.abspath('./kinoveatext/MPlano.txt')
 
 

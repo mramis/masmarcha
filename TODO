@@ -1,9 +1,9 @@
 +angulosapp
 
-(B) crear un sistema de ficheros. Mejorar el uso de las direcciones(problemas
+(B) escribir una recomendación acerca del nombre de los archivos.
+(A) crear un sistema de ficheros. Mejorar el uso de las direcciones(problemas
     con /test) @paths @testmodule
-(A) terminar y documentar sample/processData.py (evaluar posible cambio de
-    nombre) @graficos @docs
+x terminar y documentar sample/processData.py @lectura @calculo @graficos @docs
 x documentar sample/calculo/joints.py @calculo @docs
 
 x por cada archivo verificar que los datos sean de kinovea @lectura
