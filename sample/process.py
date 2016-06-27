@@ -22,16 +22,22 @@ genera como salida Kinovea sobre las trayectorias editadas en un video.
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+import logging
 
 import numpy as np
 
-from lectura.authorizedText import evaluated
 from lectura.extractArrays import textToArray
+from lectura.lecturaExceptions import (BadFileError,
+                                       BadTimeUnitError,
+                                       BadOriginSets)
 from calculo.joints import hipAngles, kneeAngles, ankleAngles, Direction
 from calculo.interpolation import extendArraysDomain, interpolateArray
 from plots.anglesPlot import AnglePlot
 from paths import casePath
 
+
+logging.basicConfig(format='%(levelname)s:%(message)s',
+                    level=logging.DEBUG)
 
 def extractJointMarkersArraysFromFiles(files):
     '''Toma como parametros uno o más archivos de texto(path), que son salida de
@@ -56,10 +62,14 @@ def extractJointMarkersArraysFromFiles(files):
     for file_path in files:
         abs_path = os.path.abspath(file_path)
         filename = os.path.basename(file_path).split('.', 1)[0]
-        if not evaluated(abs_path):
-            message = ('El archivo {} no es correcto'.format(abs_path))
-            raise Exception(message)
-        array = textToArray(abs_path)
+        try:
+            array = textToArray(abs_path)
+        except BadFileError as error:
+            logging.critical(error.message)
+        except BadTimeUnitError as error:
+            logging.critical(error.message)
+        except BadOriginSets as error:
+            logging.critical(error.message)
         output[filename] = array
     return output
 
@@ -185,8 +195,8 @@ def plotJointAnglesArrays(angles_array, name=''):
 
 if __name__ == '__main__':
     kinovea_files = [
-            ('./test/kinoveatext/TPlano.txt'),
-            ('./test/kinoveatext/MPlano.txt'),
+            ('../test/kinoveatext/TPlano.txt'),
+            ('../test/kinoveatext/MPlano.txt'),
     ]
 
     joint_markers_array = extractJointMarkersArraysFromFiles(kinovea_files)

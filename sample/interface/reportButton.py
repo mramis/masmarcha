@@ -49,15 +49,13 @@ class printButton(tk.Button):
         comment = App.getComment().encode('utf_8')
         files = App.getFiles()
 
-##############################################################################
-        # Estamos con el desarrollo del loggin!
-
         logging.basicConfig(format='%(levelname)s:%(message)s',
                             level=logging.DEBUG)
 
         if not files: # es lo único indispensable para poder hacer el estudio
             logging.critical('No se encontraron archivos para analizar')
             return
+        logging.info('Entrada: {}'.format(str(files)))
         # Se crea(si no existe) el directorio donde se van a guardar los
         # resultados del análisis, en el directorio de la Aplicación, en la
         # sección de Casos.
@@ -65,7 +63,7 @@ class printButton(tk.Button):
         make_case = 'casePath'
         assert self._functions[0].__name__ == make_case
         self._functions[0](save_path)
-        logging.info('Verifica la dirección de destino del estudio')
+        logging.info('Dirección: {}'.format(save_path))
 
         # Se comienza con la extración de los datos de cada uno de los archivos
         first_step = 'extractJointMarkersArraysFromFiles'
@@ -76,8 +74,7 @@ class printButton(tk.Button):
             copy_base = 'copyToBase'
             assert self._functions[1].__name__ == copy_base
             self._functions[1](files, name, comment.strip())
-        except Exception:
-            logging.critical('Los archivos no son datos de Kinovea')
+        except:
             return
 
         # Si se supero la primer instacia de análisis entonces se procede a

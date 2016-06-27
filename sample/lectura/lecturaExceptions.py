@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-'''Docstring
+'''Excepciones(Exception) personalizadas para manejar los errores en la lectura
+de los archivos de salida texto/plano de las Trayectorias editadas en Kinovea.
 '''
 
 # Copyright (C) 2016  Mariano Ramis
@@ -21,12 +22,43 @@
 
 
 class BadTimeUnitError(Exception):
+    '''Se lanza cuando la configuración de tiempo de kinovea no es del tipo
+    'h:mm:ss:cc'
+    Args:
+        File: el nombre(path) del archivo
+    '''
     def __init__(self, File=None):
-        self._file = File
-        self.message = 'La configuración de tiempo del archivo {} no es válida'
+        message = 'Tiempo, configuración incorrecta: {}'
+        self.message = message.format(File)
     def __str__(self):
-        if self._file:
-            return self.message.format(self._file)
+        return self.message
+
+class BadFileError(Exception):
+    '''Se lanza cuando el archivo analizado no es del tipo texto/plano de
+    Kinovea.
+    Args:
+        File: el nombre(path) del archivo
+    '''
+    def __init__(self, File=None):
+        message = 'Entrada inválida: {}'
+        self.message = message.format(File)
+    def __str__(self):
+        return self.mesagge
+
+class BadOriginSets(Exception):
+    '''Se lanza cuando no se configuró el origen del sistema de coordenadas en
+    la edición de trayectorias en Kinovea.
+    Args:
+        File: el nombre(path) del archivo
+    '''
+    def __init__(self, File):
+        message = 'Trayectorias, origen de sistema incorrecto: {}'
+        self.message = message.format(File)
+    def __str__(self):
+        return self.message
 
 if __name__ == '__main__':
-    raise BadTimeUnitError('/home/mariano/test.js')
+    try:
+        raise BadOriginSets('/home/mariano/test.js')
+    except BadOriginSets as error:
+        print error.message

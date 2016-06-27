@@ -1,7 +1,18 @@
 #!usr/bin/env python
 # coding: utf-8
 
-'''DOCSTRING
+'''El archivo de texto plano de salida de la edición de trayectorias en Kinovea
+tiene la siguiente forma:
+    #Kinovea Trajectory data export
+    #T X Y
+    0:00:00:00 866.00 320.00 
+    0:00:00:03 847,00 321,00 
+    ...
+Si se quieren transformar los datos numéricos en valores manejables, entonces
+se tiene que arreglar la parte del tiempo(T) 0:00:00:00, y la parte de las
+coordenadas(X e Y) que en algunos sistemas operativos el valor decimal se
+representa con el signo ",".
+En este módulo se definen funciones que solucionan estos problemas.
 '''
 
 # Copyright (C) 2016  Mariano Ramis
@@ -20,30 +31,37 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 def dataToTime(data):
-    if type(data) is not str:
-        raise ValueError('data must be string')
-    time = list(data)
-    if ':' in time:
-        h, m, s, cs = data.split(':')
-        newTime = (
-                float(h) / 3600 +
-                float(m) / 60 +
-                float(s) +
-                float(cs) * 0.01
-                )
-        return newTime
+    '''Convierte el formato de tiempo que exporta Kinovea 'h:mm:ss:cc' en
+    segundos.
+    Args:
+        ``str`` con el formato de tiempo 'h:mm:ss:cc'
+    Returns:
+        ``float`` tiempo expresado en segundos.
+    '''
+    h, mm, ss, cc = data.split(':')
+    newTime = (float(h)/3600. + float(mm)/60. + float(ss) + float(cc)*0.01)
+    return newTime
 
 def dataToFloat(data):
-    if type(data) is not str:
-        raise ValueError('data must be string')   
-    noFloat = list(data)
-    if ',' in noFloat:
-        ent, dec = data.split(',')
-        return float('{}.{}'.format(ent, dec))
+    '''El valor numérico en Kinovea en su forma decimal, puede estar
+    representado de la forma "12,34"; en tal caso se convierte a la forma
+    "12.34".
+    Args:
+        ``str`` con valor numérico de la forma "12,34".
+    Returns:
+        ``float(data)``
+    '''
+    no_float = list(data)
+    ent, dec = data.split(',')
+    return float('{}.{}'.format(ent, dec))
 
 def restructure(data):
-    if type(data) is not str:
-        raise ValueError('data must be string')
+    '''Transforma las variables de entrada en valores numéricos adecuados.
+    Args:
+        data: ``str`` representación de un valor nummérico.
+    Returns:
+        ``float`` or ``None``
+    '''
     value = list(data)
     returnValue = None
     if ':' in value:
