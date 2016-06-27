@@ -53,14 +53,12 @@ def hipAngles(hipArray, kneeArray, direction):
     '''
     HAP = hipArray[:, 1:] # without time
     KAP = kneeArray[:, 1:] # same here
-    if isinstance(HAP, np.ndarray) and isinstance(KAP, np.ndarray):
-        thigh = KAP - HAP
-        if direction is 1:
-            hipAngle = 90 - Angle(thigh, positiveX(thigh.shape[0]))
-        else:
-            hipAngle = 90 - Angle(thigh, negativeX(thigh.shape[0]))
+    assert isinstance(HAP, np.ndarray) and isinstance(KAP, np.ndarray)
+    thigh = KAP - HAP
+    if direction is 1:
+        hipAngle = 90 - Angle(thigh, positiveX(thigh.shape[0]))
     else:
-        raise Exception('hipArray&kneeArray must be numpy arrays')
+        hipAngle = 90 - Angle(thigh, negativeX(thigh.shape[0]))
     return  hipAngle
 
 def kneeAngles(hipArray, kneeArray, ankleArray, direction):
@@ -98,16 +96,14 @@ def kneeAngles(hipArray, kneeArray, ankleArray, direction):
     '''
     KAP = kneeArray[:, 1:]
     AAP = ankleArray[:, 1:]
-    if isinstance(KAP, np.ndarray) and isinstance(AAP, np.ndarray):
-        leg = AAP - KAP
-        hipAngle = hipAngles(hipArray, kneeArray, direction)
-        if direction is 1:
-            lowKneeAngle = Angle(leg, positiveX(leg.shape[0])) - 90
-        else:
-            lowKneeAngle = Angle(leg, negativeX(leg.shape[0])) - 90
-        kneeAngle = lowKneeAngle + hipAngle
+    assert isinstance(AAP, np.ndarray)
+    leg = AAP - KAP
+    hipAngle = hipAngles(hipArray, kneeArray, direction)
+    if direction is 1:
+        lowKneeAngle = Angle(leg, positiveX(leg.shape[0])) - 90
     else:
-        raise Exception('kneeArray&ankleArray must be numpy arrays')
+        lowKneeAngle = Angle(leg, negativeX(leg.shape[0])) - 90
+    kneeAngle = lowKneeAngle + hipAngle
     return kneeAngle
 
 def ankleAngles(kneeArray, ankleArray, mttArray):
@@ -138,14 +134,9 @@ def ankleAngles(kneeArray, ankleArray, mttArray):
     KAP = kneeArray[:, 1:]
     AAP = ankleArray[:, 1:]
     MAP = mttArray[:, 1:]
-    TruthValueKnee = isinstance(KAP, np.ndarray)
-    TruthValueAnkle = isinstance(AAP, np.ndarray)
-    TruthValueMtt = isinstance(MAP, np.ndarray)
-    if TruthValueKnee and (TruthValueAnkle and TruthValueMtt):
-        leg = KAP - AAP
-        foot = MAP - AAP
-        ankleAngle = 90 - Angle(leg, foot)
-    else:
-        raise Exception('kneeArray&ankleArray&mttArray must be numpy arrays')
+    assert isinstance(MAP, np.ndarray)
+    leg = KAP - AAP
+    foot = MAP - AAP
+    ankleAngle = 90 - Angle(leg, foot)
     return ankleAngle
 

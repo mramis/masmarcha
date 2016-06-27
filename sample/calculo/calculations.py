@@ -1,8 +1,9 @@
 #!usr/bin/env python
 # coding: utf-8
 
-'''Calculate the angle between two vectors, the direction of movement,
-and a little of statics
+'''Se definen funciones para calcular el ángulo entre dos arreglos de vectores,
+la determinación de la dirección de marcha sobre el plano, y el ajuste
+polinomial de datos.
 '''
 
 # Copyright (C) 2016  Mariano Ramis
@@ -22,45 +23,67 @@ and a little of statics
 
 import numpy as np
 
+from calculoExceptions import DirectionError
+
+
 def Angle(A, B):
-    if type(A) is np.ndarray and type(B) is np.ndarray:
-        normA = np.sqrt((A.dot(A.T).diagonal()))
-        normB = np.sqrt((B.dot(B.T).diagonal()))
-        pInternoAB = A.dot(B.T).diagonal()
-        radiansAngle = np.arccos(pInternoAB / (normA * normB))
-    else:
-        raise Exception('A&B must be numpy arrays')
+    '''Calcula el ángulo(theta) entre dos arreglos de vectores(fila) según la
+        definición de producto escalar:
+            u·v = |u||v|cos(theta)
+    Args:
+        A: arreglo ``np.array`` de vectores fila con las posiciones x, y
+            respectivamente de un punto en el plano.
+        B: lo mismo que A
+    Returns:
+        arreglo ``np.array`` de ángulos en grados.
+    '''
+    assert isinstance(A, np.ndarray) and isinstance(B, np.ndarray)
+    normA = np.sqrt((A.dot(A.T).diagonal()))
+    normB = np.sqrt((B.dot(B.T).diagonal()))
+    pInternoAB = A.dot(B.T).diagonal()
+    radiansAngle = np.arccos(pInternoAB / (normA * normB))
     return np.degrees(radiansAngle)
 
 def Direction(MasterArray):
-    '''Esta función asume que cada matriz de MasterArray contiene
-    tres elementos: tiempo, x, y
-    '''
-    if type(MasterArray) is np.ndarray:
-        rows, columns = MasterArray.shape[0], 1
-        Xdirection = np.ndarray((rows, columns))
-        for index, array in enumerate(MasterArray):
-            firstRow, lastRow = array[0], array[-1]
-            Xdirection[index] = (lastRow - firstRow)[1]
-        average = np.average(Xdirection)
-        if average > 0:
-            directionValue = 1
-        elif average < 0:
-            directionValue = -1
-        else:
-            raise Exception('Direction value was not found')
+    '''Determina la dirección del movimiento de la persona sobre el suelo
+        haciendo un promedio de la diferencia del último y primer dato de los
+        arreglos que se pasan en MasterArray(el arreglo que contiene todos los
+        datos de posición que se extrajeron del archivo de texto plano de
+        Kinovea.
+    Args:
+        MasterArray: arreglo de arreglos ``np.array`` que contiene los datos que
+            se extraen del archivo de texto plano que es salida de la edición de
+            trayectorias en Kinovea.
+    Raises:
+        DirectionError: Exception personalizada que se lanza cuando no puede
+            encontrarse una dirección.
+    Returns:
+        ``int`` los dos posibles valores son ``1``(indica que la dirección de
+            marcha es el mismo que el eje positivo de las x y que el miembro
+            inferior evaluado es el derecho; o ``-1``(se significa lo contrario)
+        '''
+    assert isinstance(MasterArray, np.ndarray)
+    rows, columns = MasterArray.shape[0], 1
+    Xdirection = np.ndarray((rows, columns))
+    for index, array in enumerate(MasterArray):
+        firstRow, lastRow = array[0], array[-1]
+        Xdirection[index] = (lastRow - firstRow)[1]
+    average = np.average(Xdirection)
+    if average > 0:
+        directionValue = 1
+    elif average < 0:
+        directionValue = -1
     else:
-        raise Exception('MasterArray must be numpy array')
+        raise DirectionError('Dirección indeterminada')
     return directionValue
 
-def polynomialRegression(master, degree):
-    out = []
-    for A in master:
-        polyfit = np.polyfit(np.arange(A.size), A, degree, full=True)
-        coeff, residual = polyfit [:2]
-        polynomial = np.polyval(coeff, np.arange(A.size))
-        St = np.square(A - A.mean()).sum()
-        R2 = 1 - residual/St
-        out.append([polynomial, R2])
-    return(out)
+def polynomialRegression(A, degree):
+    '''SIN USO EN ESTA VERSIÓN
+    '''
+    polyfit = np.polyfit(np.arange(A.size), A, degree, full=True)
+    coeff, residual = polyfit [:2]
+    polynomial = np.polyval(coeff, np.arange(A.size))
+    St = np.square(A - A.mean()).sum()
+    R2 = 1 - residual/St
+    return (polynomial, R2)
 

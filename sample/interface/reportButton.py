@@ -63,7 +63,7 @@ class printButton(tk.Button):
         make_case = 'casePath'
         assert self._functions[0].__name__ == make_case
         self._functions[0](save_path)
-        logging.info('Dirección: {}'.format(save_path))
+        logging.info('Dirección verificada: {}'.format(save_path))
 
         # Se comienza con la extración de los datos de cada uno de los archivos
         first_step = 'extractJointMarkersArraysFromFiles'
@@ -79,14 +79,20 @@ class printButton(tk.Button):
 
         # Si se supero la primer instacia de análisis entonces se procede a
         # calcular los ángulos de las articulaciones de MMII.
-        second_step = 'extractJointAnglesFromJointMarkersArrays'
-        assert self._functions[3].__name__ == second_step
-        joint_angles_array = self._functions[3](joint_markers_array)
+        try:
+            second_step = 'extractJointAnglesFromJointMarkersArrays'
+            assert self._functions[3].__name__ == second_step
+            joint_angles_array = self._functions[3](joint_markers_array)
+        except:
+            return
 
         # Una vez que se tienen los ángulos, se grafican y se guardan en el
         # directorio "save_path" bajo un nombre que todavía no se define!##
         third_step = 'plotJointAnglesArrays' 
-        names = os.path.join(save_path, 'some_name')
+        elements_in_path = len(os.listdir(save_path))
+        name = str(elements_in_path/3 + 1)
+        names = os.path.join(save_path, name)
         assert self._functions[4].__name__ == third_step
         self._functions[4](joint_angles_array, name=names)
+        logging.info('Se generaron las gráficas en {}'.format(save_path))
 

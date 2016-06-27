@@ -111,8 +111,10 @@ def extractJointAnglesFromJointMarkersArrays(points_array):
             joints['ankle'] = ankleAngles(knee_p, ankle_p, foot_p)
             angles_array[filename] = joints
         except ValueError:
-            message = "The marker-joint-arrays number does't correct"
-            raise Exception(message)
+            logging.critical('El número de marcadores es incorrecto')
+            raise Exception
+        except DirectionError as error:
+            logging.critical(error.message)
     return angles_array
 
 def plotJointAnglesArrays(angles_array, name=''):
