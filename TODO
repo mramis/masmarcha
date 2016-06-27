@@ -1,7 +1,8 @@
 +angulosapp
 
+(A) documentar lectura. @lectura @docs
 (A) crear una clase particular de Excepciones para la aplicación así es más
-    sencillo capturarlas con el módulo logging.
+    sencillo capturarlas con el módulo logging. @customExceptions
 (A) se implementará el módulo logging. Ser más presiso en la definición de todas
     las excepciones con las que se ha ido trabajando, de manera que loggin en
     el final de la aplicación pueda determinar con presición de que tipo de 
