@@ -30,6 +30,8 @@ HOME = os.environ['HOME']
 ANGULOSAPPDIRECTORY = os.path.join(HOME, 'AngulosApp')
 CASEDIRECTORY = os.path.join(ANGULOSAPPDIRECTORY, 'Casos')
 BASEDIRECTORY = os.path.join(ANGULOSAPPDIRECTORY, 'Bases')
+TEMPDIRECTORY = os.path.join(ANGULOSAPPDIRECTORY, '.temp')
+
 
 def checkPaths():
     '''Revisa que existan las rutas definidas de la aplicación, y si no es así,
@@ -40,7 +42,8 @@ def checkPaths():
     Returns:
         None
     '''
-    for path in ANGULOSAPPDIRECTORY, CASEDIRECTORY, BASEDIRECTORY:
+    paths = ANGULOSAPPDIRECTORY, CASEDIRECTORY, BASEDIRECTORY, TEMPDIRECTORY
+    for path in paths:
         if not os.path.isdir(path):
             os.mkdir(path)
 
@@ -89,6 +92,20 @@ def copyToBase(files, name='anonimous', comment=''):
         fh.write('Fecha: {}\n'.format(today))
         fh.write('Reseña: {}\n'.format(comment))
         fh.write('Archivos: {}\n\n'.format(str(files)))
+
+def clearTemp(dst_path):
+    '''Mueve los archivos(las gráficas de los ángulos) que se encuentran en el
+    directorio temporal de la aplicación al directorio de destino que se pasa
+    como argumento.
+    Args:
+        path de destino.
+    Returns:
+        None
+    '''
+    for graph in os.listdir(TEMPDIRECTORY):
+        graph_path = os.path.join(TEMPDIRECTORY, graph)
+        shutil.copy(graph_path, dst_path)
+        os.remove(graph_path)
 
 if __name__ == '__main__':
     

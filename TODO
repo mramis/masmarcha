@@ -1,15 +1,18 @@
 +angulosapp
 
-(A) documentar lectura. @lectura @docs
-(A) crear una clase particular de Excepciones para la aplicación así es más
-    sencillo capturarlas con el módulo logging. @customExceptions
-(A) se implementará el módulo logging. Ser más presiso en la definición de todas
-    las excepciones con las que se ha ido trabajando, de manera que loggin en
-    el final de la aplicación pueda determinar con presición de que tipo de 
-    error se está trabajando. @logging @debugg @Exceptions
-(B) inciar la generarción del reporte @reporte
+(A) problemas con las direcciones en tipografias @debugg @importPaths
+(A) inciar la generarción del reporte @reporte
 (C) escribir una recomendación acerca del nombre de los archivos.
 (C) Mejorar el uso de las direcciones(problemas con /test) @paths @testmodule
+
+
+x documentar lectura. @lectura @docs
+x crear una clase particular de Excepciones para la aplicación así es más
+  sencillo capturarlas con el módulo logging. @customExceptions
+x se implementará el módulo logging. Ser más presiso en la definición de todas
+  las excepciones con las que se ha ido trabajando, de manera que loggin en
+  el final de la aplicación pueda determinar con presición de que tipo de 
+  error se está trabajando. @logging @debugg @Exceptions
 
 x agregar a sample/angulosApp.py el uso de ficheros @paths
 

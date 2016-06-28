@@ -33,8 +33,7 @@ from lectura.lecturaExceptions import (BadFileError,
 from calculo.joints import hipAngles, kneeAngles, ankleAngles, Direction
 from calculo.interpolation import extendArraysDomain, interpolateArray
 from plots.anglesPlot import AnglePlot
-from paths import casePath
-
+from documento.report import baseReport
 
 logging.basicConfig(format='%(levelname)s:%(message)s',
                     level=logging.DEBUG)
@@ -135,9 +134,9 @@ def plotJointAnglesArrays(angles_array, name=''):
         None.
     '''
 
-    hip = [joint['hip'] for joint in angles_array.values()]
-    knee = [joint['knee'] for joint in angles_array.values()]
-    ankle = [joint['ankle'] for joint in angles_array.values()]
+    hip = [joint['hip'] for __, joint in sorted(angles_array.items())]
+    knee = [joint['knee'] for __, joint in sorted(angles_array.items())]
+    ankle = [joint['ankle'] for __, joint in sorted(angles_array.items())]
     
     if len(hip) > 1: # or knee or ankle, all must've the same length
         fixed_hip, hip_domain = extendArraysDomain(*hip)
@@ -154,16 +153,14 @@ def plotJointAnglesArrays(angles_array, name=''):
         
     # starts plots
 
-    legend_labels = angles_array.keys()# esto puede ser motivo de bugg
-                                       # tener en cuenta cambiar por
-                                       # collections.OrderedDict
+    legend_labels = sorted(angles_array.keys())
     upp_lim = int(max([np.max(array[1]) for array in hip])) + 10
     low_lim = int(min([np.min(array[1]) for array in hip])) - 5
     if upp_lim < 50:
         upp_lim = 50
     if low_lim > -20:
         low_lim = -20
-    hip_plot = AnglePlot('{}_hip_'.format(name))
+    hip_plot = AnglePlot('{}_Cadera_'.format(name))
     hip_plot.configure(ylimits=(low_lim, upp_lim))
     for i, array in enumerate(hip):# Cuando se quiera incluir ajuste polinómico
                                    # debe hacerse en este sitio.
@@ -176,7 +173,7 @@ def plotJointAnglesArrays(angles_array, name=''):
         upp_lim = 70
     if low_lim > -10:
         low_lim = -10
-    knee_plot = AnglePlot('{}_knee_'.format(name))
+    knee_plot = AnglePlot('{}_Rodilla_'.format(name))
     knee_plot.configure(ylimits=(low_lim, upp_lim))
     for i, array in enumerate(knee):
         knee_plot.buildTimeAnglePlot(array[1], array[0], name=legend_labels[i])
@@ -188,11 +185,24 @@ def plotJointAnglesArrays(angles_array, name=''):
         upp_lim = 30
     if low_lim > -40:
         low_lim = -40
-    ankle_plot = AnglePlot('{}_ankle_'.format(name))
+    ankle_plot = AnglePlot('{}_Tobillo_'.format(name))
     ankle_plot.configure(ylimits=(low_lim, upp_lim))
     for i, array in enumerate(ankle):
         ankle_plot.buildTimeAnglePlot(array[1], array[0], name=legend_labels[i])
     ankle_plot.savePlot()
+
+def buildReport(name, datos):
+    '''Construye u documento .pdf con la información que se obtiene de toda la
+    operación que realiza la aplicación.
+
+    '''
+    pdf = baseReport('{}.pdf'.format(name), **datos)
+    pdf.drawHeader()
+    pdf.drawFootPage()
+    pdf.drawCharts()
+    pdf.showPage()
+    pdf.save()
+
 
 
 if __name__ == '__main__':

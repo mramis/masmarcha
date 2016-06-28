@@ -86,7 +86,7 @@ class baseReport(Canvas):
         f1, f2 = (Fonts[1], 10), (Fonts[0], 10)
         fontSequence = (f1, f1, f1, f2, f1, f1)
 
-        CreativeCommons = os.path.join(IMAGES, 'CreativeCommons-BY-SA.png')
+        CreativeCommons = os.path.join(IMAGES, 'creative-commons.png')
 # first line
         firstLine = line1.format(**self._data)
         sequence = firstLine.split('&')
@@ -168,8 +168,8 @@ class baseReport(Canvas):
 if __name__ == '__main__':
     import os
     plots = [
-            os.path.join(os.path.abspath('./muestra'), dirpath)
-            for dirpath in os.listdir('./muestra')
+            os.path.join(os.path.abspath('/home/mariano/AngulosApp/Casos/Mariano'), dirpath)
+            for dirpath in os.listdir('/home/mariano/AngulosApp/Casos/Mariano')
             ]
     
     context = {'name'  : 'Estefania Lodeiro Urruchaga',

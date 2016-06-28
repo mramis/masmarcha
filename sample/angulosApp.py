@@ -20,24 +20,31 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from interface.interface import Root
-from paths import ANGULOSAPPDIRECTORY, CASEDIRECTORY, BASEDIRECTORY
-from paths import checkPaths, casePath, copyToBase
+from paths import (ANGULOSAPPDIRECTORY,
+                   CASEDIRECTORY,
+                   BASEDIRECTORY,
+                   TEMPDIRECTORY)
+from paths import checkPaths, casePath, copyToBase, clearTemp
 from process import (extractJointMarkersArraysFromFiles,
                      extractJointAnglesFromJointMarkersArrays,
-                     plotJointAnglesArrays)
+                     plotJointAnglesArrays,
+                     buildReport)
 functions = [
         casePath,
         copyToBase,
         extractJointMarkersArraysFromFiles,
         extractJointAnglesFromJointMarkersArrays,
-        plotJointAnglesArrays
+        plotJointAnglesArrays,
+        buildReport,
+        clearTemp
 ]
 
 checkPaths()
 
 root_tree = {'app_path' : ANGULOSAPPDIRECTORY,
              'bases'    : BASEDIRECTORY,
-             'casos'    : CASEDIRECTORY}
+             'casos'    : CASEDIRECTORY,
+             'temp'     : TEMPDIRECTORY}
 
 App = Root('Angulos App', root_tree)
 App.buildPersonalWidget()
