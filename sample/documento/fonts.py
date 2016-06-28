@@ -30,7 +30,7 @@ def addFonts():
              'DINPro-light.ttf'     ,
              'DINPro-Regular.ttf'   ,
              'DINPro-Medium.ttf'    ,
-             'GandhiSans-Bold.ttf'      ,
+             'GandhiSans-Bold.ttf'  ,
              'Letter-Gothic-Std.ttf')
     for font in toAdd:
             name = font.split('.')[0]

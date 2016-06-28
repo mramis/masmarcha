@@ -19,6 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
 from datetime import date
 
 from reportlab.pdfgen.canvas import Canvas
@@ -28,9 +29,8 @@ from reportlab.lib.units import cm
 from sequenceString import drawStringSequence
 from fonts import Fonts
 from constants import (TYPOGRAPHYS, IMAGES,
-                       leftMargin, commonMargins,
-                       heightUnit, widthUnit,
-                       colors)
+                       LEFTMARGIN, COMMONMARGINS,
+                       COLORS)
 
 class baseReport(Canvas):
 
@@ -44,21 +44,21 @@ class baseReport(Canvas):
 
     def drawHeader(self):
 # date
-        x = leftMargin
-        y = A4[1] - commonMargins
+        x = LEFTMARGIN
+        y = A4[1] - COMMONMARGINS
         self.setFont(Fonts[5], 10)
-        self.setFillColor(colors['grey'])
+        self.setFillColor(COLORS['grey'])
         self.drawString(x, y, self._data['date'])
 # title
         title = u'GONIOMETRÍA DE MARCHA'
-        y = A4[1] - commonMargins*1.6
+        y = A4[1] - COMMONMARGINS*1.6
         self.setFont(Fonts[4], 29.7)
-        self.setFillColor(colors['lightblue'])
+        self.setFillColor(COLORS['lightblue'])
         self.drawString(x, y, title)
 # personal data
         y -= cm
         fontSeq = ((Fonts[1], 12),)*2
-        colorSeq = (colors['red'], colors['grey'])
+        colorSeq = (COLORS['red'], COLORS['grey'])
         keys = ('name', 'age', 'dx')
         tags = ('Nombre ', 'Edad ', 'Dx ')
         for i, key in enumerate(keys):
@@ -80,7 +80,7 @@ class baseReport(Canvas):
         line1 = u'Pág. & {pagenumber} & | & {name} & | & {date}'
         line2 = u'Reporte Goniométrico de la marcha'
 
-        c1, c2 = colors['grey'], colors['lightblue']
+        c1, c2 = COLORS['grey'], COLORS['lightblue']
         colorSequence = (c1, c1, c2, c1, c2, c1)
 
         f1, f2 = (Fonts[1], 10), (Fonts[0], 10)
@@ -90,7 +90,7 @@ class baseReport(Canvas):
 # first line
         firstLine = line1.format(**self._data)
         sequence = firstLine.split('&')
-        y = commonMargins*0.7
+        y = COMMONMARGINS*0.7
         drawStringSequence(
                 self, Y=y,
                 stringSequence=sequence,
@@ -98,14 +98,14 @@ class baseReport(Canvas):
                 colorSequence=colorSequence
                 )
 # second line
-        self.setFillColor(colors['red'])
+        self.setFillColor(COLORS['red'])
         self.setFont(f1[0], size=8)
         x = A4[0]*0.5
-        y = commonMargins - cm
+        y = COMMONMARGINS - cm
         self.drawCentredString(x, y, line2)
 # creative commons image
         x = A4[0] - 3*cm
-        y = commonMargins - 1.6*cm
+        y = COMMONMARGINS - 1.6*cm
         self.drawImage(CreativeCommons, x, y)
         return
 
@@ -114,7 +114,7 @@ class baseReport(Canvas):
         width = 300
         height = 180
 
-        x = leftMargin
+        x = LEFTMARGIN
         y = A4[1] - 14*cm
         
         for i, plot in enumerate(self._data['plots']):
@@ -143,7 +143,7 @@ class baseReport(Canvas):
                            fill=1)
 # drawing title
             self.setFont(Fonts[0], 11)
-            self.setFillColor(colors['grey'])
+            self.setFillColor(COLORS['grey'])
             self.drawString(titleXY[0], titleXY[1], title)
 # drawingPlot
             white = [255, 255, 255, 255, 255, 255]

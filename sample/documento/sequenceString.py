@@ -20,7 +20,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-from constants import A4
+from reportlab.lib.pagesizes import A4
 
 def drawStringSequence(canvas, X=0, Y=0, **kwargs):    
     SWidth = canvas.stringWidth

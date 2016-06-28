@@ -22,23 +22,23 @@
 
 import os
 
-from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
 
 # Paths
 
-TYPOGRAPHYS = os.path.join(os.path.abspath('.'), 'tipografias')
-IMAGES = os.path.join(os.path.abspath('.'), 'images')
+APPDIRECTORY = os.path.abspath('../../')
+SAMPLEDIRECTORY = os.path.join(APPDIRECTORY, 'sample')
+REPORTDIRECTORY = os.path.join(SAMPLEDIRECTORY, 'documento')
+TYPOGRAPHYS = os.path.join(REPORTDIRECTORY, 'tipografias')
+IMAGES = os.path.join(REPORTDIRECTORY, 'images')
+
+print(TYPOGRAPHYS)
 
 # Constants
 
-leftMargin = 2.3*cm
-commonMargins = 2*cm
-
-heightUnit = A4[1] / 30.0
-widthUnit = A4[0] / 21.0
-
-colors = {'grey'       : '#343435',
+LEFTMARGIN = 2.3*cm
+COMMONMARGINS = 2*cm
+COLORS = {'grey'       : '#343435',
           'lightblue'  : '#76BBE0',
           'red'        : '#EA6123'}
 

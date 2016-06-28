@@ -104,7 +104,7 @@ class printButton(tk.Button):
         # Se construye el reporte en el directorio temporal de donde se sacan
         # las gráficas.
         fourth_step = 'buildReport'
-        assert self._functions[5] == fourth_step
+        assert self._functions[5].__name__ == fourth_step
         data = {'name' : name,
                 'age'  : age,
                 'dx'   : diagnosis,
