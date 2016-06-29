@@ -23,8 +23,12 @@ import os
 import shutil
 import datetime
 
-REPO = os.path.abspath('..')
-TESTFILES = os.path.join(REPO, 'test/kinoveatext')
+# si la aplicación se corre desde otro directorio lo que sigue abajo carece de
+# sentido y se genera un error en las direcciones
+SAMPLEAPP = os.path.abspath('.')
+REPORTDIRECTORY = os.path.join(SAMPLEAPP, 'documento')
+IMAGESDIRECTORY = os.path.join(REPORTDIRECTORY, 'images')
+TIPOGRAPHYSDIRECTORY = os.path.join(REPORTDIRECTORY, 'tipografias')
 
 HOME = os.environ['HOME']
 ANGULOSAPPDIRECTORY = os.path.join(HOME, 'AngulosApp')

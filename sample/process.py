@@ -34,9 +34,10 @@ from calculo.joints import hipAngles, kneeAngles, ankleAngles, Direction
 from calculo.interpolation import extendArraysDomain, interpolateArray
 from plots.anglesPlot import AnglePlot
 from documento.report import baseReport
+from paths import IMAGESDIRECTORY, TIPOGRAPHYSDIRECTORY
 
 logging.basicConfig(format='%(levelname)s:%(message)s',
-                    level=logging.DEBUG)
+                    level=logging.INFO)
 
 def extractJointMarkersArraysFromFiles(files):
     '''Toma como parametros uno o más archivos de texto(path), que son salida de
@@ -196,7 +197,8 @@ def buildReport(name, datos):
     operación que realiza la aplicación.
 
     '''
-    pdf = baseReport('{}.pdf'.format(name), **datos)
+    paths = {'image_path':IMAGESDIRECTORY, 'font_path':TIPOGRAPHYSDIRECTORY}
+    pdf = baseReport('{}.pdf'.format(name), paths, **datos)
     pdf.drawHeader()
     pdf.drawFootPage()
     pdf.drawCharts()

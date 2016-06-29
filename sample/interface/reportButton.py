@@ -51,7 +51,7 @@ class printButton(tk.Button):
         files = App.getFiles()
 
         logging.basicConfig(format='%(levelname)s:%(message)s',
-                            level=logging.DEBUG)
+                            level=logging.INFO)
         today = datetime.today().strftime('%d-%m-%Y %H:%M')
         logging.info(today)
 

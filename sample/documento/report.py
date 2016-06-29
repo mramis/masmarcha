@@ -27,16 +27,16 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
 
 from sequenceString import drawStringSequence
-from fonts import Fonts
-from constants import (TYPOGRAPHYS, IMAGES,
-                       LEFTMARGIN, COMMONMARGINS,
-                       COLORS)
+from fonts import addFonts
+from constants import LEFTMARGIN, COMMONMARGINS, COLORS
 
 class baseReport(Canvas):
 
-    def __init__(self, filename, **kwargs):
+    def __init__(self, filename, paths, **kwargs):
         Canvas.__init__(self, filename, pagesize=A4)
         self.setTitle('Goniometría de Marcha')
+        self._images = paths['image_path']
+        self._fonts = addFonts(paths['font_path'])
         self._data = kwargs
         self._data['date'] = '{:%d-%m-%Y}'.format(date.today())
         self._data['pagenumber'] = '01'
@@ -46,18 +46,18 @@ class baseReport(Canvas):
 # date
         x = LEFTMARGIN
         y = A4[1] - COMMONMARGINS
-        self.setFont(Fonts[5], 10)
+        self.setFont(self._fonts[5], 10)
         self.setFillColor(COLORS['grey'])
         self.drawString(x, y, self._data['date'])
 # title
         title = u'GONIOMETRÍA DE MARCHA'
         y = A4[1] - COMMONMARGINS*1.6
-        self.setFont(Fonts[4], 29.7)
+        self.setFont(self._fonts[4], 29.7)
         self.setFillColor(COLORS['lightblue'])
         self.drawString(x, y, title)
 # personal data
         y -= cm
-        fontSeq = ((Fonts[1], 12),)*2
+        fontSeq = ((self._fonts[1], 12),)*2
         colorSeq = (COLORS['red'], COLORS['grey'])
         keys = ('name', 'age', 'dx')
         tags = ('Nombre ', 'Edad ', 'Dx ')
@@ -83,10 +83,10 @@ class baseReport(Canvas):
         c1, c2 = COLORS['grey'], COLORS['lightblue']
         colorSequence = (c1, c1, c2, c1, c2, c1)
 
-        f1, f2 = (Fonts[1], 10), (Fonts[0], 10)
+        f1, f2 = (self._fonts[1], 10), (self._fonts[0], 10)
         fontSequence = (f1, f1, f1, f2, f1, f1)
 
-        CreativeCommons = os.path.join(IMAGES, 'creative-commons.png')
+        CreativeCommons = os.path.join(self._images, 'creative-commons.png')
 # first line
         firstLine = line1.format(**self._data)
         sequence = firstLine.split('&')
@@ -117,13 +117,14 @@ class baseReport(Canvas):
         x = LEFTMARGIN
         y = A4[1] - 14*cm
         
-        for i, plot in enumerate(self._data['plots']):
-            title = os.path.basename(plot).split('.')[0]
+        for i, plot_name in enumerate(os.listdir(self._data['plots'])):
+            plot = os.path.join(self._data['plots'], plot_name)
+            title = os.path.basename(plot).split('_')[1]
 
 # drawingTitleField
             titleBGSizes = width*0.5, height*0.29
             titleBGXY = x, y + height*0.8
-            titleWidth = self.stringWidth(title, Fonts[0], 11)
+            titleWidth = self.stringWidth(title, self._fonts[0], 11)
             titleXY = (x + (titleBGSizes[0] - titleWidth)*0.5,
                        y + height*1.005)
             self.setFillColor('#DCDCDD')
@@ -142,7 +143,7 @@ class baseReport(Canvas):
                            stroke=0,
                            fill=1)
 # drawing title
-            self.setFont(Fonts[0], 11)
+            self.setFont(self._fonts[0], 11)
             self.setFillColor(COLORS['grey'])
             self.drawString(titleXY[0], titleXY[1], title)
 # drawingPlot

@@ -24,18 +24,6 @@ import os
 
 from reportlab.lib.units import cm
 
-# Paths
-
-APPDIRECTORY = os.path.abspath('../../')
-SAMPLEDIRECTORY = os.path.join(APPDIRECTORY, 'sample')
-REPORTDIRECTORY = os.path.join(SAMPLEDIRECTORY, 'documento')
-TYPOGRAPHYS = os.path.join(REPORTDIRECTORY, 'tipografias')
-IMAGES = os.path.join(REPORTDIRECTORY, 'images')
-
-print(TYPOGRAPHYS)
-
-# Constants
-
 LEFTMARGIN = 2.3*cm
 COMMONMARGINS = 2*cm
 COLORS = {'grey'       : '#343435',
