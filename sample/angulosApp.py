@@ -38,13 +38,12 @@ functions = [
         buildReport,
         clearTemp
 ]
-
-checkPaths()
-
 root_tree = {'app_path' : ANGULOSAPPDIRECTORY,
              'bases'    : BASEDIRECTORY,
              'casos'    : CASEDIRECTORY,
              'temp'     : TEMPDIRECTORY}
+
+checkPaths()
 
 App = Root('Angulos App', root_tree)
 App.buildPersonalWidget()

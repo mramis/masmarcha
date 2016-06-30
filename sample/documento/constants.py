@@ -26,8 +26,7 @@ from reportlab.lib.units import cm
 
 LEFTMARGIN = 2.3*cm
 COMMONMARGINS = 2*cm
-COLORS = {'grey'       : '#343435',
+COLORS = {'gray'       : '#343435',
           'lightblue'  : '#76BBE0',
           'red'        : '#EA6123'}
-
 

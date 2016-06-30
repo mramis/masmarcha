@@ -28,6 +28,7 @@ from reportlab.lib.units import cm
 
 from sequenceString import drawStringSequence
 from fonts import addFonts
+from paragraph import writeParagraph
 from constants import LEFTMARGIN, COMMONMARGINS, COLORS
 
 class baseReport(Canvas):
@@ -43,22 +44,22 @@ class baseReport(Canvas):
         return
 
     def drawHeader(self):
-# date
+        # date
         x = LEFTMARGIN
         y = A4[1] - COMMONMARGINS
         self.setFont(self._fonts[5], 10)
-        self.setFillColor(COLORS['grey'])
+        self.setFillColor(COLORS['gray'])
         self.drawString(x, y, self._data['date'])
-# title
+        # title
         title = u'GONIOMETRÍA DE MARCHA'
         y = A4[1] - COMMONMARGINS*1.6
         self.setFont(self._fonts[4], 29.7)
         self.setFillColor(COLORS['lightblue'])
         self.drawString(x, y, title)
-# personal data
+        # personal data
         y -= cm
         fontSeq = ((self._fonts[1], 12),)*2
-        colorSeq = (COLORS['red'], COLORS['grey'])
+        colorSeq = (COLORS['red'], COLORS['gray'])
         keys = ('name', 'age', 'dx')
         tags = ('Nombre ', 'Edad ', 'Dx ')
         for i, key in enumerate(keys):
@@ -73,21 +74,32 @@ class baseReport(Canvas):
                       colorSequence=colorSeq
                       )
             y -= cm*0.7
+        # comment
+        if self._data['comment'].strip():
+            x += 10; y -= 10
+            start_paragraph = x, y + .3*cm
+            self.setFont(self._fonts[0], 11)
+            self.setStrokeColor(COLORS['gray'])
+            self.setFillColor(COLORS['gray'])
+            end_paragraph = writeParagraph(self, self._data['comment'], x, y)
+            x1, y1 = start_paragraph; x2, y2 = end_paragraph
+            self.setStrokeColor(COLORS['gray'])
+            self.line(x1 - 7, y1, x2 - 7, y2)
         return
 
     def drawFootPage(self):
-# constants
+        # constants
         line1 = u'Pág. & {pagenumber} & | & {name} & | & {date}'
         line2 = u'Reporte Goniométrico de la marcha'
 
-        c1, c2 = COLORS['grey'], COLORS['lightblue']
+        c1, c2 = COLORS['gray'], COLORS['lightblue']
         colorSequence = (c1, c1, c2, c1, c2, c1)
 
         f1, f2 = (self._fonts[1], 10), (self._fonts[0], 10)
         fontSequence = (f1, f1, f1, f2, f1, f1)
 
         CreativeCommons = os.path.join(self._images, 'creative-commons.png')
-# first line
+        # first line
         firstLine = line1.format(**self._data)
         sequence = firstLine.split('&')
         y = COMMONMARGINS*0.7
@@ -97,13 +109,13 @@ class baseReport(Canvas):
                 fontSequence=fontSequence,
                 colorSequence=colorSequence
                 )
-# second line
+        # second line
         self.setFillColor(COLORS['red'])
         self.setFont(f1[0], size=8)
         x = A4[0]*0.5
         y = COMMONMARGINS - cm
         self.drawCentredString(x, y, line2)
-# creative commons image
+        # creative commons image
         x = A4[0] - 3*cm
         y = COMMONMARGINS - 1.6*cm
         self.drawImage(CreativeCommons, x, y)
@@ -111,17 +123,22 @@ class baseReport(Canvas):
 
     def drawCharts(self):
 
-        width = 300
-        height = 180
-
+        width = 330
+        height = 198
         x = LEFTMARGIN
-        y = A4[1] - 14*cm
-        
-        for i, plot_name in enumerate(os.listdir(self._data['plots'])):
+        y = A4[1] - 16*cm
+        ref_names = ('cadera.png', 'rodilla.png', 'tobillo.png')
+        references = [os.path.join(self._images, ref) for ref in ref_names]
+        text_references = '''*Presentación de la goniometría de {} en el plano
+        sagital durante un ciclo completo de la marcha humana. Si en la gráfica
+        aparecen más de una curva, NO es correcto sacar conclusiones sobre la
+        velocidad angular, puesto que se encuentran ligeramente alteradas. Las
+        referencias que se observan a la derecha han sido tomadas del libro "La
+        marcha humana, la carrera y el salto", de Éric Viel; Editorial Masson.'''
+        for i, plot_name in enumerate(sorted(os.listdir(self._data['plots']))):
             plot = os.path.join(self._data['plots'], plot_name)
             title = os.path.basename(plot).split('_')[1]
-
-# drawingTitleField
+        # drawingTitleField
             titleBGSizes = width*0.5, height*0.29
             titleBGXY = x, y + height*0.8
             titleWidth = self.stringWidth(title, self._fonts[0], 11)
@@ -134,7 +151,7 @@ class baseReport(Canvas):
                            radius=15,
                            stroke=0,
                            fill=1)
-# drawingChartField
+        # drawingChartField
             self.setFillColor('#F5F5F5')
             self.roundRect(x, y,
                            width=width,
@@ -142,43 +159,55 @@ class baseReport(Canvas):
                            radius=10,
                            stroke=0,
                            fill=1)
-# drawing title
+        # drawing title
             self.setFont(self._fonts[0], 11)
-            self.setFillColor(COLORS['grey'])
+            self.setFillColor(COLORS['gray'])
             self.drawString(titleXY[0], titleXY[1], title)
-# drawingPlot
+        # drawingPlot
             white = [255, 255, 255, 255, 255, 255]
             self.drawImage(plot, x, y,
                            width=width,
                            height=height,
                            mask=white)
-            y -= width
-            
+        # drawing reference
+            x_ref = x + width + 10
+            y_ref = y
+            width_ref = width*.45,
+            height_ref = height*.45
+            self.setFont(self._fonts[5], 7)
+            #self.setFontSize(6)
+            self.drawString(x_ref, y_ref + height_ref + 5, '*Referencia')
+            self.drawImage(references[i], x_ref, y_ref,
+                            width=width*.45,
+                            height=height*.45)
+            texto = text_references.format(ref_names[i].split('.')[0])
+            writeParagraph(self,texto, x, y - 10, inter=0.3)
+
+            y -= width*.85
             if i % 2 == 1:
                 self.showPage()
-                y = A4[1] - 14*cm
+                y = A4[1] - (COMMONMARGINS*2 + height)
                 pageNumber = int(self._data['pagenumber']) + 1
                 self._data['pagenumber'] = '0{}'.format(pageNumber)
-                self.drawHeader()
                 self.drawFootPage()
-
         return
 
 
 
 if __name__ == '__main__':
     import os
-    plots = [
-            os.path.join(os.path.abspath('/home/mariano/AngulosApp/Casos/Mariano'), dirpath)
-            for dirpath in os.listdir('/home/mariano/AngulosApp/Casos/Mariano')
-            ]
+    plots = os.path.abspath('/home/mariano/AngulosApp/Casos/Mariano')
     
-    context = {'name'  : 'Estefania Lodeiro Urruchaga',
-               'age'   : '29 Años',
-               'dx'    : 'Sin clínica aparente',
-               'plots' : plots}
+    context = {'name'   : 'Estefania Lodeiro Urruchaga',
+               'age'    : '29 Años',
+               'dx'     : 'Sin clínica aparente',
+               'comment': 'Habia una vez un loquito que no queria estar mas en soledad y lo único que hacia era divertirse con los caballos y la vieja comadreja de los eucaliptos y las glorietas de madera que tanto le gustaban a su madre.\n',
+               'plots'  : plots}
 
-    pdf = baseReport('pdfTest.pdf', **context)
+    paths = {'image_path':os.path.abspath('./images'),
+             'font_path' :os.path.abspath('./tipografias')}
+
+    pdf = baseReport('pdfTest.pdf', paths, **context)
     pdf.drawHeader()
     pdf.drawFootPage()
     pdf.drawCharts()

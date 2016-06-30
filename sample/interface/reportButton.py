@@ -105,10 +105,11 @@ class printButton(tk.Button):
         # las gráficas.
         fourth_step = 'buildReport'
         assert self._functions[5].__name__ == fourth_step
-        data = {'name' : name,
-                'age'  : age,
-                'dx'   : diagnosis,
-                'plots': temp_path}
+        data = {'name'   : name,
+                'age'    : age,
+                'dx'     : diagnosis,
+                'comment': comment,
+                'plots'  : temp_path}
         self._functions[5](temp_name, data)
 
         # Para finalizar se mueven las gráficas del directorio temporal a 

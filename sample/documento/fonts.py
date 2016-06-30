@@ -24,15 +24,15 @@ import os
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
+toAdd = ('DIN-lightItalic.ttf'  ,
+         'DINPro-light.ttf'     ,
+         'DINPro-Regular.ttf'   ,
+         'DINPro-Medium.ttf'    ,
+         'GandhiSans-Bold.ttf'  ,
+         'Letter-Gothic-Std.ttf')
 
 def addFonts(font_path):
     fonts = []
-    toAdd = ('DIN-lightItalic.ttf'  ,
-             'DINPro-light.ttf'     ,
-             'DINPro-Regular.ttf'   ,
-             'DINPro-Medium.ttf'    ,
-             'GandhiSans-Bold.ttf'  ,
-             'Letter-Gothic-Std.ttf')
     for font in toAdd:
             name = font.split('.')[0]
             path = os.path.join(font_path, font)
