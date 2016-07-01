@@ -1,6 +1,6 @@
 *.pyc
 *.swp
 *.pdf
-*.png
 *.db
 *.ipynb
+*.png

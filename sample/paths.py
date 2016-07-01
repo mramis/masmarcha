@@ -30,7 +30,7 @@ REPORTDIRECTORY = os.path.join(SAMPLEAPP, 'documento')
 IMAGESDIRECTORY = os.path.join(REPORTDIRECTORY, 'images')
 TIPOGRAPHYSDIRECTORY = os.path.join(REPORTDIRECTORY, 'tipografias')
 
-HOME = os.environ['HOME']
+HOME = os.path.expanduser('~')
 ANGULOSAPPDIRECTORY = os.path.join(HOME, 'AngulosApp')
 CASEDIRECTORY = os.path.join(ANGULOSAPPDIRECTORY, 'Casos')
 BASEDIRECTORY = os.path.join(ANGULOSAPPDIRECTORY, 'Bases')
