@@ -133,8 +133,9 @@ class baseReport(Canvas):
         sagital durante un ciclo completo de la marcha humana. Si en la gráfica
         aparecen más de una curva, NO es correcto sacar conclusiones sobre la
         velocidad angular, puesto que se encuentran ligeramente alteradas. Las
-        referencias que se observan a la derecha han sido tomadas del libro "La
-        marcha humana, la carrera y el salto", de Éric Viel; Editorial Masson.'''
+        referencias que se observan a la derecha han sido tomadas del libro "The
+        biomechanics and motor control of human gait", Winter DA. University of
+        Waterloo Press.'''
         for i, plot_name in enumerate(sorted(os.listdir(self._data['plots']))):
             plot = os.path.join(self._data['plots'], plot_name)
             title = os.path.basename(plot).split('_')[1]
