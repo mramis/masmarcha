@@ -51,11 +51,7 @@ class Root(tk.Tk):
         self._TopLeftFrame.grid(row=0, column=0, ipadx=3)
         self._TopRightFrame.grid(row=0, column=1, ipadx=3)
         self._LowerFrame.grid(row=1, column=0, columnspan=2, pady=5)
-        CentroPantallaX = (self.winfo_screenwidth() / 2) - 155
-        CentroPantallaY = (self.winfo_screenheight() / 2) - 155
-#        geometria = '450x310+{}+{}'.format(CentroPantallaX, CentroPantallaY)
-#        self.geometry(geometria)
-        self.propagate(False)
+        self.resizable(0,0)
         return
 
     def getAppDirectory(self):
