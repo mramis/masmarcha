@@ -24,7 +24,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import plotParams
-import cyclePercent
 
 class AnglePlot(object):
     '''Generación de gráficos Articulares, pueden representarse más de un
@@ -65,45 +64,23 @@ class AnglePlot(object):
         )
 
     def buildTimeAnglePlot(self, Angles, X=None, poly_fit=False, name=''):
-        '''Genera hasta 2 objetos ``matplotlib.lines.Line2D`` a través de
+        '''Construye la gráfica de ángulos que se le pasa como argumento de
             ``matplotlib.pyplot.plot``.
         
-            >>> miplot.buildTimeAnglePlot(Y_HipAngles, X=X_Hip_Angles,
-            ...                           name='hip_angles')
+            >>> miplot.buildTimeAnglePlot(Y_HipAngles, name='hip_angles')
 
         Args:
             Angles: ``np.array`` que contiene los ángulos de una determinada
                 articulación.
-            X: ``np.array``, el dominio de la función, digamos los puntos xi del
-                eje x para los cuales f(xi) = yi, donde yi es el valor de un
-                ángulo.
-                Si no se pasa argumento, la función hace del dominio un arreglo
-                ``np.arange(Angles.size)``, es decir un arreglo del tipo
-                X = ([0,1,2,3, ..., n]) donde n es el total de elementos en
-                Angles.
-            poly_fit: ``np.array``, si se hace un ajuste polynómico de los
-                datos de Angles, puede pasarse como argumento y de dibuja
-                junto con el parámetro Angles.
             name: ``string``, es el nombre del arreglo(si lleva uno), que se
                 está generando.
         Returns:
             ``None``.
         '''        
         self._legends.append(name.decode('utf_8'))
-        if isinstance(X, np.ndarray):
-            time = cyclePercent.getPercentaje(X)
-        else:
-            time = cyclePercent.getPercentaje(np.arange(Angles.size))
-        
         color = self._colors.__call__(np.random.random())
-        plt.plot(
-                time, Angles, linestyle='-', color=color,
-                linewidth='.5', marker='o', markeredgecolor=color
-        )
-        if isinstance(poly_fit, np.ndarray):
-            plt.plot(time, poly_fit, linewidth=3.5, color='0.6')
-            self._legends.append(u'RegresiónPolinómica')
-        
+        plt.plot(Angles, linestyle='-', color=color, linewidth='4.5')
+       
 
     def showPlot(self):
         '''Muestra la gráfica que se creo si se llamó antes al método 

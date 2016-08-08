@@ -77,13 +77,3 @@ def Direction(MasterArray):
         raise DirectionError('Dirección indeterminada')
     return directionValue
 
-def polynomialRegression(A, degree):
-    '''SIN USO EN ESTA VERSIÓN
-    '''
-    polyfit = np.polyfit(np.arange(A.size), A, degree, full=True)
-    coeff, residual = polyfit [:2]
-    polynomial = np.polyval(coeff, np.arange(A.size))
-    St = np.square(A - A.mean()).sum()
-    R2 = 1 - residual/St
-    return (polynomial, R2)
-

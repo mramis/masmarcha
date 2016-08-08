@@ -31,7 +31,7 @@ from lectura.lecturaExceptions import (BadFileError,
                                        BadTimeUnitError,
                                        BadOriginSets)
 from calculo.joints import hipAngles, kneeAngles, ankleAngles, Direction
-from calculo.interpolation import extendArraysDomain, interpolateArray
+from calculo.fourier_fit import fourierfit
 from plots.anglesPlot import AnglePlot
 from documento.report import baseReport
 from paths import IMAGESDIRECTORY, TIPOGRAPHYSDIRECTORY
@@ -134,26 +134,14 @@ def plotJointAnglesArrays(angles_array, name=''):
     Returns:
         None.
     '''
-
-    hip = [joint['hip'] for __, joint in sorted(angles_array.items())]
-    knee = [joint['knee'] for __, joint in sorted(angles_array.items())]
-    ankle = [joint['ankle'] for __, joint in sorted(angles_array.items())]
+    hip = [fourierfit(joint['hip'])
+           for __, joint in sorted(angles_array.items())]
+    knee = [fourierfit(joint['knee'])
+            for __, joint in sorted(angles_array.items())]
+    ankle = [fourierfit(joint['ankle'])
+             for __, joint in sorted(angles_array.items())]
     
-    if len(hip) > 1: # or knee or ankle, all must've the same length
-        fixed_hip, hip_domain = extendArraysDomain(*hip)
-        fixed_knee, knee_domain = extendArraysDomain(*knee)
-        fixed_ankle, ankle_domain = extendArraysDomain(*ankle)
-        # overwritten the originals variables
-        hip = [interpolateArray(array, hip_domain) for array in fixed_hip]
-        knee = [interpolateArray(array, knee_domain) for array in fixed_knee]
-        ankle = [interpolateArray(array, ankle_domain) for array in fixed_ankle]
-    else:
-        hip = np.array(((np.arange(hip[0].size), hip[0]),))
-        knee = np.array(((np.arange(knee[0].size), knee[0]),))
-        ankle = np.array(((np.arange(ankle[0].size), ankle[0]),))
-        
     # starts plots
-
     legend_labels = sorted(angles_array.keys())
     upp_lim = int(max([np.max(array[1]) for array in hip])) + 10
     low_lim = int(min([np.min(array[1]) for array in hip])) - 5
@@ -163,9 +151,8 @@ def plotJointAnglesArrays(angles_array, name=''):
         low_lim = -20
     hip_plot = AnglePlot('{}_Cadera_'.format(name))
     hip_plot.configure(ylimits=(low_lim, upp_lim))
-    for i, array in enumerate(hip):# Cuando se quiera incluir ajuste polinómico
-                                   # debe hacerse en este sitio.
-        hip_plot.buildTimeAnglePlot(array[1], array[0], name=legend_labels[i])
+    for i, array in enumerate(hip):
+        hip_plot.buildTimeAnglePlot(array, name=legend_labels[i])
     hip_plot.savePlot()
 
     upp_lim = int(max([np.max(array[1]) for array in knee])) + 10
@@ -177,7 +164,7 @@ def plotJointAnglesArrays(angles_array, name=''):
     knee_plot = AnglePlot('{}_Rodilla_'.format(name))
     knee_plot.configure(ylimits=(low_lim, upp_lim))
     for i, array in enumerate(knee):
-        knee_plot.buildTimeAnglePlot(array[1], array[0], name=legend_labels[i])
+        knee_plot.buildTimeAnglePlot(array, name=legend_labels[i])
     knee_plot.savePlot()
 
     upp_lim = int(max([np.max(array[1]) for array in ankle])) + 10
@@ -189,7 +176,7 @@ def plotJointAnglesArrays(angles_array, name=''):
     ankle_plot = AnglePlot('{}_Tobillo_'.format(name))
     ankle_plot.configure(ylimits=(low_lim, upp_lim))
     for i, array in enumerate(ankle):
-        ankle_plot.buildTimeAnglePlot(array[1], array[0], name=legend_labels[i])
+        ankle_plot.buildTimeAnglePlot(array, name=legend_labels[i])
     ankle_plot.savePlot()
 
 def buildReport(name, datos):
