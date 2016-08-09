@@ -2,7 +2,8 @@
 # coding: utf-8
 
 '''Por el momento se me ocurre que lo mejor extraer todos los datos del video
-y guardarlos en una cola, para después reacomodar los arrays cuando tenga la información para intepolar los datos faltantes.
+y guardarlos en una cola, para después reacomodar los arrays cuando tenga la
+información para intepolar los datos faltantes.
 '''
 
 # Copyright (C) 2016  Mariano Ramis
@@ -29,9 +30,14 @@ from scipy import ndimage
 
 from frame import roi
 
-NEIGHBORS = ndimage.generate_binary_structure(2,2)
+NEIGHBORS = ndimage.generate_binary_structure(2, 2)
 
-def findMarkers(frame, min_markers=3):
+
+def controlFrame(var, collection):
+    pass
+
+
+def findMarkers(frame, expected=(2, 3)):
     '''Busca marcas con el nivel mas alto de blanco alto(> .99),
     en el cuadro que se le pasa como argumento.
     '''
@@ -49,28 +55,44 @@ def findMarkers(frame, min_markers=3):
     lower_labeled_frame, lower_n_markers = ndimage.label(
         lower_frame, structure=NEIGHBORS
         )
-    if lower_n_markers == min_markers:
+    if lower_n_markers == expected[1]:
         upper_markers_range = np.arange(1, upper_n_markers + 1)
         lower_markers_range = np.arange(1, lower_n_markers + 1)
         upper_markers_position = ndimage.center_of_mass(
-                upper_frame, upper_labeled_frame, upper_markers_range
-                )
+            upper_frame,
+            upper_labeled_frame,
+            upper_markers_range
+            )
         lower_markers_position = ndimage.center_of_mass(
-                lower_frame, lower_labeled_frame, lower_markers_range
-                )
-        markers_position = np.array((upper_markers_position,
-                                     lower_markers_position))
+            lower_frame,
+            lower_labeled_frame,
+            lower_markers_range
+            )
+        markers_position = (upper_markers_position, lower_markers_position)
+    elif upper_n_markers > expected[0] or lower_n_markers > expected[1]:
+        markers_position = 'SOBRECARGA'
+        print 'ADVERTENCIA: Sobrecarga de marcadores en la imagen'
     else:
         markers_position = None
     return markers_position
 
+
 def readVideo(filename, fps=24):
-    
-    video = skvideo.io.vreader(filename, inputdict={'-r':str(fps)})
+
+    video = skvideo.io.vreader(filename, inputdict={'-r': str(fps)})
     markers = deque(maxlen=5000)
 
+    frame_false = 0
     for frame in video:
-        markers.appendleft(findMarkers(frame))
+        marker = findMarkers(frame)
+        if marker is None:
+            frame_false += 1
+            if frame_false > 5:
+                continue
+            markers.appendleft(marker)
+        else:
+            frame_false = 0
+            markers.appendleft(marker)
 
     return markers
 
@@ -80,10 +102,8 @@ if __name__ == '__main__':
     import pickle
 
     test = os.path.abspath(
-            '/home/mariano/Escritorio/proyecto-video/Denise_Roque.mp4'
-            )
+        '/home/mariano/Escritorio/proyecto-video/Denise_Roque.mp4'
+        )
 
     with open('sample.txt', 'w') as fh:
         pickle.dump(readVideo(test), fh)
-
-
