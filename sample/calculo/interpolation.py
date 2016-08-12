@@ -21,9 +21,11 @@ and compare more than only-one text imput file.
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+from __future__ import division
+
 import numpy as np
 
-def linear(x, P0, P1):
+def linear(X, A0, A1):
     '''Define f_linear(x) = y, from y - y1 = m(x - x1) were
             m = y1 - y0 / x1 - x0
     Args:
@@ -33,14 +35,39 @@ def linear(x, P0, P1):
     Returns:
         "numpy array (x, f(x) = y)" interpolated value.
     '''
-    x0, y0 = P0
-    x1, y1 = P1
-    y = (y1 - y0)/(x1 - x0)*(x - x0) + y0
-    return np.array((x, y))
+    X0, Y0 = A0.T
+    X1, Y1 = A1.T
+    Y = (Y1 - Y0)/(X1 - X0)*(X - X0) + Y0
+    return np.hstack((X, Y)).reshape(2, 2).T
+
+
+def linear_interpolation_range(A0, A1, steps):
+    '''Interpola los datos que faltan en una cantidad finita de puntos dentro
+    de un intervalo
+    
+    '''
+    X0, X1 = A0.T[0], A1.T[0]
+    DX = (X1 - X0)/(steps + 1)
+    points = (X0 + X*DX for X in range(1, steps + 1))
+    for p in points:
+        yield linear(p, A0, A1)
+
+
+
+
+
+
+
+
+
+
+
 
 def linearInterpolationInDomainData(Pi, Pj, domain):
     '''Performs an linear interpolate between 2-tuples and an domain matrix::
         domain = np.array([x0, x1, x2, ..., xn])
+    print X0,Y0, X1,Y1
+    print X0,Y0, X1,Y1
         # if xi = Pi[0] = (xi, yi)[0] is in domain and
         # if xj = Pj[0] = (xj, yj)[0] is in domain, then
         result = np.array(linear(Pi, Pj, interval))
@@ -141,17 +168,4 @@ def extendArraysDomain(*arrays):
         Domain_array = np.unique(common_domain)
     return Fixed_arrays, Domain_array
 
-
-if __name__ == '__main__':
-    
-    A = np.arange(15, dtype=float)
-    B = np.arange(16, dtype=float)
-    C = np.arange(17, dtype=float)
-    D = np.arange(15, dtype=float)
-    E = np.arange(14, dtype=float)
-
-    TEST_ARRAY =  np.array((A, np.square(A))).T
-    TEST_DOMAIN = np.unique(np.append(A, B))
-
-    print extendArraysDomain(A, B, C, D,E )[1]
 

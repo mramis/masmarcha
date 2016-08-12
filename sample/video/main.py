@@ -21,7 +21,6 @@ información para intepolar los datos faltantes.
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from collections import deque
 
 import skvideo.io
 import numpy as np
@@ -29,15 +28,12 @@ from skimage.color import rgb2gray
 from scipy import ndimage
 
 from frame import roi
+from markers import markerscollections
 
 NEIGHBORS = ndimage.generate_binary_structure(2, 2)
 
 
-def controlFrame(var, collection):
-    pass
-
-
-def findMarkers(frame, expected=(2, 3)):
+def findMarkers(frame, expected=(2, 3), stats=False):
     '''Busca marcas con el nivel mas alto de blanco alto(> .99),
     en el cuadro que se le pasa como argumento.
     '''
@@ -87,12 +83,14 @@ def findMarkers(frame, expected=(2, 3)):
             lower_labeled_frame,
             lower_markers_range
             )
-        markers_position = (upper_markers_position, lower_markers_position)
+        markers_position = np.asarray(
+            (np.array(upper_markers_position),
+            np.array(lower_markers_position))
+            )
     elif upper_n_markers > expected[0] or lower_n_markers > expected[1]:
 # la sobrecarga se produce por el reflejo de los marcadores en superficies
 # pulidas y, en algunos casos, por la baja frecuencia de captura.
         markers_position = 'SOBRECARGA'
-        print 'ADVERTENCIA: Sobrecarga de marcadores en la imagen'
     else:
         markers_position = None
     return markers_position
@@ -101,7 +99,7 @@ def findMarkers(frame, expected=(2, 3)):
 def readVideo(filename, fps=24):
 
     video = skvideo.io.vreader(filename, inputdict={'-r': str(fps)})
-    markers = deque(maxlen=5000)
+    markers = markerscollections()
 
 # se realiza una selección de los cuadros cuando el marker returna el valor
 # de None; para no extender la cola de guardado de markadores, cuando el valor
@@ -109,18 +107,11 @@ def readVideo(filename, fps=24):
 # un valor distinto. Lo ideal sería que el soft no tenga que pasar por el
 # filtrado de cada cuadro si no está la imagen, pero eso no puede saberse de 
 # otra forma, al menos no se me ocurre hasta ahora.
-    frame_false = 0
-    for frame in video:
-        marker = findMarkers(frame)
-        if marker is None:
-            frame_false += 1
-            if frame_false > 5:
-                continue
-            markers.appendleft(marker)
-        else:
-            frame_false = 0
-            markers.appendleft(marker)
 
+####################################################obrerostrabajando :) ####
+    for __ in xrange(100):
+        frame = video.next()
+        markers.introduce(findMarkers(frame))
     return markers
 
 
@@ -132,5 +123,6 @@ if __name__ == '__main__':
         '/home/mariano/Escritorio/proyecto-video/Denise_Roque.mp4'
         )
 
-    with open('sample.txt', 'w') as fh:
-        pickle.dump(readVideo(test), fh)
+    
+    data_from_video = readVideo(test)
+    data_from_video.dump('test.txt')
