@@ -27,92 +27,45 @@ import numpy as np
 from skimage.color import rgb2gray
 from scipy import ndimage
 
-from frame import roi
+from frameclassifier import classifier
 from markers import markerscollections
 
-NEIGHBORS = ndimage.generate_binary_structure(2, 2)
 
 
 def findMarkers(frame, expected=(2, 3), stats=False):
     '''Busca marcas con el nivel mas alto de blanco alto(> .99),
     en el cuadro que se le pasa como argumento.
     '''
-# se convierte a escalas de grises el cuadro en rgb, y luego se binariza la
-# imagen, todo lo que no es "marcador(blanco=1.0)" se vuelve negro(0.0)
     gray_frame = rgb2gray(frame)
     mask = gray_frame < 1.0
     gray_frame[mask] = 0
 
-# se divide la imagen en dos regiones de interés, el cuadro superior, y el
-# inferior, en teoria se podría elegir cualquier sector de la imagen, cuestión
-# que aceleraría el proceso de búsqueda!. En el cuadro superior se busca el
-# tronco y la cadera, y en el inferior la rodilla, tobillo y pie.
-# Todos los datos perdidos pueden interpolarse que se registren como perdidos
-# pueden ser interpolados por una línea recta en un posterior análisis.
-    splitframe = roi(gray_frame)
-    upper_frame = splitframe.next()
-    lower_frame = splitframe.next()
+# por ahora se va a generar una división rígida del cuadro de video, cuando
+# se pueda modificar según necesidades especiales se hará.
 
-    upper_labeled_frame, upper_n_markers = ndimage.label(
-        upper_frame, structure=NEIGHBORS
-        )
-    lower_labeled_frame, lower_n_markers = ndimage.label(
-        lower_frame, structure=NEIGHBORS
-        )
+    middle = gray_frame.shape[0] / 2
+    upper_frame = gray_frame[:middle, :]
+    lower_frame = gray_frame[middle:, :]
+    upper_markers = classifier(upper_frame, 2)
+    lower_markers = classifier(lower_frame, 3)
 
-# si la cantidad de marcadores en el cuadro inferior es igual a la esperada, y
-# hasta el momento en que se escribe esta línea es de 3 marcadores, entonces 
-# se habilita la búsqueda de los centros de masa de los marcadores y se
-# exportan como tuplas de dos listas, la del cuadro superior en [0] y la del
-# cuadro superior en [1].
-# En el caso en que haya más de los marcadores esperados en alguno de los dos
-# cuadros, se descarta el frame y se registra como "sobrecargado" por reflejos
-# indeseados.
-# en el caso en que aparecen menos marcadores de los esperados en el cuadro
-# inferior el cuadro se registra como "None".
-    if lower_n_markers == expected[1]:
-        upper_markers_range = np.arange(1, upper_n_markers + 1)
-        lower_markers_range = np.arange(1, lower_n_markers + 1)
-        upper_markers_position = ndimage.center_of_mass(
-            upper_frame,
-            upper_labeled_frame,
-            upper_markers_range
-            )
-        lower_markers_position = ndimage.center_of_mass(
-            lower_frame,
-            lower_labeled_frame,
-            lower_markers_range
-            )
-        markers_position = np.asarray(
-            (np.array(upper_markers_position),
-            np.array(lower_markers_position))
-            )
-    elif upper_n_markers > expected[0] or lower_n_markers > expected[1]:
-# la sobrecarga se produce por el reflejo de los marcadores en superficies
-# pulidas y, en algunos casos, por la baja frecuencia de captura.
-        markers_position = 'SOBRECARGA'
-    else:
-        markers_position = None
-    return markers_position
+    return upper_markers, lower_markers
 
 
 def readVideo(filename, fps=24):
 
     video = skvideo.io.vreader(filename, inputdict={'-r': str(fps)})
-    markers = markerscollections()
+    upper_markers_frame = markerscollections()
+    lower_markers_frame = markerscollections()
+    for frame in video: #__ in xrange(200):
+        #frame = video.next()
+        markers = findMarkers(frame)
+        upper_markers_frame.introduce(markers[0])
+        lower_markers_frame.introduce(markers[1])
+    
+    upper_markers_frame.dump('test.txt')
+    lower_markers_frame.dump('testII.txt')
 
-# se realiza una selección de los cuadros cuando el marker returna el valor
-# de None; para no extender la cola de guardado de markadores, cuando el valor
-# es none 5 veces consecutivas, se saltean los cuadros hasta que vuelva a haber
-# un valor distinto. Lo ideal sería que el soft no tenga que pasar por el
-# filtrado de cada cuadro si no está la imagen, pero eso no puede saberse de 
-# otra forma, al menos no se me ocurre hasta ahora.
-
-####################################################obrerostrabajando :) ####
-    for __ in xrange(100):
-        frame = video.next()
-        markers.introduce(findMarkers(frame))
-    return markers
 
 
 if __name__ == '__main__':
@@ -125,4 +78,3 @@ if __name__ == '__main__':
 
     
     data_from_video = readVideo(test)
-    data_from_video.dump('test.txt')
