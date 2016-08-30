@@ -1,32 +1,6 @@
-+angulosapp
-
-x agregar campo en el documento para la reseña @reporte @iterface
-x problemas con las direcciones en tipografias @debugg @importPaths
-x inciar la generarción del reporte @reporte
-x escribir una recomendación acerca del nombre de los archivos.
-(C) Mejorar el uso de las direcciones(problemas con /test) @paths @testmodule
-
-
-x documentar lectura. @lectura @docs
-x crear una clase particular de Excepciones para la aplicación así es más
-  sencillo capturarlas con el módulo logging. @customExceptions
-x se implementará el módulo logging. Ser más presiso en la definición de todas
-  las excepciones con las que se ha ido trabajando, de manera que loggin en
-  el final de la aplicación pueda determinar con presición de que tipo de 
-  error se está trabajando. @logging @debugg @Exceptions
-
-x agregar a sample/angulosApp.py el uso de ficheros @paths
-
-x crear un sistema de ficheros para el uso de la aplicación.
-
-x documentar sample/processData.py @lectura @calculo @graficos @docs
-x documentar sample/calculo/joints.py @calculo @docs
-
-x por cada archivo verificar que los datos sean de kinovea @lectura
-x por cada archivo verificar que la cantidad n de marcadores sea n=4 @lectura
-x por cada archivo extraer y almacenar(en memoria) por archivo los datos 
-  (i.e {}) @lectura
-x procesar los datos por nombre de archivo (acceso múltiple) @calculo
-x generar las graficas por orden de archivo (si existe más de uno) @graficos
-
-generar el documento @reporte
+[A] Separación de marcadores de manera automática. @actual.
+  (Markers-collections)
+[C] Selección de coloración de datos por tipo de análisis.
+  (Se quiere ver por fecha de ejecución, o por tipo de estudio, a ser indicado en el nombre)
+[D] Archivo de configuración.
+  (Cantidad de marcadores buscados, condiciones de inicio como ser la carpeta de defecto.)
