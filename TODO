@@ -1,6 +1,16 @@
-[A] Separación de marcadores de manera automática. @actual.
+- [D] Separación de marcadores de manera automática. @actual.
   (Markers-collections)
-[C] Selección de coloración de datos por tipo de análisis.
-  (Se quiere ver por fecha de ejecución, o por tipo de estudio, a ser indicado en el nombre)
-[D] Archivo de configuración.
-  (Cantidad de marcadores buscados, condiciones de inicio como ser la carpeta de defecto.)
+- [D] Se quiere tener una ventana donde se puedan tener los datos finalizados,
+  y de ser necesario ajustar los coeficientes de fourier o los colores de las
+  gráficas por el tipo de estudio (asociar por grupo), poder agragar la media
+  y los desvios. Un paquete de personalización.
+  (Se quiere ver por fecha de ejecución, o por tipo de estudio, a ser indicado
+  en el nombre)
+- [D] Archivo de configuración.
+  (Cantidad de marcadores buscados, condiciones de inicio como ser la carpeta
+  de defecto.)
+- [D] objeto Loggin, que se nuclea en la aplicación central, y que en cada
+  proceso escribe los acontecimientos en un archivo, quizás en la carpeta 
+  .Temp/logging. Se me ocurre que pueden reservarse los archivos hasta 30 dias
+  y que luego de eso se borren (metadata del archivo); uno por cada sesión de
+  la aplicación, sin importar cuantas sesiones haya por fecha.
