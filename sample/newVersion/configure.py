@@ -66,6 +66,7 @@ class mm_config(object):
             for path in self._root_path, work_path, base_path, logg_path:
                 if not os.path.isdir(path):
                     os.mkdir(path)
+                    logging.info('se creó la dirección %' % path)
             
             self._config_data = {
                 'root-path': self._root_path,
