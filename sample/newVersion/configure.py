@@ -24,6 +24,7 @@ aplicación.
 import os
 import cPickle
 import logging
+from datetime import date
 
 
 class mm_config(object):
@@ -46,6 +47,11 @@ class mm_config(object):
         update() carga la configuración de el archivo .config, si éste existe.
         Utiliza la librería cPickle.
 
+        clean_loggfiles(antique) se encarga de revisar la antigüedad de los
+        archivos loggin, y si estos son mayores a los especificados en antique(
+        que por defecto es 30 días) entonces son eliminados. Utiliza las
+        librerias: datetime, os.
+
     '''
 
     def __init__(self, root_path=None):
@@ -66,7 +72,7 @@ class mm_config(object):
             for path in self._root_path, work_path, base_path, logg_path:
                 if not os.path.isdir(path):
                     os.mkdir(path)
-                    logging.info('se creó la dirección %' % path)
+                    logging.info('se creó la dirección %s' % path)
             
             self._config_data = {
                 'root-path': self._root_path,
@@ -83,6 +89,7 @@ class mm_config(object):
     @work_path.setter
     def work_path(self, path):
         self._config_data['work-path'] = os.path.abspath(path)
+        logging.info('Se cambia el espacio de trabajo a %s' % path)
 
     def save_configuration(self):
         config_file = os.path.join(self._root_path, '.config')
@@ -94,8 +101,17 @@ class mm_config(object):
         with open(config_file) as filereader:
             self._config_data = cPickle.load(filereader)
 
+# creo que esto no debería estar acá! no es un archivo de configuración.
+    def clean_loggfiles(self, antique=30):
+        today = date.today()
+        logg_path = self._config_data['logg-path']
+        for logg in os.listdir(logg_path):
+            logg_timestamp = os.stat(os.path.join(logg_path, logg))[-1]
+            logg_born = date.fromtimestamp(logg_timestamp)
+            if today.toordinal() - logg_born.toordinal() > antique:
+                os.remove(os.path.join(logg_path, logg))
+
 if __name__ == '__main__':
     configuration = mm_config()
-    configuration.work_path = '/home/mariano/Escritorio'
     configuration.save_configuration()
-    print configuration.work_path
+    configuration.clean_loggfiles(5)

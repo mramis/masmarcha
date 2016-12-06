@@ -35,10 +35,12 @@ def linear(X, A0, A1):
     Returns:
         "numpy array (x, f(x) = y)" interpolated value.
     '''
-    X0, Y0 = A0.T
-    X1, Y1 = A1.T
-    Y = (Y1 - Y0)/(X1 - X0)*(X - X0) + Y0
-    return np.hstack((X, Y)).reshape(*A0.shape).T
+
+    Ax, Ay = A0.T
+    Bx, By = A1.T
+    Y = (X - Ax).dot((By - Ay)/(Bx - Ax)) + Ay
+    print X, Y
+    # return np.hstack((X, Y)).reshape(*A0.shape).T
 
 
 def linear_interpolation_range(A0, A1, steps):
@@ -51,3 +53,11 @@ def linear_interpolation_range(A0, A1, steps):
     points = (X0 + X*DX for X in range(1, steps + 1))
     for p in points:
         yield linear(p, A0, A1)
+
+if __name__ == '__main__':
+    A = np.array((1,3,4,5,6,7)).reshape(3,2)
+    B = np.array((5,4,2,1,3,4)).reshape(3,2)
+    I = linear_interpolation_range(A, B, 1)
+    print A
+    print I.next()
+    print B

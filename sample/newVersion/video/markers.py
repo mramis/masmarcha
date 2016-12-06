@@ -29,6 +29,8 @@ import numpy as np
 
 from interpolation import linear_interpolation_range
 
+print '##MENSAJE DE ADVERTENCIA## antes de segui con cualquier avanza se tiene que revisar la interpolación que está generando errores #'
+
 
 class markerscollections(object):
 
@@ -80,7 +82,8 @@ class markerscollections(object):
         a la cola.
         '''
         for __ in xrange(n):
-            print self._deque.pop()
+            self._deque.pop()
+        print 'se ejecutó %s.clearlastn() para %f cuadros' %(self.__class__, n)
 
     def interpolate(self):
         '''Revisa toda la cola(deque) y interpola(método lineal) los cuadros
