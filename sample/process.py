@@ -154,6 +154,10 @@ def plotJointAnglesArrays(angles_array, name=''):
     for i, array in enumerate(hip):
         hip_plot.buildTimeAnglePlot(array, name=legend_labels[i])
     hip_plot.savePlot()
+    mean_hip_plot = AnglePlot('{}_MCadera_'.format(name))
+    mean_hip_plot.configure(ylimits=(low_lim, upp_lim))
+    mean_hip_plot.buildMeanStd(np.asarray(hip), title='Cadera')
+    mean_hip_plot.savePlot()
 
     upp_lim = int(max([np.max(array[1]) for array in knee])) + 10
     low_lim = int(min([np.min(array[1]) for array in knee])) - 5
@@ -166,6 +170,12 @@ def plotJointAnglesArrays(angles_array, name=''):
     for i, array in enumerate(knee):
         knee_plot.buildTimeAnglePlot(array, name=legend_labels[i])
     knee_plot.savePlot()
+    mean_knee_plot = AnglePlot('{}_MRodilla_'.format(name))
+    mean_knee_plot.configure(ylimits=(low_lim, upp_lim))
+    mean_knee_plot.buildMeanStd(np.asarray(knee), title='Rodilla')
+    mean_knee_plot.savePlot()
+
+
 
     upp_lim = int(max([np.max(array[1]) for array in ankle])) + 10
     low_lim = int(min([np.min(array[1]) for array in ankle])) - 5
@@ -178,6 +188,12 @@ def plotJointAnglesArrays(angles_array, name=''):
     for i, array in enumerate(ankle):
         ankle_plot.buildTimeAnglePlot(array, name=legend_labels[i])
     ankle_plot.savePlot()
+    mean_ankle_plot = AnglePlot('{}_MTobillo_'.format(name))
+    mean_ankle_plot.configure(ylimits=(low_lim, upp_lim))
+    mean_ankle_plot.buildMeanStd(np.asarray(ankle), title='Tobillo')
+    mean_ankle_plot.savePlot()
+
+
 
 def buildReport(name, datos):
     '''Construye u documento .pdf con la información que se obtiene de toda la

@@ -79,8 +79,21 @@ class AnglePlot(object):
         '''        
         self._legends.append(name.decode('utf_8'))
         color = self._colors.__call__(np.random.random())
-        plt.plot(Angles, linestyle='-', color=color, linewidth='4.5')
-       
+        plt.plot(Angles, linestyle='-', color=color, linewidth='1.5')
+
+    def buildMeanStd(self, Angles, X=None, title=''):
+        '''Construye la media, con dos desvios estandar.
+        '''
+        if len(Angles.shape) > 1:
+            n = Angles.shape[0]
+            mean = np.mean(Angles, axis=0)
+            std = np.std(Angles, axis=0)
+            _max = mean + std*2 #95%
+            _min = mean - std*2
+            color = plt.get_cmap('Blues').__call__(0.234567)
+            plt.plot(mean, linestyle='-', color='k', linewidth='3.5')
+            plt.fill_between(np.arange(std.size), _min, _max, color=color)
+            plt.title('{}(Media-DStd[95%] #{} ciclos)'.format(title, n))
 
     def showPlot(self):
         '''Muestra la gráfica que se creo si se llamó antes al método 
