@@ -32,8 +32,8 @@ def fourierfit(array, sample=100, amplitud=4):
     define en ``amplitud``. Por defecto la muestra es de 100
     valores, sin importar el tamaño de ``array``
     '''
-    if not is_even(array):
-        print 'WARNING: el número de elementos en array no es par'
+    # if not is_even(array):
+    #     print 'WARNING: el número de elementos en array no es par'
     scale = sample/float(array.size)
     fdt = np.fft.rfft(array)
     fourier_fit = np.fft.irfft(fdt[:amplitud], n=sample)*scale

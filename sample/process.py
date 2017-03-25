@@ -33,8 +33,8 @@ from lectura.lecturaExceptions import (BadFileError,
 from calculo.joints import hipAngles, kneeAngles, ankleAngles, Direction
 from calculo.fourier_fit import fourierfit
 from plots.anglesPlot import AnglePlot
-from documento.report import baseReport
-from paths import IMAGESDIRECTORY, TIPOGRAPHYSDIRECTORY
+# from documento.report import baseReport
+# from paths import IMAGESDIRECTORY, TIPOGRAPHYSDIRECTORY
 
 logging.basicConfig(format='%(levelname)s:%(message)s',
                     level=logging.INFO)
@@ -62,6 +62,7 @@ def extractJointMarkersArraysFromFiles(files):
     for file_path in files:
         abs_path = os.path.abspath(file_path)
         filename = os.path.basename(file_path).split('.', 1)[0]
+        abs_path = file_path
         try:
             array = textToArray(abs_path)
         except BadFileError as error:
@@ -140,7 +141,7 @@ def plotJointAnglesArrays(angles_array, name=''):
             for __, joint in sorted(angles_array.items())]
     ankle = [fourierfit(joint['ankle'])
              for __, joint in sorted(angles_array.items())]
-    
+
     # starts plots
     legend_labels = sorted(angles_array.keys())
     upp_lim = int(max([np.max(array[1]) for array in hip])) + 10
@@ -200,7 +201,7 @@ def buildReport(name, datos):
     operación que realiza la aplicación.
 
     '''
-    paths = {'image_path':IMAGESDIRECTORY, 'font_path':TIPOGRAPHYSDIRECTORY}
+    paths = {'image_path': IMAGESDIRECTORY, 'font_path': TIPOGRAPHYSDIRECTORY}
     pdf = baseReport('{}.pdf'.format(name), paths, **datos)
     pdf.drawHeader()
     pdf.drawFootPage()
@@ -219,4 +220,3 @@ if __name__ == '__main__':
     joint_markers_array = extractJointMarkersArraysFromFiles(kinovea_files)
     joint_angles_array = extractJointAnglesFromJointMarkersArrays(joint_markers_array)
     plotJointAnglesArrays(joint_angles_array, name='Mariano.123')
-
