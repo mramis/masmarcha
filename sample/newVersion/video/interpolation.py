@@ -1,7 +1,7 @@
 #!usr/bin/env python
 # coding: utf-8
 
-'''This module was create for manipulate the domain of joint-angles-data 
+'''This module was create for manipulate the domain of joint-angles-data
 and compare more than only-one text imput file.
 '''
 
@@ -39,16 +39,16 @@ def linear(X, A0, A1):
     Ax, Ay = A0.T
     Bx, By = A1.T
     Y = (X - Ax).dot((By - Ay)/(Bx - Ax)) + Ay
-    print X, Y
-    # return np.hstack((X, Y)).reshape(*A0.shape).T
+
+    return np.hstack((X, Y)).reshape(*A0.shape).T
 
 
 def linear_interpolation_range(A0, A1, steps):
     '''Interpola los datos que faltan en una cantidad finita de puntos dentro
     de un intervalo
-    
+
     '''
-    X0, X1 = A0.T[0], A1.T[0]
+    X0, X1 = A0[:, 0], A1[:, 0]
     DX = (X1 - X0)/(steps + 1)
     points = (X0 + X*DX for X in range(1, steps + 1))
     for p in points:

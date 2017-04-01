@@ -25,10 +25,11 @@ información para intepolar los datos faltantes.
 import skvideo.io
 import numpy as np
 from skimage.color import rgb2gray
-from scipy import ndimage
+import matplotlib.pyplot as plt
 
 from frameclassifier import classifier
-from markers import markerscollections
+from interpolation import linear_interpolation_range
+# from markers import markerscollections
 
 
 
@@ -49,22 +50,41 @@ def findMarkers(frame, expected=(2, 3), stats=False):
     upper_markers = classifier(upper_frame, 2)
     lower_markers = classifier(lower_frame, 3)
 
+    # print np.array((upper_markers, lower_markers))
     return upper_markers, lower_markers
 
 
 def readVideo(filename, fps=24):
 
     video = skvideo.io.vreader(filename, inputdict={'-r': str(fps)})
-    upper_markers_frame = markerscollections()
-    lower_markers_frame = markerscollections()
-    for frame in video: #__ in xrange(200):
+    # upper_markers_frame = markerscollections()
+    # lower_markers_frame = markerscollections()
+    arreglo = []
+    seguro = None  # es la ultima con datos
+    n_sin_cuadros = 0
+    for n, frame in enumerate(video): #__ in xrange(200):
         #frame = video.next()
-        markers = findMarkers(frame)
-        upper_markers_frame.introduce(markers[0])
-        lower_markers_frame.introduce(markers[1])
-    
-    upper_markers_frame.dump('test.txt')
-    lower_markers_frame.dump('testII.txt')
+        markers = findMarkers(frame)[1]
+        # upper_markers_frame.introduce(markers[0])
+        # lower_markers_frame.introduce(markers[1])
+        if not markers.any():
+            n_sin_cuadros += 1
+        else:
+            if n_sin_cuadros != 0:
+                interpolados = linear_interpolation_range(seguro, markers, n_sin_cuadros)
+                n_sin_cuadros = 0
+                for a in interpolados:
+                    arreglo.append(a)
+            arreglo.append(markers)
+            seguro = markers
+        if n == 100:
+            break
+    x = [a[0, 1] for a in arreglo]
+    y = [a[0, 0] for a in arreglo]
+    plt.plot(x, y, 'o')
+    plt.show()
+    # upper_markers_frame.dump('test.txt')
+    # lower_markers_frame.dump('testII.txt')
 
 
 
@@ -73,8 +93,8 @@ if __name__ == '__main__':
     import pickle
 
     test = os.path.abspath(
-        '/home/mariano/Escritorio/proyecto-video/Denise_Roque.mp4'
+        '/home/mariano/Escritorio/proyecto-video/Giustina_final.mp4'
         )
 
-    
+
     data_from_video = readVideo(test)

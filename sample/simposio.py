@@ -5,8 +5,8 @@
 from os import path, listdir
 
 import numpy as np
-from numpy.linalg import norm
 import matplotlib.pyplot as plt
+from numpy.linalg import norm
 from seaborn import color_palette
 from pandas import DataFrame
 
@@ -16,13 +16,13 @@ from calculo.fourier_fit import fourierfit
 
 # %%
 # Los archivos de kinovea que contienen las trayectorias
-directorio = '/home/mariano/Documentos/Simposio/kinoveatxt/matiak/pre/'
+directorio = '/home/mariano/Bautista/pre'
 Matiak_PREQX = map(
     lambda ruta: path.join(directorio, ruta),
     listdir(directorio)
     )
 
-directorio = '/home/mariano/Documentos/Simposio/kinoveatxt/matiak/post/'
+directorio = '/home/mariano/Bautista/pos'
 Matiak_POSTQX = map(
     lambda ruta: path.join(directorio, ruta),
     listdir(directorio)
@@ -433,3 +433,16 @@ for i, (pre, post) in enumerate(zip(indices_tobillo_pre, indices_tobillo_post)):
     pl3.text(i+step, post + .5, '%d' % post)
 
 plt.show()
+
+# # %% Estandarización y pruebas de hipótesis
+# from scipy.stats import chisquare
+# z_pre = (Matiak_cadera_PREQX - Norm_cadera_mean) / SD_cadera_mean
+# z_pos = (Matiak_cadera_POSTQX - Norm_cadera_mean) / SD_cadera_mean
+# plt.plot(z_pre)
+# plt.plot(z_pos)
+# plt.show()
+# plt.hist(z_pre, 5)
+# plt.show()
+#
+# plt.hist(z_pos, 5)
+# plt.show()
