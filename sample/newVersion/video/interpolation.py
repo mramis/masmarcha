@@ -40,7 +40,7 @@ def linear(X, A0, A1):
     Bx, By = A1.T
     Y = (X - Ax).dot((By - Ay)/(Bx - Ax)) + Ay
 
-    return np.hstack((X, Y)).reshape(*A0.shape).T
+    return np.hstack((Y, X)).reshape(*A0.shape).T
 
 
 def linear_interpolation_range(A0, A1, steps):

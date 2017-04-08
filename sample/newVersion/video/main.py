@@ -41,8 +41,8 @@ def findMarkers(frame, expected=(2, 3), stats=False):
     mask = gray_frame < 1.0
     gray_frame[mask] = 0
 
-# por ahora se va a generar una división rígida del cuadro de video, cuando
-# se pueda modificar según necesidades especiales se hará.
+    # por ahora se va a generar una división rígida del cuadro de video, cuando
+    # se pueda modificar según necesidades especiales se hará.
 
     middle = gray_frame.shape[0] / 2
     upper_frame = gray_frame[:middle, :]
@@ -79,10 +79,8 @@ def readVideo(filename, fps=24):
             seguro = markers
         if n == 100:
             break
-    x = [a[0, 1] for a in arreglo]
-    y = [a[0, 0] for a in arreglo]
-    plt.plot(x, y, 'o')
-    plt.show()
+    print [n.shape for n in arreglo]
+
     # upper_markers_frame.dump('test.txt')
     # lower_markers_frame.dump('testII.txt')
 
