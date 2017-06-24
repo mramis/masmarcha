@@ -1,8 +1,6 @@
-#!usr/bin/env python
 # coding: utf-8
 
-'''This module was create for manipulate the domain of joint-angles-data
-and compare more than only-one text imput file.
+'''
 '''
 
 # Copyright (C) 2016  Mariano Ramis
@@ -21,43 +19,38 @@ and compare more than only-one text imput file.
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-from __future__ import division
-
 import numpy as np
 
-def linear(X, A0, A1):
-    '''Define f_linear(x) = y, from y - y1 = m(x - x1) were
-            m = y1 - y0 / x1 - x0
-    Args:
-        x: the x value to interpolate in the linear function f(x) = y;
-        Pi: each one is 2-tuple with the (xi, yi) coordinate
-            of two consecutive points in the plane.
-    Returns:
-        "numpy array (x, f(x) = y)" interpolated value.
+
+def interpolate(Ai, Af, steps):
     '''
-
-    Ax, Ay = A0.T
-    Bx, By = A1.T
-    Y = (X - Ax).dot((By - Ay)/(Bx - Ax)) + Ay
-
-    return np.hstack((Y, X)).reshape(*A0.shape).T
-
-
-def linear_interpolation_range(A0, A1, steps):
-    '''Interpola los datos que faltan en una cantidad finita de puntos dentro
-    de un intervalo
-
     '''
-    X0, X1 = A0[:, 0], A1[:, 0]
-    DX = (X1 - X0)/(steps + 1)
-    points = (X0 + X*DX for X in range(1, steps + 1))
-    for p in points:
-        yield linear(p, A0, A1)
+    # El spacio fila de los arreglos A corresponde a los marcadores. El espacio
+    # columna a las cordenadas de esos marcadores
+    Y0, X0 = Ai.T
+    Y1, X1 = Af.T
+    # conseguimos los x de los cuadros perdidos.
+    steps = np.ones(X0.shape)*(steps + 2)
+    gap = np.stack((X0, X1, steps))
+    linspace = lambda A: np.linspace(A[0], A[1], A[2])
+    X = np.apply_along_axis(linspace, 0, gap)[1:-1, :]
+    print X
+    # separamos los x de los y para la función np.interp
+    xp = np.array((Ai[:, 1], Af[:, 1])).T
+    fp = np.array((Ai[:, 0], Af[:, 0])).T
+    interpolate = lambda A, B, X, i: np.interp(X.T[i], A[i], B[i])
+    markers = []
+    for i in xrange(Ai.shape[0]):
+        markers.append(zip(X.T[i], interpolate(xp, fp, X, i)))
+    print np.array(zip(markers[0], l[1]))
 
 if __name__ == '__main__':
-    A = np.array((1,3,4,5,6,7)).reshape(3,2)
-    B = np.array((5,4,2,1,3,4)).reshape(3,2)
-    I = linear_interpolation_range(A, B, 1)
-    print A
-    print I.next()
-    print B
+    AI = np.array(
+        ((2, 4),  # cadera
+         (8, 10))  # rodilla
+        )
+    AF = np.array(
+        ((3, 5),  # cadera
+         (8, 20))  # rodilla
+        )
+    interpolate(AI, AF, 4)

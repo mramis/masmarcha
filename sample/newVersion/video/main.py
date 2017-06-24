@@ -64,7 +64,7 @@ def readVideo(filename, fps=24):
     n_sin_cuadros = 0
     for n, frame in enumerate(video): #__ in xrange(200):
         #frame = video.next()
-        markers = findMarkers(frame)[1]
+        markers = np.matrix(findMarkers(frame)[1])
         # upper_markers_frame.introduce(markers[0])
         # lower_markers_frame.introduce(markers[1])
         if not markers.any():
@@ -88,11 +88,8 @@ def readVideo(filename, fps=24):
 
 if __name__ == '__main__':
     import os
-    import pickle
 
     test = os.path.abspath(
         '/home/mariano/Escritorio/proyecto-video/Giustina_final.mp4'
-        )
-
-
+    )
     data_from_video = readVideo(test)
