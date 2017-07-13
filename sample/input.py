@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-"""Docstring."""
+"""Módulo para la extracción de información de los archivos de exportación del
+software Kinovea.
+"""
 
 # Copyright (C) 2016  Mariano Ramis
 #
@@ -20,11 +22,11 @@
 
 
 import re
-from numpy import array, apply_over_axes
+from numpy import array
 
 
 class KinoveFile(object):
-    u"""."""
+    u"""Lectura de los archivos de texto que exporta kinovea."""
 
     def __init__(self, path):
         with open(path) as fh:
@@ -80,6 +82,7 @@ class Marker(object):
             self.x = None
             self.y = None
             self.t = None
+
 
 if __name__ == '__main__':
     k = KinoveFile('/home/mariano/Devel/masmarcha/test/kinoveatext/MCinta.txt')

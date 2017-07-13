@@ -12,7 +12,7 @@ utilizada.
 - Se puede detectar el cambio de fase de durante el ciclo de la marcha. *En
 particular este punto se origina para un estudio presentado a un simposio en
 colaboración con Ma. Belén Hidalgo (Ingeniera Biomédica).
-- Presentación de dos test que dan datos muestran datos sencillos de comparación
+- Presentación de dos test que muestran datos sencillos de comparación
 con una muestra normal. *Igual al punto anterior.
 
 Objetivos:
@@ -21,8 +21,8 @@ Objetivos:
 información de diversos tipos: entre ellos históricos de pacientes, valores de
 media y desvío poblacional, etc.
 
--Interfaz responsiva: Una interfaz que donde se pueda hacer combinación de las
-herramientas del procesamiento de los datos.
+-Interfaz: Una interfaz donde se pueda hacer combinación de las herramientas
+del procesamiento de los datos (variables, aspecto de las graficas).
 
 - Autodetección de video. Es el más ambicioso de los objetivos, se necesita un
 nuevo diseño de los marcadores.

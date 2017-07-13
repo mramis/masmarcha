@@ -1,17 +1,16 @@
-======
 README
 ======
 
 Resume
 ------
 
-This is a Free Software to extend `Kinovea <http://www.kinovea.org/>`_ 
+This is a Free Software to extend `Kinovea <http://www.kinovea.org/>`_
 Software.
-It's only perform an alternative way to present the human gait data 
+It's only perform an alternative way to present the human gait data
 analysis edited on Kinovea Software.
-It software take the data (plain text output) of trajectory markers (limb 
-joints) in the lower limb (through Kinovea tool), does the process to 
-calculate angles between two sequent segments, and generate pdf with the 
+It software take the data (plain text output) of trajectory markers (limb
+joints) in the lower limb (through Kinovea tool), does the process to
+calculate angles between two sequent segments, and generate pdf with the
 graph information
 
 Features
