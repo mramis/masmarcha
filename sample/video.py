@@ -27,72 +27,94 @@ from time import sleep
 
 def center_of_square(contour):
     u"""Devueleve el centro de los límites (cuadrados) de un contorno."""
-    x, y, w, h = cv2.boundingRect(contour)
-    return np.array(((x, x+w), (y, y+h))).mean(axis=1, dtype=np.int)
+    x, Y, w, h = cv2.boundingRect(contour)
+    return np.array(((x, x+w), (Y, Y+h))).mean(axis=1, dtype=np.int)
 
 
-def partition(array):
-    u"""Genera una partición del array.
+def roi_dsg(array, width=1.35):
+    u"""Segmentación por defecto de las regiones de interés.
 
-    La partición del arreglo se genera tomando en cuenta la distancia
-    en las coordenadas `y`. Si los puntos están cercanos entre sí,
-    entonces forman parte del mismo grupo. Esto clasifica los marcadores
-    de tobillo, rodilla y cadera.
-    :param array: Arreglo con los centros de los marcadores obtenidos
-    de la imagen.
+    :param array: arreglo con los centros de los marcadores.
     :type array: np.ndarray
     """
-    y_column = array[:, 1]
-    safe_distance = (max(y_column) - min(y_column)) / 4  # Este número debería poder modificarse
-    compare_array = np.append(y_column[1:], y_column[0])
-    bool_classifier = np.abs(compare_array - y_column) < safe_distance
-    indices = np.arange(y_column.size)
+    top = array.min(axis=0)[-1]
+    bottom = array.max(axis=0)[-1]
+    distance = (bottom - top) / 6.0
+    regions = []
+    for i in 1, 3, 6:
+        middle = (top + distance*i)
+        regions.append((middle - distance*width, middle + distance*width))
+    return regions
 
-    group = []
-    partitions = []
-    for i, b in np.array((indices, bool_classifier)).transpose():
-        if b is True:
-            group.append(i)
-        else:
-            group.append(i)
-            partitions.append(array[group])
-            group = []
+
+def partitions(array, regions_of_insterest):
+    t, k, a = regions_of_insterest
+    Y = array[:, 1] if array.any() else ()
+    trunk = np.logical_and(Y > t[0], Y < t[1])
+    knee = np.logical_and(Y > k[0], Y < k[1])
+    ankle = np.logical_and(Y > a[0], Y < a[1])
+    partitions = {
+        'trunk': array[trunk],
+        'knee': array[knee],
+        'ankle': array[ankle]
+    }
     return partitions
 
 
-video_path = '/home/mariano/Descargas/VID_20170707_104121679.mp4'
+def set_spatial_references(markers):
+    u"""Establece los parametros espaciales de referencia.
+
+    Roi
+    Unidad de espacio.
+    """
+    return roi_dsg(markers)
+
+
+def get_markers_center(frame, umbral=240., apply_gaussian_filter=False):
+    u"""."""
+    gray = cv2.cvtColor(frame, 6)
+    if apply_gaussian_filter:
+        gray = cv2.GaussianBlur(gray, (5, 5), 0)
+    __, binary = cv2.threshold(gray, umbral, 255., 0)
+    __, contours, __ = cv2.findContours(binary, 0, 2)
+    markers = np.array(map(center_of_square, contours))
+    return len(markers), markers
+
+
+video_path = '/home/mariano/Descargas/VID_20170720_132629833.mp4'
 video_obj = cv2.VideoCapture(video_path)
 
 ret, frame = video_obj.read()
+spatial_settings_OK = False
 while ret:
-    resized_frame = cv2.resize(frame, None, fx=.5, fy=.5)  # NOTE: dvp
-    gray_frame = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2GRAY)
-    # blurred = cv2.GaussianBlur(gray_frame, (3, 3), 0)  # NOTE: dvp::opcional
-    __, binary = cv2.threshold(gray_frame, 240., 255., cv2.THRESH_BINARY)
+    n_markers, markers = get_markers_center(frame, apply_gaussian_filter=1)
+    if n_markers == 7:  # Que es el número de marcadores que esperamos ver en
+        # este momento del desarrollo...
+        roi = set_spatial_references(markers)
+        spatial_settings_OK = True
+    if spatial_settings_OK:
+        segments = partitions(markers, roi)
+        T = segments['ankle']
+        for n, center in enumerate(T):
+            cv2.circle(frame, (center[0], center[1]), 7, (0, 0, 255), -1)
+            # cv2.putText(
+            #     frame,
+            #     str(n),
+            #     (center[0], center[1]),
+            #     cv2.FONT_HERSHEY_SIMPLEX,
+            #     1,
+            #     (255, 0, 0)
+            # )
 
-    ret_imag, contours, hierarchy = cv2.findContours(
-        binary.copy(),
-        cv2.RETR_EXTERNAL,
-        cv2.CHAIN_APPROX_SIMPLE
+    cv2.imshow(
+        'frame',
+        cv2.resize(frame, None, fx=.4, fy=.4, interpolation=cv2.INTER_LINEAR)
     )
-
-    for n, center in enumerate(map(center_of_square, contours)):
-        cv2.circle(resized_frame, (center[0], center[1]), 7, (0, 0, 255), -1)
-        cv2.putText(
-            resized_frame,
-            str(n),
-            (center[0], center[1]),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            1,
-            (255, 0, 0)
-        )
-
-    cv2.imshow('frame', resized_frame)
     k = cv2.waitKey(30) & 0xff
     if k == 27:
         break
     ret, frame = video_obj.read()
-    sleep(.3)
+    sleep(.1)
 
 video_obj.release()
 cv2.destroyAllWindows()
