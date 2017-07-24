@@ -1,10 +1,10 @@
 #!usr/bin/env python
 # coding: utf-8
 
-'''Se definen funciones para calcular el ángulo entre dos arreglos de vectores,
+"""Se definen funciones para calcular el ángulo entre dos arreglos de vectores,
 la determinación de la dirección de marcha sobre el plano, y el ajuste
 polinomial de datos.
-'''
+"""
 
 # Copyright (C) 2016  Mariano Ramis
 #
@@ -27,7 +27,7 @@ from calculoExceptions import DirectionError
 
 
 def Angle(A, B):
-    '''Calcula el ángulo(theta) entre dos arreglos de vectores(fila) según la
+    """Calcula el ángulo(theta) entre dos arreglos de vectores(fila) según la
         definición de producto escalar:
             u·v = |u||v|cos(theta)
     Args:
@@ -36,7 +36,7 @@ def Angle(A, B):
         B: lo mismo que A
     Returns:
         arreglo ``np.array`` de ángulos en grados.
-    '''
+    """
     assert isinstance(A, np.ndarray) and isinstance(B, np.ndarray)
     normA = np.sqrt((A.dot(A.T).diagonal()))
     normB = np.sqrt((B.dot(B.T).diagonal()))
@@ -45,7 +45,7 @@ def Angle(A, B):
     return np.degrees(radiansAngle)
 
 def Direction(MasterArray):
-    '''Determina la dirección del movimiento de la persona sobre el suelo
+    """Determina la dirección del movimiento de la persona sobre el suelo
         haciendo un promedio de la diferencia del último y primer dato de los
         arreglos que se pasan en MasterArray(el arreglo que contiene todos los
         datos de posición que se extrajeron del archivo de texto plano de
@@ -61,7 +61,7 @@ def Direction(MasterArray):
         ``int`` los dos posibles valores son ``1``(indica que la dirección de
             marcha es el mismo que el eje positivo de las x y que el miembro
             inferior evaluado es el derecho; o ``-1``(se significa lo contrario)
-        '''
+        """
     assert isinstance(MasterArray, np.ndarray)
     rows, columns = MasterArray.shape[0], 1
     Xdirection = np.ndarray((rows, columns))
@@ -76,4 +76,3 @@ def Direction(MasterArray):
     else:
         raise DirectionError('Dirección indeterminada')
     return directionValue
-

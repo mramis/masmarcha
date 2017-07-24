@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-'''Se desarrolla una nueva interface con PyQt4
-'''
+"""Docstring."""
 
-# Copyright (C) 2016  Mariano Ramis
+# Copyright (C) 2017  Mariano Ramis
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,22 +18,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from distutils.core import setup
+from Cython.Build import cythonize
 
-import sys
-from PyQt4 import QtGui
-
-def main():
-
-    app = QtGui.QApplication(sys.argv)
-
-    w = QtGui.QWidget()
-    w.resize(250, 150)
-    w.move(300, 300)
-    w.setWindowTitle('Simple')
-    w.show()
-
-    sys.exit(app.exec_())
-
-
-
-main()
+setup(
+    ext_modules=cythonize('video.pyx')
+)

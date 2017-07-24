@@ -6,14 +6,14 @@ Tiene el siguiente formato:
 
     #Kinovea Trajectory data export
     #T X Y
-    0:00:00:00 866.00 320.00 
-    0:00:00:03 847.00 321.00 
+    0:00:00:00 866.00 320.00
+    0:00:00:03 847.00 321.00
     ...
 
-    0:00:00:00 118.00 45.00 
-    0:00:00:03 131.00 37.00 
+    0:00:00:00 118.00 45.00
+    0:00:00:03 131.00 37.00
     ...
-    
+
 En este módulo definen funciones que analizan archivos en busca de estas
 características(si no lo encuentran se lanzan excepciones definidas en sample/
 lectura/lecturaExceptions.py) y extraen los datos en forma de numpy array, donde
@@ -103,18 +103,18 @@ def textToArray(textfile):
     '''
     if not isKinoveaFile(textfile):
         raise BadFileError(textfile)
-    
+
     splitter = dataSplitter(textfile)
     with open(textfile) as fh:
         text_file_content = fh.read()
-    
+
     # split the text data by zero time
     data_arrays = text_file_content.split(splitter)
-    data_arrays.pop(0) # first and second line header
+    data_arrays.pop(0)  # first and second line header
 
     # split each row from each array to lines components
     split_arrays = [array.split('\n') for array in data_arrays]
-    
+
     # the neasted code here build numpy arrays from splitted arrays.
     arrays = []
     for array in split_arrays:

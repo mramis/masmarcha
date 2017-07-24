@@ -22,20 +22,24 @@
 
 from numpy import zeros
 
+
 def positiveY(RowDim):
     array = zeros((RowDim, 2))
     array.T[1] = 1
     return array
+
 
 def negativeY(RowDim):
     array = zeros((RowDim, 2))
     array.T[1] = -1
     return array
 
+
 def positiveX(RowDim):
     array = zeros((RowDim, 2))
     array.T[0] = 1
     return array
+
 
 def negativeX(RowDim):
     array = zeros((RowDim, 2))
