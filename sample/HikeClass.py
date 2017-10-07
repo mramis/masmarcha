@@ -5,6 +5,8 @@ from itertools import product
 import numpy as np
 import pandas as pd
 
+from video.proccess import interval, interp, homogenize
+
 
 class Hike(object):
     """Conserva los datos de los marcadores de la caminata en un sentido."""
@@ -18,10 +20,10 @@ class Hike(object):
         self._filled_groups = False
         self._fixed_groups = False
         self._to_interpolate = {0: [], 1: [], 2: []}
-# NOTE: La nueva clase Hike (antigua clase Trayectoria), solo se encarga de
-# recibir los datos de los marcadores, de agruparlos correctamente, y de
-# corregir la falta de datos. El trabajo de establecer los ciclos los va a
-# realizar la clase Kinematic.
+# NOTE: La nueva clase Hike (antigua clase Trayectoria), se encarga de recibir
+# los datos de los marcadores, de agruparlos correctamente, y de corregir la
+# falta de datos. El trabajo de establecer los ciclos los va a realizar la
+# clase Kinematic.
 
     def add_markers_from_videoframe(self, index, groups):
         u"""Se agregan las trayectorias de los marcadores.
@@ -115,17 +117,21 @@ class Hike(object):
                     if arr.shape[0] == nm:
                         markers.append(arr)
                     else:
-                        markers.append(np.random.random((nm, 2)))
+                        markers.append(np.zeros((nm, 2)))
                 filled_groups[group] = markers
                 markers = []
             self._filled_groups = filled_groups
 
-    def split_into_dataframe(self, wich_groups, ret=False):
+    def markers_as_dataframe(self, wich_groups, ret=False):
         u"""."""
         markers_group = {
             'filled': self._filled_groups,
             'fixed': self._fixed_groups
         }
+
+        if wich_groups not in markers_group.keys():
+            print '#mm: Bad group. Options are: filled, fixed.'
+            return
 
         if not self._fixed_groups:
             print '#mm: Not Fixed Yet'
@@ -139,91 +145,95 @@ class Hike(object):
             for i in xrange(codes):  # rows, markers, columns
                 dataframe.append(arr[:, i, 0])
                 dataframe.append(arr[:, i, 1])
-        return pd.DataFrame(dataframe, index=ix)
+        return pd.DataFrame(dataframe, index=ix).replace(0, np.nan)
 
+    def cycles_as_dataframe(self):
+        u"""."""
+        if self._cycled:
+            ncycles = self.phases.shape[1]
+            ix = ('stance', 'swing')
+            cl = map(
+                lambda x, y: x % y,
+                ('C%s', )*ncycles,
+                range(1, ncycles + 1)
+            )
+            return pd.DataFrame(self.phases, index=ix, columns=cl)
 
-#     def fix_in(self):
-#         u"""Arregla del conjunto de marcadores de la trayectoria.
+    def fix_groups(self):
+        u"""Corrige el orden de los marcadores de tobillo e interpola datos."""
+        if self._fixed_groups:
+            return
+        if not self.direction:
+            self.get_foot_direction()
+        if not self._filled_groups:
+            self.fill_groups()
+        self._sort_foot()
+        self._interpolate()
 
-#         Ordena los marcadores de la región de tobillo. Interpola
-#         (lineal) los datos faltantes.
-#         """
-#         if self._fixed:
-#             return
-#         self._direction = set_direction(self._frames[2])
-#         self._frames[2] = [sort_foot_markers(X, self._direction) for X in self._frames[2]]
-#         for group in (0, 1, 2):
-#             indexes = self._to_interpolate[group]
-#             if indexes:
-#                 for ai, bi in interval([i for i, b in indexes if b is True]):
-#                     ai -= self.start_frame
-#                     bi -= self.start_frame
-#                     dt = (bi - ai) - 1
-#                     A = self._frames[group][ai]
-#                     B = self._frames[group][bi]
-#                     for j, arr in zip(xrange(ai + 1, bi), interpolate(A, B, dt)):
-#                         self._frames[group][j] = arr
-#         self._fixed = True
+    def _sort_foot(self):
+        u"""Ordena los marcadores del grupo de tobillo."""
+        G2copy = np.array([arr for arr in self._filled_groups[2]])
+        D0 = np.linalg.norm(G2copy[:, 2, :] - G2copy[:, 0, :], axis=1)
+        D1 = np.linalg.norm(G2copy[:, 2, :] - G2copy[:, 1, :], axis=1)
+        for i, mindst in enumerate(D0 < D1):
+            M0, M1, M2 = G2copy[i]
+            if mindst:
+                G2copy[i] = np.array((M1, M0, M2))
+        self._fixed_groups = self._filled_groups.copy()
+        self._fixed_groups[2] = G2copy
 
-#     def cycle_definition(self, fps, level=0.1):
-#         u"""Definición de ciclo.
+    def _interpolate(self):
+        u"""Realiza una interpolación lineal de los datos faltantes."""
+        for group in (0, 1, 2):
+            indexes = self._to_interpolate[group]
+            if indexes:
+                for ai, bi in interval([i for i, b in indexes if b is True]):
+                    ai -= self.start_videoframe_position
+                    bi -= self.start_videoframe_position
+                    dt = (bi - ai) - 1
+                    A = self._fixed_groups[group][ai]
+                    B = self._fixed_groups[group][bi]
+                    for j, arr in zip(xrange(ai + 1, bi), interp(A, B, dt)):
+                        self._fixed_groups[group][j] = arr
 
-#         Se establecen los ciclos, si los hay, dentro de la trayectoria. Establece
-#         los atributos: cycles, phases, footmov.
-#         :param fps: cuadros por segundo.
-#         :type fps: float
-#         :param level: umbral de velocidad para determinar cuando el pié esta en
-#         movimiento.
-#         :type level: float
-#         """
-#         # primer proceso. Se detecta la situacion de apoyo y balanceo
-#         vel = []
-#         lmov = []
-#         for i in (0, 1):
-#             mov = diff([X[i][1] for X in self._frames[2]], 1/fps)
-#             vel.append(mov)
-#             lmov.append(mov)
-#             limit = max(vel[i]) * level  # DEBUG(HARDCORE): umbral de velocidad aceptado.
-#             vel[i] = [abs(x) > limit for x in vel[i]]
-#             homogenize(vel[i])
-#         phases = [not (x + y) < 2 for x, y in zip(vel[0], vel[1])]
+    def cycle_definition(self, cycle_level=.15):
+        u"""Definición de ciclo.
 
-#         # segundo proceso. Se detectan ciclos dentro del trayecto.
-#         st = []  # stance
-#         cycles = []
-#         for i, (prev, nextt) in enumerate(zip(phases[:-1], phases[1:])):
-#             if prev and not nextt:  # (prev:balanceo/nextt:apoyo)
-#                 st.append(i+1)
-#             if nextt and not prev: # (prev:apoyo/nextt:balanceo)
-#                 tf = i+1  # toeoff
-#             if len(st) == 2:
-#                 ret, cycle = mov_validation(lmov, ((st[0], tf-1), (tf, st[1]-1)))
-#                 if ret:
-#                     cycles.append(cycle)
-#                 st = [st[-1]]
-#         self._footmov = lmov
-#         self._phases = phases
-#         self._cycles = cycles
-#         self._cycled = True
+        Se establecen los ciclos dentro de la caminata.
+        :param fps: cuadros por segundo.
+        :type fps: float
+        :param level: umbral de velocidad para determinar cuando el pié esta en
+        movimiento.
+        :type level: float
+        """
+        if not self._fixed_groups:
+            self.fix_groups()
 
-#     def get_joints(self):
-#         u"""Calcula los angulos articulares dentro de cada ciclo en la trayectoria."""
-#         for i, cycle in enumerate(self._cycles):
-#             (ihs, ho),(to, ehs) = cycle
-#             markers = {}
-#             codenames = (('c', 'fs'), ('ts', 'fi'), ('pa', 'pp', 'ti'))
-#             for j in (0, 1, 2):
-#                 group = np.array(self._frames[j])
-#                 for k, name in enumerate(codenames[j]):
-#                     markers[name] = group[ihs: ehs+1, k, :]
-#             # El marcador de tronco no se está utilizando.
-#             tight = markers['fi'] - markers['fs']
-#             leg = markers['ti'] - markers['ts']
-#             foot = markers['pp'] - markers['pa']
+        mov = []
+        for i in (0, 1):
+            pi = np.array(self._fixed_groups[2])[:, i, :]
+            pmv = np.abs(np.gradient(pi)[0].sum(axis=1))
+            pmv[pmv < max(pmv)*cycle_level] = 0
+            homogenize(pmv)
+            mov.append(pmv)
+        mov = np.array(mov).sum(axis=0)
+        mov[mov > 0] = 1
+        self._foot_mov = mov
 
-#             xdirection = (None, positiveX, negativeX)[self._direction]
-#             hip = 90 - Angle(tight, xdirection(tight.shape[0]))
-#             knee = hip + (Angle(leg, xdirection(leg.shape[0])) - 90)
-#             ankle = 90 - Angle(leg, foot)
-#             hip, knee, ankle = fourierfit(np.array((hip, knee, ankle)))
-#             self._joints[i] = {'hip': hip, 'knee': knee, 'ankle': ankle}
+        st = []  # stance
+        cycles = []
+        for i, (pr, nx) in enumerate(zip(mov[:-1], mov[1:])):
+            if pr and not nx:
+                st.append(i+1)
+            if not pr and nx:
+                tf = i+1  # toeoff
+            if len(st) == 2:
+                cycles.append((st[0], tf, st[1]))
+                st = [st[1]]
+
+        cycles = np.array(cycles)
+        st = cycles[:, 1] - np.float16(cycles[:, 0])
+        tt = cycles[:, 2] - np.float16(cycles[:, 0])
+        self.cycles = cycles
+        self.phases = np.array(((st / tt), (1 - st / tt))).round(2)
+        self._cycled = True

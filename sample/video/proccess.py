@@ -112,119 +112,6 @@ def grouping(markers, n_expected, kroi=False):
     return(boolean_interpolate, (G0, G1, G2))
 
 
-def diff(array, dt=1):
-    u"""Diferencia consecutiva.
-
-    Calcula la diferencia que existe entre el (i+1)ésimo y i-ésimo termino de
-    un arreglo consecutivo de datos. El argumento dt, por defecto unitario, es
-    la distancia que existe entre la sucesión de estos términos.
-    :param array: arreglo dim=1, de terminos.
-    :type array: (tuple or list)
-    :return: arreglo de las diferencias.
-    :rtype: list
-    """
-    vel = []
-    for prev, new in zip(array[:-1], array[1:]):
-        if prev and new:
-            vel.append((new - prev) / dt)
-        else:
-            vel.append(None)
-    vel.append(dt)  # este ultimo es arbitrario, pero no puede ser 0 o None
-    return vel
-
-
-def foot_direction(foot_group):
-    u"""Establece la orientación del pie en el eje de las x.
-
-    Toma como referencia el marcador de talón y el marcadore de antepié
-    del grupo de tobillo.
-    :param foot_group: grupo de marcadores de tobillo.
-    :type: np.ndarray
-    :return: -1 si orienta en el sentido negativo de las x, 1 si es el
-    opuesto.
-    :rtype: int
-    """
-    x_antepie = foot_group[0, 0]
-    x_talon = foot_group[1, 0]
-    if x_talon < x_antepie:
-        return 1
-    else:
-        return -1
-
-
-def sort_foot_markers(foot, direction=False):
-    u"""Ordenamiento de los marcadores del pie.
-
-    Cuando se toman los marcadores del videoframe en la función image_proccess
-    los marcadores se ordenan por nivel de filas(y), por lo tanto, durante la
-    marcha los marcadores de pie y talón pueden verse intercambiados varias
-    veces durante un mismo ciclo. Si se pasa el argumento de dirección,
-    entonces los marcadores se ordenan por sus valores xtalon, xantepié. Si no
-    se pasa este argumento entonces el ordenamiento se produce con el xtobillo,
-    pero en este caso solo se vale cuando el pie se encuentra plano sobre el
-    suelo.
-    :param foot: arreglo de marcadores del grupo de tobillo.
-    :type foot: np.ndarray
-    :param direction: valor de dirección, por defecto False.
-    :type direction: int, 1 or -1
-    :return: arreglo de grupo tobillo ordenado: antepie, talon y maleolo
-    :rtype: np.ndarray
-    """
-    if foot.shape[0] != 3 and direction:
-        return None
-    x1, x2, refer = foot[:, 0]
-    if direction:
-        if direction > 0:
-            if x1 < x2:
-                talon = foot[0]
-                antepie = foot[1]
-            else:
-                talon = foot[1]
-                antepie = foot[0]
-        elif direction < 0:
-            if x1 < x2:
-                talon = foot[1]
-                antepie = foot[0]
-            else:
-                talon = foot[0]
-                antepie = foot[1]
-    else:
-        values = ((abs(refer - x1), 0),
-                  (abs(refer - x2), 1))
-        talon = foot[min(values)[1]]
-        antepie = foot[max(values)[1]]
-    maleolo = foot[-1]
-    return np.array((antepie, talon, maleolo))
-
-
-def set_direction(foot_markers, M=3):
-    u"""Determina la dirección en la se mueve la persona.
-
-    Toma los marcadores de tobillo y los ordena cuando el pie no está
-    cambiando de posición, entonces determia la orientación del pie. Se
-    establece la dirección del movimiento por el signo de la suma
-    de las orientaciones de pié.
-    :param foot_markers: arreglo de marcadores del grupo de tobillo.
-    :type foot_markers: np.ndarray
-    :param M: número de marcadores que se espera encontrar en el grupo.
-    :type M: int
-    :return: dirección, -1 si se mueve en el sentido negativo de las x y 1
-    en el caso opuesto.
-    :rtype: int
-    """
-    Y = map(lambda m: m[0][1]
-            if (isinstance(m, np.ndarray) and m.shape[0] != 0)
-            else np.random.randint(0, 1000),
-            foot_markers)
-    vel = diff(Y)
-    direction = 0
-    for v, arr in zip(vel, foot_markers):
-        if v == 0 and arr.shape[0] == M:
-            sorted_foot = sort_foot_markers(arr)
-            direction += foot_direction(sorted_foot)
-    return 1 if direction > 0 else -1
-
-
 def linear(x, x1, x2, y1, y2):
     u"""Función lineal.
 
@@ -243,7 +130,7 @@ def linear(x, x1, x2, y1, y2):
     return num / div + y1
 
 
-def interpolate(A, B, n_steps):
+def interp(A, B, n_steps):
     u"""Realiza una interpolación lineal entre los arreglos A y B.
 
     :param A: arreglo de marcadores inicial.
@@ -299,7 +186,7 @@ def interval(index_to_interpolate):
     yield it[0] - 1, Xj + 1
 
 
-def homogenize(binary, iterations=5):
+def homogenize(mov, cycle_limit=5):
     u"""Homogeneizar.
 
     Cuando se quieren determinar las fases de apoyo y balanceo dentro
@@ -317,40 +204,31 @@ def homogenize(binary, iterations=5):
     :type param: int
     :return: None
     """
-    kernel = 1
-    for __ in xrange(iterations):
-        for i, value in enumerate(binary):
-            binary[i] += kernel + 1
-            kernel = value
-        for i, value in enumerate(binary):
-            if value == 1:
-                binary[i] = 0
-    for i, value in enumerate(binary):
-        if value == 0:
-            for j in xrange(1, iterations + 1):
-                binary[i - j] = 0
+    # filtrado en apoyo
+    swing = 0
+    for i, mv in enumerate(mov):
+        if mv:
+            swing += 1
         else:
-            binary[i] = 1
-
-
-def mov_validation(foot_movement, cycle):
-    u"""Validar velocidad armónica en los marcadores de pie."""
-    validate = 0
-    for movement in foot_movement:
-        movcopy = movement[cycle[0][0]: cycle[1][1]]
-        temp = movcopy.pop(movcopy.index(max(movcopy)))
-        level = temp * 0.5  # DEBUG(HARDCORE): se setea un nivel alto.
-        for j in xrange(5):
-            M = movcopy.pop(movcopy.index(max(movcopy)))
-            if (temp - M) < level:
-                if j == 0:
-                    validate += 1
-                break
-            temp = M
-    if validate == 2:
-        return True, cycle
-    else:
-        return False, None
+            if swing and swing < cycle_limit:
+                for j in xrange(swing):
+                    k = swing - j
+                    mov[i-k] = 0
+                swing = 0
+    # filtrado en balanceo
+    stance = 0
+    for i, mv in enumerate(mov):
+        if not mv:
+            stance += 1
+        else:
+            if stance:
+                if stance < cycle_limit:
+                    for j in xrange(stance):
+                        k = stance - j
+                        mov[i-k] = mv
+                    stance = 0
+                else:
+                    stance = 0
 
 
 def angle(A, B):
