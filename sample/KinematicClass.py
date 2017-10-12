@@ -49,8 +49,6 @@ class Kinematic(object):
         self.tstand = {'right': [], 'left': []}
         self.tswing = {'right': [], 'left': []}
         self._split_hikes(metric_ref, fps)
-        self._nrights = len(self.joints['right']['hip'])
-        self._nlefts = len(self.joints['left']['hip'])
 
     def get_joint(self, joint, lat, summary=True):
         u"""Obtener angulos articulares.
@@ -158,20 +156,11 @@ class Kinematic(object):
             elif hike.direction > 0:
                 rjoints.append(hike.joints_as_dataframe(ascii_uppercase[i]))
 
-            # # NOTE: distancias y tiempos.
-            # for ihs, to, ehs in hike.cycles:
-            #     X0 = hike._fixed_groups[2][ihs][1]
-            #     X1 = hike._fixed_groups[2][ehs][1]
-            #     px_distance = np.linalg.norm(X0 - X1)
-            #     stride = self.stride[self._lat[hike.direction]]
-            #     stride.append(px_to_m(px_distance, metric_ref))
-            #     timecycle = self.tcycles[self._lat[hike.direction]]
-            #     timecycle.append((ehs - ihs) / fps)
-            #     timestand = self.tstand[self._lat[hike.direction]]
-            #     timestand.append((to - ihs) / fps)
-            #     timeswing = self.tswing[self._lat[hike.direction]]
-            #     timeswing.append((ehs - to) / fps)
 
-        ljoints = pd.concat(ljoints).reorder_index(['joint', 'cycle'])
-        rjoints = pd.concat(rjoints).reorder_index(['joint', 'cycle'])
-        self.dfjoints = pd.concat({'left': ljoints, 'right': rjoints})
+        ljoints = pd.concat(ljoints).reorder_levels(['joint', 'cycle'])
+        rjoints = pd.concat(rjoints).reorder_levels(['joint', 'cycle'])
+        self.dfjoints = pd.concat(
+            {'left': ljoints, 'right': rjoints},
+            names=['side', 'joint', 'cycle']
+        )
+        self.dfjoints.sort_index(inplace=True)

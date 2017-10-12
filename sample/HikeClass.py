@@ -165,17 +165,17 @@ class Hike(object):
                 dataframe.append(arr[:, i, 1])
         return pd.DataFrame(dataframe, index=ix, dtype='int').replace(0, np.nan)
 
-    def phases_as_dataframe(self):
+    def spatiotemporal_as_dataframe(self):
         u"""."""
         if self._cycled:
-            ncycles = self.phases.shape[1]
-            ix = ('stance', 'swing')
+            ix = ('stride', 'stance', 'swing', 'cycle', 'stance', '')
             cl = map(
                 lambda x, y: x % y,
                 ('C%s', )*ncycles,
                 range(1, ncycles + 1)
             )
             return pd.DataFrame(self.phases, index=ix, columns=cl)
+
 
     def fix_groups(self):
         u"""Corrige el orden de los marcadores de tobillo e interpola datos."""
@@ -251,10 +251,18 @@ class Hike(object):
 
         if cycles:
             cycles = np.array(cycles)
-            st = cycles[:, 1] - np.float16(cycles[:, 0])
-            tt = cycles[:, 2] - np.float16(cycles[:, 0])
+            # NOTE: Parámetros espaciotemporales. Zancada y tiempos.
+            ihs, to, ehs = cycles.transpose()
+            X0 = np.array(self._fixed_groups[2])[ihs, 2, :]
+            X1 = np.array(self._fixed_groups[2])[ehs, 2, :]
+            self.pxstride = np.linalg.norm(X0 - X1, axis=1)
+            self.times = np.array([(ehs - ihs),
+                                   (to - ihs),
+                                   (ehs - to)],
+                                  dtype='float')
+            self.phases = self.times[1:] / self.times[0]
             self.cycles = cycles
-            self.phases = np.array(((st / tt), (1 - st / tt))).round(2)
+            self.ncycles = len(cycles)
             self._cycled = True
         else:
             print u"#mm: No cycles in hike."
@@ -288,14 +296,16 @@ class Hike(object):
             hip, knee, ankle = fourierfit(np.array((hip, knee, ankle)))
             self.joints[i] = {'hip': hip, 'knee': knee, 'ankle': ankle}
 
-    def joints_as_dataframe(self, code='A'):
+    def joints_as_dataframe(self, code=''):
         u"""."""
         dataframe = []
-        first = [code + str(i) for i in xrange(len(self.cycles))]
-        second = ('hip', 'knee', 'ankle')
-        rows = product(first, second)
-        ix = pd.MultiIndex.from_tuples(tuple(rows), names=['cycle', 'joint'])
+        codecycles = [code + str(i) for i in xrange(self.ncycles)]
+        joints = ('hip', 'knee', 'ankle')
+        ix = pd.MultiIndex.from_product(
+            (codecycles, joints),
+            names=('cycle', 'joint')
+        )
         for cycle in self.joints:
-            for joint in ('hip', 'knee', 'ankle'):
+            for joint in joints:
                 dataframe.append(self.joints[cycle][joint])
         return pd.DataFrame(dataframe, index=ix)
