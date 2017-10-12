@@ -1,11 +1,35 @@
+#!/usr/bin/env python
 # coding: utf-8
+
+"""La nueva clase Hike (antigua clase Trayectoria), se encarga de recibir
+los datos de los marcadores, de agruparlos correctamente, y de corregir la
+falta de datos. El trabajo de establecer los ciclos los va a realizar la
+clase Kinematic.
+"""
+
+# Copyright (C) 2017  Mariano Ramis
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 
 from itertools import product
 
 import numpy as np
 import pandas as pd
 
-from video.proccess import interval, interp, homogenize
+from video.proccess import (interval, interp, homogenize, positiveX, negativeX,
+                            angle, fourierfit)
 
 
 class Hike(object):
@@ -15,15 +39,12 @@ class Hike(object):
         self.start_videoframe_position = None
         self.end_videoframe_position = None
         self.direction = None
+        self.joints = {}
         self._count_frames = 0
         self._groups_markers = {0: [], 1: [], 2: [], 'index_order': []}
         self._filled_groups = False
         self._fixed_groups = False
         self._to_interpolate = {0: [], 1: [], 2: []}
-# NOTE: La nueva clase Hike (antigua clase Trayectoria), se encarga de recibir
-# los datos de los marcadores, de agruparlos correctamente, y de corregir la
-# falta de datos. El trabajo de establecer los ciclos los va a realizar la
-# clase Kinematic.
 
     def add_markers_from_videoframe(self, index, groups):
         u"""Se agregan las trayectorias de los marcadores.
@@ -122,20 +143,17 @@ class Hike(object):
                 markers = []
             self._filled_groups = filled_groups
 
-    def markers_as_dataframe(self, wich_groups, ret=False):
+    def markers_as_dataframe(self, wich_groups='fixed'):
         u"""."""
         markers_group = {
             'filled': self._filled_groups,
             'fixed': self._fixed_groups
         }
-
         if wich_groups not in markers_group.keys():
             print '#mm: Bad group. Options are: filled, fixed.'
             return
-
-        if not self._fixed_groups:
-            print '#mm: Not Fixed Yet'
-            wich_groups = 'filled'
+        self.fill_groups()
+        self.fix_groups()
 
         dataframe = []
         rows = product(('fs', 'tri', 'ts', 'fi', 'pa', 'pp', 'ti'), ('x', 'y'))
@@ -145,9 +163,9 @@ class Hike(object):
             for i in xrange(codes):  # rows, markers, columns
                 dataframe.append(arr[:, i, 0])
                 dataframe.append(arr[:, i, 1])
-        return pd.DataFrame(dataframe, index=ix).replace(0, np.nan)
+        return pd.DataFrame(dataframe, index=ix, dtype='int').replace(0, np.nan)
 
-    def cycles_as_dataframe(self):
+    def phases_as_dataframe(self):
         u"""."""
         if self._cycled:
             ncycles = self.phases.shape[1]
@@ -161,14 +179,13 @@ class Hike(object):
 
     def fix_groups(self):
         u"""Corrige el orden de los marcadores de tobillo e interpola datos."""
-        if self._fixed_groups:
-            return
-        if not self.direction:
-            self.get_foot_direction()
-        if not self._filled_groups:
-            self.fill_groups()
-        self._sort_foot()
-        self._interpolate()
+        if not self._fixed_groups:
+            if not self.direction:
+                self.get_foot_direction()
+            if not self._filled_groups:
+                self.fill_groups()
+            self._sort_foot()
+            self._interpolate()
 
     def _sort_foot(self):
         u"""Ordena los marcadores del grupo de tobillo."""
@@ -216,6 +233,7 @@ class Hike(object):
             pmv[pmv < max(pmv)*cycle_level] = 0
             homogenize(pmv)
             mov.append(pmv)
+        self._foot_vel = mov
         mov = np.array(mov).sum(axis=0)
         mov[mov > 0] = 1
         self._foot_mov = mov
@@ -231,9 +249,53 @@ class Hike(object):
                 cycles.append((st[0], tf, st[1]))
                 st = [st[1]]
 
-        cycles = np.array(cycles)
-        st = cycles[:, 1] - np.float16(cycles[:, 0])
-        tt = cycles[:, 2] - np.float16(cycles[:, 0])
-        self.cycles = cycles
-        self.phases = np.array(((st / tt), (1 - st / tt))).round(2)
-        self._cycled = True
+        if cycles:
+            cycles = np.array(cycles)
+            st = cycles[:, 1] - np.float16(cycles[:, 0])
+            tt = cycles[:, 2] - np.float16(cycles[:, 0])
+            self.cycles = cycles
+            self.phases = np.array(((st / tt), (1 - st / tt))).round(2)
+            self._cycled = True
+        else:
+            print u"#mm: No cycles in hike."
+            self.cycles = None
+
+    def joints_definition(self):
+        u"""."""
+
+        self.fix_groups()
+        self.cycle_definition()
+        if self.cycles is None:
+            return
+
+        for i, cycle in enumerate(self.cycles):
+            ihs, to, ehs = cycle
+            markers = {}
+            codenames = (('tr', 'fs'), ('ts', 'fi'), ('pa', 'pp', 'ti'))
+            for j in (0, 1, 2):
+                group = np.array(self._fixed_groups[j])
+                for k, name in enumerate(codenames[j]):  # rows,markers,columns
+                    markers[name] = group[ihs: ehs+1, k, :]
+            # NOTE: El marcador de tronco no se está utilizando.
+            tight = markers['fi'] - markers['fs']
+            leg = markers['ti'] - markers['ts']
+            foot = markers['pp'] - markers['pa']
+
+            xdirection = (None, positiveX, negativeX)[self.direction]
+            hip = 90 - angle(tight, xdirection(tight.shape[0]))
+            knee = hip + angle(leg, xdirection(leg.shape[0])) - 90
+            ankle = 90 - angle(leg, foot)
+            hip, knee, ankle = fourierfit(np.array((hip, knee, ankle)))
+            self.joints[i] = {'hip': hip, 'knee': knee, 'ankle': ankle}
+
+    def joints_as_dataframe(self, code='A'):
+        u"""."""
+        dataframe = []
+        first = [code + str(i) for i in xrange(len(self.cycles))]
+        second = ('hip', 'knee', 'ankle')
+        rows = product(first, second)
+        ix = pd.MultiIndex.from_tuples(tuple(rows), names=['cycle', 'joint'])
+        for cycle in self.joints:
+            for joint in ('hip', 'knee', 'ankle'):
+                dataframe.append(self.joints[cycle][joint])
+        return pd.DataFrame(dataframe, index=ix)
