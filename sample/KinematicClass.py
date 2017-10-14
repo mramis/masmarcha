@@ -139,18 +139,26 @@ class Kinematic(object):
                 rspatiotemp.append(hike.spatiotemporal_as_dataframe(code))
 
         # NOTE: articulaciones.
-        ljoints = pd.concat(ljoints).reorder_levels(['joint', 'cycle'])
-        rjoints = pd.concat(rjoints).reorder_levels(['joint', 'cycle'])
-        self.dfjoints = pd.concat(
-            {'left': ljoints, 'right': rjoints},
-            names=['side', 'joint', 'cycle']
-        )
-        self.dfjoints.sort_index(inplace=True)
+        sides = {}
+        if ljoints:
+            sides['left'] = pd.concat(ljoints)
+            sides['left'].reorder_levels(['joint', 'cycle'], inplace=True)
+        if rjoints:
+            sides['right'] = pd.concat(rjoints)
+            sides['right'].reorder_levels(['joint', 'cycle'], inplace=True)
+        if sides:
+            self.joints = pd.concat(sides, names=['side', 'joint', 'cycle'])
+            self.joints.sort_index(inplace=True)
+        else:
+            self.joints = None
 
         # NOTE: parámetros espaciotemporales.
-        lspatiotemp = pd.concat(lspatiotemp, axis=1)
-        rspatiotemp = pd.concat(rspatiotemp, axis=1)
-        self.spaciotemporal = pd.concat(
-            {'left': lspatiotemp, 'right': rspatiotemp},
-            axis=1
-        )
+        sides = {}
+        if lspatiotemp:
+            sides['left'] = pd.concat(lspatiotemp, axis=1)
+        if rspatiotemp:
+            sides['right'] = pd.concat(rspatiotemp, axis=1)
+        if sides:
+            self.spatiotemporal = pd.concat(sides, axis=1)
+        else:
+            self.spatiotemporal = None

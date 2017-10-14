@@ -40,7 +40,6 @@ class Hike(object):
         self.end_videoframe_position = None
         self.direction = None
         self.joints = {}
-        self._count_frames = 0
         self.videofps = fps
         self.videometricsample = metrics[0]  # muestra de referencia
         self.videometricscale = metrics[1]  # escala de conversión
@@ -48,6 +47,8 @@ class Hike(object):
         self._filled_groups = False
         self._fixed_groups = False
         self._to_interpolate = {0: [], 1: [], 2: []}
+        self._count_frames = 0
+        self._cycled = None
 
     def add_markers_from_videoframe(self, index, groups):
         u"""Se agregan las trayectorias de los marcadores.
@@ -292,17 +293,18 @@ class Hike(object):
 
     def joints_as_dataframe(self, code=''):
         u"""."""
-        dataframe = []
-        codecycles = [code + str(i) for i in xrange(self.ncycles)]
-        joints = ('hip', 'knee', 'ankle')
-        ix = pd.MultiIndex.from_product(
-            (codecycles, joints),
-            names=('cycle', 'joint')
-        )
-        for cycle in self.joints:
-            for joint in joints:
-                dataframe.append(self.joints[cycle][joint])
-        return pd.DataFrame(dataframe, index=ix)
+        if self._cycled:
+            dataframe = []
+            codecycles = [code + str(i) for i in xrange(self.ncycles)]
+            joints = ('hip', 'knee', 'ankle')
+            ix = pd.MultiIndex.from_product(
+                (codecycles, joints),
+                names=('cycle', 'joint')
+            )
+            for cycle in self.joints:
+                for joint in joints:
+                    dataframe.append(self.joints[cycle][joint])
+            return pd.DataFrame(dataframe, index=ix)
 
     def spatiotemporal_as_dataframe(self, code=''):
         u"""."""
