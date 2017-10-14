@@ -29,18 +29,21 @@ import numpy as np
 import pandas as pd
 
 from video.proccess import (interval, interp, homogenize, positiveX, negativeX,
-                            angle, fourierfit)
+                            angle, fourierfit, px_to_m)
 
 
 class Hike(object):
     """Conserva los datos de los marcadores de la caminata en un sentido."""
 
-    def __init__(self):
+    def __init__(self, fps, metrics):
         self.start_videoframe_position = None
         self.end_videoframe_position = None
         self.direction = None
         self.joints = {}
         self._count_frames = 0
+        self.videofps = fps
+        self.videometricsample = metrics[0]  # muestra de referencia
+        self.videometricscale = metrics[1]  # escala de conversión
         self._groups_markers = {0: [], 1: [], 2: [], 'index_order': []}
         self._filled_groups = False
         self._fixed_groups = False
@@ -155,27 +158,15 @@ class Hike(object):
         self.fill_groups()
         self.fix_groups()
 
-        dataframe = []
+        df = []
         rows = product(('fs', 'tri', 'ts', 'fi', 'pa', 'pp', 'ti'), ('x', 'y'))
         ix = pd.MultiIndex.from_tuples(tuple(rows), names=['markers', 'coord'])
         for group, codes in zip((0, 1, 2), (2, 2, 3)):
             arr = np.array(markers_group[wich_groups][group])
             for i in xrange(codes):  # rows, markers, columns
-                dataframe.append(arr[:, i, 0])
-                dataframe.append(arr[:, i, 1])
-        return pd.DataFrame(dataframe, index=ix, dtype='int').replace(0, np.nan)
-
-    def spatiotemporal_as_dataframe(self):
-        u"""."""
-        if self._cycled:
-            ix = ('stride', 'stance', 'swing', 'cycle', 'stance', '')
-            cl = map(
-                lambda x, y: x % y,
-                ('C%s', )*ncycles,
-                range(1, ncycles + 1)
-            )
-            return pd.DataFrame(self.phases, index=ix, columns=cl)
-
+                df.append(arr[:, i, 0])
+                df.append(arr[:, i, 1])
+        return pd.DataFrame(df, index=ix, dtype='int').replace(0, np.nan)
 
     def fix_groups(self):
         u"""Corrige el orden de los marcadores de tobillo e interpola datos."""
@@ -256,10 +247,13 @@ class Hike(object):
             X0 = np.array(self._fixed_groups[2])[ihs, 2, :]
             X1 = np.array(self._fixed_groups[2])[ehs, 2, :]
             self.pxstride = np.linalg.norm(X0 - X1, axis=1)
+            self.stride = px_to_m(self.pxstride,
+                                  self.videometricsample,
+                                  self.videometricscale)
             self.times = np.array([(ehs - ihs),
                                    (to - ihs),
                                    (ehs - to)],
-                                  dtype='float')
+                                  dtype='float') / self.videofps
             self.phases = self.times[1:] / self.times[0]
             self.cycles = cycles
             self.ncycles = len(cycles)
@@ -309,3 +303,18 @@ class Hike(object):
             for joint in joints:
                 dataframe.append(self.joints[cycle][joint])
         return pd.DataFrame(dataframe, index=ix)
+
+    def spatiotemporal_as_dataframe(self, code=''):
+        u"""."""
+        if self._cycled:
+            codecycles = [code + str(i) for i in xrange(self.ncycles)]
+            ix = ('stride lenght', 'cycle time', 'stance time', 'swing time',
+                  'stance phase', 'swing phase', 'velocity [m/s]', 'cadence')
+
+            dataframe = np.vstack((self.stride,
+                                   self.times,
+                                   self.phases,
+                                   self.stride / self.times[0],
+                                   120 / self.times[0]
+                                   ))
+            return pd.DataFrame(dataframe, index=ix, columns=codecycles)

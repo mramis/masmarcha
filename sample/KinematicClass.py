@@ -24,8 +24,6 @@ from string import ascii_uppercase
 import numpy as np
 import pandas as pd
 
-from video.proccess import px_to_m
-
 
 class Kinematic(object):
     u"""Cinemática.
@@ -42,13 +40,9 @@ class Kinematic(object):
     :type trayectories: list
     """
 
-    def __init__(self, hikes, metric_ref, fps):
+    def __init__(self, hikes):
         self._hikes = hikes
-        self.stride = {'right': [], 'left': []}
-        self.tcycles = {'right': [], 'left': []}
-        self.tstand = {'right': [], 'left': []}
-        self.tswing = {'right': [], 'left': []}
-        self._split_hikes(metric_ref, fps)
+        self._split_hikes()
 
     def get_joint(self, joint, lat, summary=True):
         u"""Obtener angulos articulares.
@@ -65,10 +59,7 @@ class Kinematic(object):
         :return: valores angulares.
         :rtype: np.ndarray
         """
-        array = np.array(self.joints[lat][joint])
-        if summary:
-            array = np.array((array.mean(axis=0), array.std(axis=0)))
-        return array
+        pass
 
     def get_strides(self, lat, summary=True):
         u"""Obtener zancadas.
@@ -83,10 +74,7 @@ class Kinematic(object):
         :return: valores de zancada.
         :rtype: np.ndarray
         """
-        array = np.array(self.long_stride[lat])
-        if summary:
-            array = np.array((array.mean(axis=0), array.std(axis=0)))
-        return array
+        pass
 
     def get_times(self, lat, summary=True):
         u"""Obtener tiempos.
@@ -103,12 +91,7 @@ class Kinematic(object):
         fase de balanceo.
         :rtype: np.ndarray
         """
-        array = np.array((self.tmcycles[lat],
-                          self.tmstand[lat],
-                          self.tmswing[lat]))
-        if summary:
-            array = np.array((array.mean(axis=1), array.std(axis=1))).T
-        return array
+        pass
 
     def get_phases(self, lat):
         u"""Obtener Fases.
@@ -119,8 +102,7 @@ class Kinematic(object):
         :return: valores de resumen(media) de fase en orden: apoyo, balanceo
         :rtype: tuple
         """
-        tt, ap, bal = self.get_times(lat)[:, 0]
-        return round(ap / tt, 2)*100,  round(bal / tt, 2)*100
+        pass
 
     def get_cadency(self):
         u"""Obtener cadencia.
@@ -128,35 +110,35 @@ class Kinematic(object):
         Devuelve la cadencia media de la marcha. La unidad pasos
         por minuto.
         """
-        cd = ((120 / self.get_times('right')[0][0])
-              (120 / self.get_times('left')[0][0]))
-        return round(cd / 2)
+        pass
 
     def get_velocity(self):
         u"""Obtener velocidad
 
         Devuelve la velocidad media de la marcha. Unidad metros por segundo.
         """
-        vl = ((self.get_strides('right')[0] / self.get_times('right')[0][0] / 100) +
-              (self.get_strides('left')[0] / self.get_times('left')[0][0] / 100))
-        return round(vl / 2, 2)
+        pass
 
-    def _split_hikes(self, metric_ref, fps):
+    def _split_hikes(self):
         u"""Obtiene los datos de las caminatas.
 
         Se procesan los datos cinemáticos de las caminatas.
         """
         ljoints = []
         rjoints = []
+        lspatiotemp = []
+        rspatiotemp = []
         for i, hike in enumerate(self._hikes):
-            # NOTE: articulaciones.
+            code = ascii_uppercase[i]
             hike.joints_definition()
             if hike.direction < 0:
-                ljoints.append(hike.joints_as_dataframe(ascii_uppercase[i]))
+                ljoints.append(hike.joints_as_dataframe(code))
+                lspatiotemp.append(hike.spatiotemporal_as_dataframe(code))
             elif hike.direction > 0:
-                rjoints.append(hike.joints_as_dataframe(ascii_uppercase[i]))
+                rjoints.append(hike.joints_as_dataframe(code))
+                rspatiotemp.append(hike.spatiotemporal_as_dataframe(code))
 
-
+        # NOTE: articulaciones.
         ljoints = pd.concat(ljoints).reorder_levels(['joint', 'cycle'])
         rjoints = pd.concat(rjoints).reorder_levels(['joint', 'cycle'])
         self.dfjoints = pd.concat(
@@ -164,3 +146,11 @@ class Kinematic(object):
             names=['side', 'joint', 'cycle']
         )
         self.dfjoints.sort_index(inplace=True)
+
+        # NOTE: parámetros espaciotemporales.
+        lspatiotemp = pd.concat(lspatiotemp, axis=1)
+        rspatiotemp = pd.concat(rspatiotemp, axis=1)
+        self.spaciotemporal = pd.concat(
+            {'left': lspatiotemp, 'right': rspatiotemp},
+            axis=1
+        )
