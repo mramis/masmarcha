@@ -129,25 +129,25 @@ class Kinematic(object):
         lspatiotemp = []
         rspatiotemp = []
         for i, hike in enumerate(self._hikes):
-            code = ascii_uppercase[i]
             hike.joints_definition()
+            if hike.cycles is None:
+                continue
             if hike.direction < 0:
-                ljoints.append(hike.joints_as_dataframe(code))
-                lspatiotemp.append(hike.spatiotemporal_as_dataframe(code))
+                ljoints.append(hike.joints_as_dataframe())
+                lspatiotemp.append(hike.spatiotemporal_as_dataframe())
             elif hike.direction > 0:
-                rjoints.append(hike.joints_as_dataframe(code))
-                rspatiotemp.append(hike.spatiotemporal_as_dataframe(code))
+                rjoints.append(hike.joints_as_dataframe())
+                rspatiotemp.append(hike.spatiotemporal_as_dataframe())
 
         # NOTE: articulaciones.
         sides = {}
         if ljoints:
             sides['left'] = pd.concat(ljoints)
-            sides['left'].reorder_levels(['joint', 'cycle'], inplace=True)
         if rjoints:
             sides['right'] = pd.concat(rjoints)
-            sides['right'].reorder_levels(['joint', 'cycle'], inplace=True)
         if sides:
-            self.joints = pd.concat(sides, names=['side', 'joint', 'cycle'])
+            joints = pd.concat(sides, names=['side', 'cycle', 'joint'])
+            self.joints = joints.reorder_levels(['side', 'joint', 'cycle'])
             self.joints.sort_index(inplace=True)
         else:
             self.joints = None

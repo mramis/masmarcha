@@ -41,6 +41,7 @@ class Hike(object):
         self.end_videoframe_position = None
         self.direction = None
         self.joints = {}
+        self.cycles = None
         self.videofps = fps
         self.videometricsample = metrics[0]  # muestra de referencia
         self.videometricscale = metrics[1]  # escala de conversión
@@ -51,8 +52,16 @@ class Hike(object):
         self._fixed_cluster = False
         self._count_frames = 0
         self._cycled = None
+        self._has_cycles = False
         self._sorted = None
         self._interpolated = None
+
+    def kinovea_input(self, kinovea):
+        self.schema = kinovea.schema
+        self.videofps = kinovea.fps
+        self._gcluster = kinovea._gcluster
+        self._filled_cluster = kinovea._gcluster
+        self._fixed_cluster = kinovea._gcluster
 
     def add_markers_from_videoframe(self, index, cluster):
         u"""Se agregan las trayectorias de los marcadores.
@@ -95,7 +104,7 @@ class Hike(object):
             self._gcluster['index_order'].pop()
             n -= 1
 
-    def fill_groups(self):
+    def fill_cluster(self):
         u"""Rellenar grupos.
 
         Este método toma cada conjunto de marcadores por cuadro, y cada grupo
@@ -227,6 +236,7 @@ class Hike(object):
             if len(st) == 2:
                 cycles.append((st[0], tf, st[1]))
                 st = [st[1]]
+        self._cycled = True
 
         if cycles:
             cycles = np.array(cycles)
@@ -246,17 +256,14 @@ class Hike(object):
             self.phases = self.times[1:] / self.times[0]
             self.cycles = cycles
             self.ncycles = len(cycles)
-            self._cycled = True
-        else:
-            print u"#mm: No cycles in hike."
-            self.cycles = None
+            self._has_cycles = True
 
     def joints_definition(self):
         u"""."""
 
         self.fix_cluster()
         self.cycle_definition()
-        if not self.cycles:
+        if not self._has_cycles:
             return
 
         for i, cycle in enumerate(self.cycles):
@@ -303,7 +310,7 @@ class Hike(object):
 
     def joints_as_dataframe(self, code=''):
         u"""."""
-        if self._cycled:
+        if self._has_cycles:
             dataframe = []
             codecycles = [code + str(i) for i in xrange(self.ncycles)]
             joints = self.schema['or.joints']
@@ -315,12 +322,10 @@ class Hike(object):
                 for joint in joints:
                     dataframe.append(self.joints[cycle][joint])
             return pd.DataFrame(dataframe, index=ix)
-        else:
-            print '#mm: not cycled yet'
 
     def spatiotemporal_as_dataframe(self, code=''):
         u"""."""
-        if self._cycled:
+        if self._has_cycles:
             codecycles = [code + str(i) for i in xrange(self.ncycles)]
             ix = ('stride lenght', 'cycle time', 'stance time', 'swing time',
                   'stance phase', 'swing phase', 'velocity [m/s]', 'cadence')
@@ -332,8 +337,6 @@ class Hike(object):
                                    120 / self.times[0]
                                    ))
             return pd.DataFrame(dataframe, index=ix, columns=codecycles)
-        else:
-            print '#mm: not cycled yet'
 
 
 class Joints(object):
@@ -346,23 +349,22 @@ class Joints(object):
         self.joints = {j: None for j in schema['or.joints']}
 
     def get_hip(self):
-        if not self.joints['hip']:
+        if self.joints['hip'] is None:
             canonical = self.xcanonical[self.direction]
             tight = self.segments['tight']
             self.joints['hip'] = 90 - angle(tight, canonical(tight.shape[0]))
         return self.joints['hip']
 
     def get_knee(self):
-        if not self.joints['knee']:
+        if self.joints['knee'] is None:
             canonical = self.xcanonical[self.direction]
             leg = self.segments['leg']
-            if not self.hip:
-                hip = self.get_hip()
+            hip = self.get_hip()
             self.joints['knee'] = hip + angle(leg, canonical(leg.shape[0])) - 90
         return self.joints['knee']
 
     def get_ankle(self):
-        if not self.joints['ankle']:
+        if self.joints['ankle'] is None:
             leg = self.segments['leg']
             foot = self.segments['foot']
             self.joints['ankle'] = 90 - angle(leg, foot)
@@ -375,6 +377,6 @@ class Joints(object):
             'ankle': "self.get_ankle()",
         }
         joints = self.schema['or.joints']
-        to_fit = [eval(method[joint]) for joint in joints]
+        to_fit = np.array([eval(method[joint]) for joint in joints])
         self.joints = {j: f for j, f in zip(joints, fourierfit(to_fit))}
         return self.joints
