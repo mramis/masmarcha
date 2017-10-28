@@ -1,0 +1,152 @@
+#:kivy 1.9.1
+
+# Copyright (C) max_space17  Mariano Ramis
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
+#:import env os.environ
+
+#:set fs_labels 12
+#:set fs_titles 16
+#:set max_space 15
+
+#:set dark_color (0, 0, 26)
+#:set light_color (221, 228, 243)
+
+<Separator@Widget>:
+    canvas:
+        Color:
+            rgba: map(lambda x: x / 255., light_color) + [.3]
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+<HSeparator@Separator>:
+    size_hint_y: None
+    height: dp(2)
+
+<VSeparator@Separator>:
+    size_hint_x: None
+    width: dp(2)
+
+<File@GridLayout>:
+    cols: 2
+    spacing: 10
+    Button:
+        background_normal: "atlas://images/myatlas/delete-normal"
+        background_down: "atlas://images/myatlas/delete-down"
+        border: (1, )*4
+        size_hint: (None, None)
+        width: 20
+        height: 20
+        font_size: fs_titles
+    Label:
+        size_hint: (.8, None)
+        height: 20
+        text: "Aqui archivo de video o kinovea"
+        font_size: fs_labels
+        halign: 'left'
+
+
+
+<NewCluster@BoxLayout>:
+    orientation: "vertical"
+    spacing: 10
+    GridLayout:
+        cols: 3
+        rows: 1
+        spacing: 10
+        size_hint: (1, .12)
+        TextInput:
+            size_hint: (.8, 1)
+            text: "Nombre del Cluster"
+            font_size: fs_labels
+            multiline: False
+            height: 20
+        VSeparator
+        Button:
+            background_normal: "atlas://images/myatlas/open-file-normal"
+            background_down: "atlas://images/myatlas/open-file-down"
+            border: (1, )*4
+            size_hint: (.1, 1)
+            pos_hint: {'center_x': .5, 'center_y': .5}
+            font_size: fs_titles
+    ScrollView:
+        size_hint: (1, .7)
+        GridLayout:
+            cols: 1
+            size_hint: (.8, None)
+            pos_hint: {'center_x': .5, 'center_y': .5}
+            height: self.minimum_height
+            spacing: 25
+            # File:
+    Button:
+        size_hint: (1, .1)
+        text: "OK"
+
+
+<Cluster@GridLayout>:
+    cols: 2
+    rows: 1
+    Label:
+        size_hint: (.9, None)
+        height: 20
+        text: "Aqui grupo de archivos"
+        font_size: fs_labels
+    Button:
+        size_hint: (.1, None)
+        height: 20
+        text: "-"
+        font_size: fs_titles
+
+
+<ClustersList@ScrollView>:
+    # size_hint: (1, .7)
+    GridLayout:
+        cols: 1
+        size_hint: (1, None)
+        height: self.minimum_height
+        spacing: 21
+        Cluster:
+
+<Clusters@BoxLayout>:
+    orientation: "vertical"
+    padding: (2, 2)
+    spacing: 10
+    HSeparator
+    NewCluster:
+    HSeparator
+    ClustersList:
+
+
+<Proccess@Button>:
+    size_hint: 1, .1
+    text: "Do it!"
+    font_size: fs_titles
+
+
+<Content>:
+    canvas:
+        Color:
+            rgba: map(lambda x: x / 255., dark_color) + [1]
+        Rectangle:
+            pos: self.pos
+            size: self.size
+    orientation: "vertical"
+    padding: (2, 5)
+    spacing: 10
+    Clusters:
+    HSeparator
+    Proccess:
