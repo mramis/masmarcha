@@ -52,7 +52,12 @@
     size_hint: (1, None)
     height: large_icon_size[0]
     font_size: medium_font_size
-    text: "HOla"
+    Image:
+        source: "atlas://images/mm-atlas/remove"
+        size: small_icon_size
+        scale: small_icon_size[0]
+        x: root.x + root.width - self.scale
+        y: root.y + (root.height - self.scale)*.5
 
 <ClusterBox@BoxLayout>:
     orientation: 'vertical'
@@ -63,7 +68,12 @@
         height: large_icon_size[0]
         pos_hint: {'center_x': .5}
         font_size: medium_font_size
-        text: "Grupo 1"
+        background_color: dark_blue_color
+        cursor_color: [1, 1, 1, .5]
+        cursor_width: 2
+        foreground_color: [1, 1, 1, .8]
+        default_message: "*Escribe aquí el nombre del grupo.."
+        text: self.default_message
     ScrollView:
         size_hint: (1, .7)
         GridLayout:
@@ -78,7 +88,7 @@
                 Rectangle:
                     pos: self.pos
                     size: self.size
-            File
+            # File
 
 <InputButtons@BoxLayout>:
     orientation: 'horizontal'
