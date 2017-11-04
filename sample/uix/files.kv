@@ -16,35 +16,49 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+#: import os os
 #:import env os.environ
 #:import Factory kivy.factory.Factory
 
 #:set small_icon_size (20, 20)
 #:set large_icon_size (30, 30)
+
 #:set small_font_size large_icon_size[0] * .35
 #:set medium_font_size large_icon_size[0] * .45
 #:set large_font_size large_icon_size[0] * .55
-
-#:set fs_labels 12
-#:set fs_titles 16
 
 #:set dark_blue_color [c / 255. for c in (22, 38, 55, 255)]
 #:set light_blue_color [c / 255. for c in(29, 50, 73, 255)]
 #:set yellow_color [c / 255. for c in (241, 196, 15, 255)]
 
-# <Filechooser@Popup>:
-#     title: "Seleccione los archivos para procesar."
-#     title_size: fs_titles
-#     size_hint: None, None
-#     size: 400, 300
-#     separator_color: map(lambda x: x / 255., light_color) + [1]
-#     BoxLayout:
-#         FileChooserListView:
-#             rootpath: env['HOME']
-#         Button:
-#             text: "Select"
 
-<File@Button>:
+<Filechooser>:
+    title: "Para procesar:"
+    title_size: large_font_size
+    size_hint: None, None
+    size: 400, 300
+    background: "atlas://images/mm-atlas/popup"
+    separator_color: light_blue_color
+    BoxLayout:
+        orientation: 'vertical'
+        spacing: 10
+        FileChooserListView:
+            id: filechooser
+            size_hint: 1, .9
+            rootpath: os.path.join(env['HOME'], 'Escritorio/marcha/matiak/pre')
+            multiselect: True
+            filters: ['*.txt', '*.avi', '*.mp4', '*.h261']
+        Button:
+            background_normal: "atlas://images/mm-atlas/ok-normal"
+            background_down: "atlas://images/mm-atlas/ok-down"
+            border: (1, )*4
+            pos_hint: {'center_x': .5}
+            size_hint: (None, None)
+            size: large_icon_size
+            on_press: root.add_files_and_dismiss()
+
+
+<File>:
     background_normal: "atlas://images/mm-atlas/file-normal"
     background_down: "atlas://images/mm-atlas/file-normal"
     border: (1, )*4
@@ -52,12 +66,27 @@
     size_hint: (1, None)
     height: large_icon_size[0]
     font_size: medium_font_size
+    on_press: self.autoremove()
     Image:
         source: "atlas://images/mm-atlas/remove"
         size: small_icon_size
         scale: small_icon_size[0]
         x: root.x + root.width - self.scale
         y: root.y + (root.height - self.scale)*.5
+
+
+<PathsViewer>:
+    cols: 1
+    size_hint: (1, None)
+    pos_hint: {'center_x': .5, 'center_y': .5}
+    height: self.minimum_height
+    canvas:
+        Color:
+            rgba: light_blue_color
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
 
 <ClusterBox@BoxLayout>:
     orientation: 'vertical'
@@ -76,19 +105,9 @@
         text: self.default_message
     ScrollView:
         size_hint: (1, .7)
-        GridLayout:
-            cols: 1
-            size_hint: (1, None)
-            pos_hint: {'center_x': .5, 'center_y': .5}
-            height: self.minimum_height
-            padding: 5
-            canvas:
-                Color:
-                    rgba: light_blue_color
-                Rectangle:
-                    pos: self.pos
-                    size: self.size
-            # File
+        PathsViewer:
+            id:pathsviewer
+
 
 <InputButtons@BoxLayout>:
     orientation: 'horizontal'
@@ -104,6 +123,7 @@
             pos_hint: {'center_x': .5}
             size_hint: (None, None)
             size: large_icon_size
+            on_press: Factory.Filechooser(root.pathsviewer).open()
         Label:
             font_size: small_font_size
             text: "Buscar\nArchivos"
@@ -142,6 +162,7 @@
             color: yellow_color
             halign: 'center'
 
+
 <Content>:
     size_hint: None, None
     size: 300, 300
@@ -155,6 +176,12 @@
             pos: self.pos
             size: self.size
     InputButtons:
+        id: inputbox
         size_hint: 1, .3
+        pathsviewer: culusterbox.ids['pathsviewer']
     ClusterBox:
+        id: culusterbox
         size_hint: 1, .7
+    ProgressBar:
+        id: progress
+        size_hint: 1, .1

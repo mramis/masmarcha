@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # coding: utf-8
-
 """En construcción."""
 
 # Copyright (C) 2017  Mariano Ramis
