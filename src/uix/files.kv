@@ -19,6 +19,7 @@
 #: import os os
 #:import env os.environ
 #:import Factory kivy.factory.Factory
+#:import StringProperty kivy.properties.StringProperty
 
 #:set small_icon_size (20, 20)
 #:set large_icon_size (30, 30)
@@ -32,12 +33,63 @@
 #:set yellow_color [c / 255. for c in (241, 196, 15, 255)]
 
 
+<File>:
+    background_normal: "atlas://src/uix/images/mm-atlas/file-normal"
+    background_down: "atlas://src/uix/images/mm-atlas/file-normal"
+    border: (1, )*4
+    pos_hint: {'center_x': .5}
+    size_hint: (1, None)
+    height: large_icon_size[0]
+    font_size: medium_font_size
+    on_press: self.autoremove()
+    Image:
+        source: "atlas://src/uix/images/mm-atlas/remove"
+        size: small_icon_size
+        scale: small_icon_size[0]
+        x: root.x + root.width - self.scale
+        y: root.y + (root.height - self.scale)*.5
+
+
+<Schema>:
+    background_normal: "atlas://src/uix/images/mm-atlas/file-normal"
+    background_down: "atlas://src/uix/images/mm-atlas/file-normal"
+    border: (1, )*4
+    pos_hint: {'center_x': .5}
+    size_hint: (1, None)
+    height: large_icon_size[0]
+    font_size: medium_font_size
+    on_press: self.choose()
+
+
+<SchemaChooser>:
+    title: "Esquemas de marcadores"
+    title_size: large_font_size
+    size_hint: None, None
+    size: 200, 300
+    background: "atlas://src/uix/images/mm-atlas/popup"
+    separator_color: light_blue_color
+    ScrollView:
+        size_hint: (1, .7)
+        GridLayout:
+            id: schemaslist
+            cols: 1
+            size_hint: (1, None)
+            pos_hint: {'center_x': .5, 'center_y': .5}
+            height: self.minimum_height
+            canvas:
+                Color:
+                    rgba: light_blue_color
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
+
+
 <Filechooser>:
     title: "Para procesar:"
     title_size: large_font_size
     size_hint: None, None
     size: 400, 300
-    background: "atlas://images/mm-atlas/popup"
+    background: "atlas://src/uix/images/mm-atlas/popup"
     separator_color: light_blue_color
     BoxLayout:
         orientation: 'vertical'
@@ -49,30 +101,13 @@
             multiselect: True
             filters: ['*.txt', '*.avi', '*.mp4', '*.h261']
         Button:
-            background_normal: "atlas://images/mm-atlas/ok-normal"
-            background_down: "atlas://images/mm-atlas/ok-down"
+            background_normal: "atlas://src/uix/images/mm-atlas/ok-normal"
+            background_down: "atlas://src/uix/images/mm-atlas/ok-down"
             border: (1, )*4
             pos_hint: {'center_x': .5}
             size_hint: (None, None)
             size: large_icon_size
             on_press: root.add_files_and_dismiss()
-
-
-<File>:
-    background_normal: "atlas://images/mm-atlas/file-normal"
-    background_down: "atlas://images/mm-atlas/file-normal"
-    border: (1, )*4
-    pos_hint: {'center_x': .5}
-    size_hint: (1, None)
-    height: large_icon_size[0]
-    font_size: medium_font_size
-    on_press: self.autoremove()
-    Image:
-        source: "atlas://images/mm-atlas/remove"
-        size: small_icon_size
-        scale: small_icon_size[0]
-        x: root.x + root.width - self.scale
-        y: root.y + (root.height - self.scale)*.5
 
 
 <PathsViewer>:
@@ -92,6 +127,7 @@
     orientation: 'vertical'
     pos_hint: {'center_x': .5}
     TextInput:
+        id: pathsgroup
         multiline: False
         size_hint: 1, None
         height: large_icon_size[0]
@@ -101,12 +137,12 @@
         cursor_color: [1, 1, 1, .5]
         cursor_width: 2
         foreground_color: [1, 1, 1, .8]
-        default_message: "*Escribe aquí el nombre del grupo.."
+        default_message: "*Nombre del grupo.."
         text: self.default_message
     ScrollView:
         size_hint: (1, .7)
         PathsViewer:
-            id:pathsviewer
+            id: pathsviewer
 
 
 <InputButtons@BoxLayout>:
@@ -117,8 +153,8 @@
         size_hint: 1, None
         height: large_icon_size[0] * 2.
         Button:
-            background_normal: "atlas://images/mm-atlas/open-file-normal"
-            background_down: "atlas://images/mm-atlas/open-file-down"
+            background_normal: "atlas://src/uix/images/mm-atlas/open-file-normal"
+            background_down: "atlas://src/uix/images/mm-atlas/open-file-down"
             border: (1, )*4
             pos_hint: {'center_x': .5}
             size_hint: (None, None)
@@ -134,8 +170,8 @@
         size_hint: 1, None
         height: large_icon_size[0] * 2.
         Button:
-            background_normal: "atlas://images/mm-atlas/process-normal"
-            background_down: "atlas://images/mm-atlas/process-down"
+            background_normal: "atlas://src/uix/images/mm-atlas/process-normal"
+            background_down: "atlas://src/uix/images/mm-atlas/process-down"
             border: (1, )*4
             pos_hint: {'center_x': .5}
             size_hint: (None, None)
@@ -150,22 +186,62 @@
         size_hint: 1, None
         height: large_icon_size[0] * 2.
         Button:
-            background_normal: "atlas://images/mm-atlas/new-group-normal"
-            background_down: "atlas://images/mm-atlas/new-group-down"
+            background_normal: "atlas://src/uix/images/mm-atlas/new-group-normal"
+            background_down: "atlas://src/uix/images/mm-atlas/new-group-down"
             border: (1, )*4
             pos_hint: {'center_x': .5}
             size_hint: (None, None)
             size: large_icon_size
+            on_press: root.pathsviewer.refresh()
         Label:
             font_size: small_font_size
             text: "Renovar\nGrupo"
+            color: yellow_color
+            halign: 'center'
+    BoxLayout:
+        orientation: 'vertical'
+        size_hint: 1, None
+        height: large_icon_size[0] * 2.
+        Button:
+            background_normal: "atlas://src/uix/images/mm-atlas/marker-normal"
+            background_down: "atlas://src/uix/images/mm-atlas/marker-down"
+            border: (1, )*4
+            pos_hint: {'center_x': .5}
+            size_hint: (None, None)
+            size: large_icon_size
+            text: app.config.get('capture', 'schema_indicator')
+            color: yellow_color
+            text_size: 30, 45
+            halign: 'right'
+            valign: 'top'
+            on_press: Factory.SchemaChooser(self, app.config).open()
+        Label:
+            font_size: small_font_size
+            text: "Esquema\nMarcadores"
+            color: yellow_color
+            halign: 'center'
+    BoxLayout:
+        orientation: 'vertical'
+        size_hint: 1, None
+        height: large_icon_size[0] * 2.
+        Button:
+            background_normal: "atlas://src/uix/images/mm-atlas/settings-normal"
+            background_down: "atlas://src/uix/images/mm-atlas/settings-down"
+            border: (1, )*4
+            pos_hint: {'center_x': .5}
+            size_hint: (None, None)
+            size: large_icon_size
+            on_press: pass
+        Label:
+            font_size: small_font_size
+            text: "Ajustar\nParámetros"
             color: yellow_color
             halign: 'center'
 
 
 <Content>:
     size_hint: None, None
-    size: 300, 300
+    size: 350, 300
     orientation: "vertical"
     padding: 20
     spacing: 10
@@ -179,9 +255,10 @@
         id: inputbox
         size_hint: 1, .3
         pathsviewer: culusterbox.ids['pathsviewer']
+        pathsgroup: culusterbox.ids['pathsgroup']
     ClusterBox:
         id: culusterbox
-        size_hint: 1, .7
+        size_hint: 1, .65
     ProgressBar:
         id: progress
-        size_hint: 1, .1
+        size_hint: 1, .05

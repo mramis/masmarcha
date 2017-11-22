@@ -20,7 +20,17 @@
 
 import cv2
 import numpy as np
-from video import centroid
+
+
+def centroid(x, y, w, h):
+    u"""Calula el centro de una caja.
+
+    :param x, y: Vértice superior izquierdo.
+    :param w, h: Ancho y Alto de la caja.
+    """
+    xc = x + w/2
+    yc = y + h/2
+    return xc, yc
 
 
 def center_of_square(contour):
@@ -35,7 +45,7 @@ def center_of_square(contour):
     return centroid(*cv2.boundingRect(contour))
 
 
-def image_proccess(frame):
+def image_process(frame):
     u"""Procesamiento de la imagen.
 
     Cada cuadro de video es convertido a escala de gris y luego binarizado, tal

@@ -1,0 +1,16 @@
+{
+    "ix_groups": [0, 1, 2],
+    "num_markers": [2, 2, 3],
+    "ft_group": 2,
+    "ank_marker": 2,
+    "ft_order": [0, 1, 2],
+    "dir_mode": 0,
+    "ft_mov_markers": [0, 1],
+    "markers_codenames": [["fs", "tr"], ["ts", "fi"], ["pa", "pp", "ti"]],
+    "kv_slice": [[0, 2], [2, 4], [4, 7]],
+    "segments": ["tight", "leg", "foot"],
+    "tight": ["fi", "fs"],
+    "leg": ["ti", "ts"],
+    "foot": ["pa", "pp"],
+    "joints": ["hip", "knee", "ankle"]
+}

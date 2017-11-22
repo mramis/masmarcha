@@ -23,13 +23,11 @@ ciclo. Tambien los presenta como Pandas DataFrame.
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-from itertools import product
-
 import numpy as np
 import pandas as pd
 
-from video.proccess import (interval, interp, homogenize, positiveX, negativeX,
-                            angle, fourierfit, px_to_m)
+from proccess import (interval, interp, homogenize, positiveX, negativeX,
+                      angle, fourierfit, px_to_m)
 
 
 class Hike(object):
@@ -45,9 +43,9 @@ class Hike(object):
         self.videofps = fps
         self.videometricsample = metrics[0]  # muestra de referencia
         self.videometricscale = metrics[1]  # escala de conversión
-        self._gcluster = {g: [] for g in schema['i.groups']}
+        self._gcluster = {g: [] for g in schema['ix_groups']}
         self._gcluster['index_order'] = []
-        self._to_interpolate = {g: [] for g in schema['i.groups']}
+        self._to_interpolate = {g: [] for g in schema['ix_groups']}
         self._filled_cluster = False
         self._fixed_cluster = False
         self._count_frames = 0
@@ -59,6 +57,8 @@ class Hike(object):
     def kinovea_input(self, kinovea):
         self.schema = kinovea.schema
         self.videofps = kinovea.fps
+        self._sorted = True
+        self._interpolated = True
         self._gcluster = kinovea._gcluster
         self._filled_cluster = kinovea._gcluster
         self._fixed_cluster = kinovea._gcluster
@@ -72,7 +72,7 @@ class Hike(object):
         :type cluster: tuple
         """
         self._count_frames += 1
-        for i, g in zip(self.schema['i.groups'], cluster):
+        for i, g in zip(self.schema['ix_groups'], cluster):
             self._gcluster[i].append(g)
         self._gcluster['index_order'].append(index)
 
@@ -86,7 +86,7 @@ class Hike(object):
         :type bcluster: list or tuple
         """
         self._count_frames += 1
-        for i, bg in zip(self.schema['i.groups'], bcluster):
+        for i, bg in zip(self.schema['ix_groups'], bcluster):
             self._to_interpolate[i].append((index, bg))
 
     def rm_last_added_data(self, n):
@@ -98,7 +98,7 @@ class Hike(object):
         """
         self._count_frames -= n
         while n:
-            for i in self.schema['i.groups']:
+            for i in self.schema['ix_groups']:
                 self._gcluster[i].pop()
                 self._to_interpolate[i].pop()
             self._gcluster['index_order'].pop()
@@ -117,7 +117,10 @@ class Hike(object):
         if not self._filled_cluster:
             filled_cluster = {}
             markers = []
-            iterable = zip(self.schema['n.markers'], self.schema['i.groups'])
+            iterable = zip(
+                self.schema['num_markers'],
+                self.schema['ix_groups']
+            )
             for nm, group in iterable:
                 for arr in self._gcluster[group]:
                     if arr.shape[0] == nm:
@@ -128,7 +131,7 @@ class Hike(object):
                 markers = []
             self._filled_cluster = filled_cluster
 
-    def get_direction(self, force_mod=False):
+    def get_direction(self):
         u"""Establece la dirección de la caminata.
 
         A través del cálculo diferencial de las componentes en "y" del marcador
@@ -138,17 +141,15 @@ class Hike(object):
         :return: None
         """
         if not self.direction:
-            mod = self.schema['d.mod']
-            if force_mod:
-                mod = force_mod
+            mod = self.schema['dir_mode']
             self.fill_cluster()
             self.sort_foot()
 
             direction = 0
-            arr = self._filled_cluster[self.schema['gr.foot']]
+            arr = self._filled_cluster[self.schema['ft_group']]
             if mod:
-                ydiff = np.diff(arr[:, self.schema['mk.ankle'], 1])
-                ffoot, rfoot, __ = self.schema['or.foot']
+                ydiff = np.diff(arr[:, self.schema['ank_marker'], 1])
+                ffoot, rfoot, __ = self.schema['ft_order']  # NOTE: para que?
                 for n, diff in enumerate(ydiff):
                     if diff == 0:
                         X1 = arr[:, rfoot, 0][n]
@@ -163,9 +164,9 @@ class Hike(object):
 
     def sort_foot(self):
         u"""Ordena los marcadores del grupo de tobillo."""
-        if self.schema['sort_foot'] and not self._sorted:
-            foot_group = self._filled_cluster[self.schema['gr.foot']].copy()
-            ffoot, rfoot, ankle = self.schema['or.foot']
+        if not self._sorted:
+            foot_group = self._filled_cluster[self.schema['ft_group']].copy()
+            ffoot, rfoot, ankle = self.schema['ft_order']
             ankle_rfoot = foot_group[:, ankle, :] - foot_group[:, rfoot, :]
             ankle_ffoot = foot_group[:, ankle, :] - foot_group[:, ffoot, :]
             d0 = np.linalg.norm(ankle_rfoot, axis=1)
@@ -175,13 +176,13 @@ class Hike(object):
                 if mindst:
                     foot_group[i] = np.array((m1, m0, m2))
             self._fixed_cluster = self._filled_cluster.copy()
-            self._fixed_cluster[self.schema['gr.foot']] = foot_group
+            self._fixed_cluster[self.schema['ft_group']] = foot_group
             self._sorted = True
 
     def interpolate(self):
         u"""Realiza una interpolación lineal de los datos faltantes."""
-        if self.schema['interpolate'] and not self._interpolated:
-            for group in self.schema['i.groups']:
+        if not self._interpolated:
+            for group in self.schema['ix_groups']:
                 indexes = self._to_interpolate[group]
                 if indexes:
                     frames = [i for i, b in indexes if b is True]
@@ -215,8 +216,8 @@ class Hike(object):
         self.fix_cluster()
 
         mov = []
-        for i in self.schema['mk.foot']:
-            pi = self._fixed_cluster[self.schema['gr.foot']][:, i, :]
+        for i in self.schema['ft_mov_markers']:
+            pi = self._fixed_cluster[self.schema['ft_group']][:, i, :]
             pmv = np.abs(np.gradient(pi)[0].sum(axis=1))
             pmv[pmv < max(pmv)*cycle_level] = 0
             homogenize(pmv)
@@ -242,9 +243,9 @@ class Hike(object):
             cycles = np.array(cycles)
             # NOTE: Parámetros espaciotemporales. Zancada y tiempos.
             ihs, to, ehs = cycles.transpose()
-            ankle = self.schema['mk.ankle']
-            X0 = self._fixed_cluster[self.schema['gr.foot']][ihs, ankle, :]
-            X1 = self._fixed_cluster[self.schema['gr.foot']][ehs, ankle, :]
+            ankle = self.schema['ank_marker']
+            X0 = self._fixed_cluster[self.schema['ft_group']][ihs, ankle, :]
+            X1 = self._fixed_cluster[self.schema['ft_group']][ehs, ankle, :]
             self.pxstride = np.linalg.norm(X0 - X1, axis=1)
             self.stride = px_to_m(self.pxstride,
                                   self.videometricsample,
@@ -269,11 +270,11 @@ class Hike(object):
         for i, cycle in enumerate(self.cycles):
             ihs, to, ehs = cycle
             markers = {}
-            for j in self.schema['i.groups']:
-                for k, name in enumerate(self.schema['mk.codenames'][j]):
+            for j in self.schema['ix_groups']:
+                for k, name in enumerate(self.schema['markers_codenames'][j]):
                     markers[name] = self._fixed_cluster[j][ihs: ehs+1, k, :]
             segments = {}
-            for segment in self.schema['or.segments']:
+            for segment in self.schema['segments']:
                 key = 'sg.%s' % segment
                 a, b = self.schema[key]
                 segments[segment] = markers[a] - markers[b]
@@ -297,10 +298,10 @@ class Hike(object):
         self.fill_cluster()
         self.fix_cluster()
         df = []
-        markers_name = reduce(lambda x, y: x + y, self.schema['mk.codenames'])
+        markers_name = reduce(lambda x, y: x + y, self.schema['markers_codenames'])
         rows = (markers_name, ('x', 'y'))
         ix = pd.MultiIndex.from_product(rows, names=['markers', 'coord'])
-        iterable = zip(self.schema['i.groups'], self.schema['n.markers'])
+        iterable = zip(self.schema['ix_groups'], self.schema['num_markers'])
         for group, codes in iterable:
             arr = np.array(markers_group[wich_cluster][group])
             for i in xrange(codes):
@@ -313,7 +314,7 @@ class Hike(object):
         if self._has_cycles:
             dataframe = []
             codecycles = [code + str(i) for i in xrange(self.ncycles)]
-            joints = self.schema['or.joints']
+            joints = self.schema['joints']
             ix = pd.MultiIndex.from_product(
                 (codecycles, joints),
                 names=('cycle', 'joint')
@@ -346,7 +347,7 @@ class Joints(object):
         self.segments = segments
         self.xcanonical = (None, positiveX, negativeX)
         self.direction = direction
-        self.joints = {j: None for j in schema['or.joints']}
+        self.joints = {j: None for j in schema['joints']}
 
     def get_hip(self):
         if self.joints['hip'] is None:
@@ -376,7 +377,7 @@ class Joints(object):
             'knee': "self.get_knee()",
             'ankle': "self.get_ankle()",
         }
-        joints = self.schema['or.joints']
+        joints = self.schema['joints']
         to_fit = np.array([eval(method[joint]) for joint in joints])
         self.joints = {j: f for j, f in zip(joints, fourierfit(to_fit))}
         return self.joints

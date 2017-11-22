@@ -18,7 +18,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from kivy.app import App
-from files import Content
+
+from uix.files import Content
+from basicconfig import PATHS
 
 
 class MasMarchaApp(App):
@@ -27,6 +29,26 @@ class MasMarchaApp(App):
     def build(self):
         u"""."""
         return Content()
+
+    def build_config(self, config):
+        u"""."""
+        default_config = {
+            "capture": {
+                "schema_path": None,
+                "schema_indicator": '',
+                "ft_mov_markers": None,
+            },
+            "paths": PATHS,
+            "process": {
+                "fourierfit": True,
+                "f_coeff": 4,
+            }
+        }
+        for section in default_config:
+            config.add_section(section)
+            config.setall(section, default_config[section])
+        config.write()
+
 
 
 if __name__ == '__main__':

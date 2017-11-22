@@ -1,4 +1,7 @@
-#:kivy 1.9.1
+#!/usr/bin/env python
+# coding: utf-8
+
+"""Docstring."""
 
 # Copyright (C) 2017  Mariano Ramis
 
@@ -15,8 +18,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from src.masmarchaapp import MasMarchaApp
 
-#:include files.kv
-
-#:set dark_color (25, 25, 33)
-#:set light_color (221, 228, 243)
+MasMarchaApp().run()

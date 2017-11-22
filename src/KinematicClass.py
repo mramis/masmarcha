@@ -42,6 +42,7 @@ class Kinematic(object):
 
     def __init__(self, hikes):
         self._hikes = hikes
+        self._codes = ascii_uppercase[: len(hikes)]  # BUG: limitacion de numero de caminatas al total de letras.
         self._split_hikes()
 
     def get_joint(self, joint, lat, summary=True):
@@ -133,11 +134,11 @@ class Kinematic(object):
             if hike.cycles is None:
                 continue
             if hike.direction < 0:
-                ljoints.append(hike.joints_as_dataframe())
-                lspatiotemp.append(hike.spatiotemporal_as_dataframe())
+                ljoints.append(hike.joints_as_dataframe(self._codes[i]))
+                lspatiotemp.append(hike.spatiotemporal_as_dataframe(self._codes[i]))
             elif hike.direction > 0:
-                rjoints.append(hike.joints_as_dataframe())
-                rspatiotemp.append(hike.spatiotemporal_as_dataframe())
+                rjoints.append(hike.joints_as_dataframe(self._codes[i]))
+                rspatiotemp.append(hike.spatiotemporal_as_dataframe(self._codes[i]))
 
         # NOTE: articulaciones.
         sides = {}

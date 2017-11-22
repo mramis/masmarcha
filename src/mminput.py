@@ -22,10 +22,11 @@ software Kinovea.
 
 
 import numpy as np
-# import cv2
+import cv2
 
-# from video.proccess import (grouping, roi_center, image_proccess
-# from video.clvideo import Trayectoria, Kinematic
+from process import image_process, grouping, roi_center
+from HikeClass import Hike
+from KinematicClass import Kinematic
 
 
 class KinoveaFile(object):
@@ -87,59 +88,69 @@ class VideoFile(object):
         self.fps = self.vid.get(cv2.CAP_PROP_FPS)
         self.fcount = int(self.vid.get(cv2.CAP_PROP_FRAME_COUNT))
 
-    def read_frames(self, schema=(2, 2, 3), nomarkerstime=1.5, dref=5):
+    def read_frames(self, schema, nomarkerstime=1.5, dref=5):
         u"""."""
-        self.ty = []
-        nomarkerstime *= self.fps
-        last_complete_schema = 0
-        refmarks = np.ndarray((0, 0))
-        no_markers = 0
-        M = sum(schema)
-        kneeroi = None
-        reading = False
-        t = Trayectoria()
-        for iframe in xrange(self.fcount):
-            __, frame = self.vid.read()
-            m, mark = image_proccess(frame)
+        expected_markers = schema['n.markers']
+        M = sum(expected_markers)
+        safe_None = 1.5 * self.fps
+        last_M = 0
+        active = False
+        count_non_data = 0
+        metrics = np.zeros(())
+
+        hikes = []
+        hike, h, i = None, 0, 0
+        ret, frame = self.vid.read()
+        while ret:
+            m, mark = image_process(frame)
             if mark.any():
                 if m == M:
-                    reading = True
-                    t.start_frame = iframe
-                    last_complete_schema = iframe
-                    no_markers = 0
-                if (not refmarks.any() and not reading) and iframe < 50:
-                    if m == dref:
-                        refmarks = mark
-                if reading:
+                    active = True
+                    if not hike:
+                        hike = Hike(schema, self.fps, (metrics, .3))  #!Hardcore.
+                        h += 1
+                        kr = None
+                    if not hike.start_videoframe_position:
+                        hike.start_videoframe_position = i
+                    last_M = i
+                    count_non_data = 0
+                # NOTE:  Esta parte del código debe ser revisada.
+                # Se va a cambiar la forma de calibrar la imagen.
+                if (not metrics.any() and not active) and i < 50:  #!Hardcore
+                    if m == dref:  #!Hardcore
+                        metrics = mark
+                # Fin de calibracion.
+                if active:
+                    # NOTE: Hay que revisar la mejor manera de agrupar los
+                    # marcadores.
                     if m != M:
-                        to_interp, groups = grouping(mark, schema, kneeroi)
-                        t.add_frame(iframe, groups)
-                        t.add_to_interpolate(iframe, to_interp)
+                        to_interp, groups = grouping(mark, expected_markers, kr)  #!Hardcore
+                        hike.add_markers_from_videoframe(i, groups)
+                        hike.add_index_to_interpolate(i, to_interp)
                     else:
-                        __, groups = grouping(mark, schema)
-                        kneeroi = roi_center(groups[1])
-                        t.add_frame(iframe, groups)
+                        __, groups = grouping(mark, expected_markers)
+                        kr = roi_center(groups[1])
+                        hike.add_markers_from_videoframe(i, groups)
             else:
-                no_markers += 1
-                if reading and no_markers < nomarkerstime:
-                    G0 = np.random.randint(0, 100, (2, 2))
-                    G1 = np.random.randint(0, 100, (2, 2))
-                    G2 = np.random.randint(0, 100, (3, 2))
-                    t.add_frame(iframe, (G0, G1, G2))
-                    t.add_to_interpolate(iframe, (True, True, True))
+                count_non_data += 1
+                if active and count_non_data < safe_None: #!Hardcore
+                    G0 = np.random.random(size=(2, 2))
+                    G1 = np.random.random(size=(2, 2))
+                    G2 = np.random.random(size=(3, 2))
+                    hike.add_markers_from_videoframe(i, (G0, G1, G2))
+                    hike.add_index_to_interpolate(i, (True, True, True))
                 else:
-                    if reading:
-                        backwards = (iframe - 1) - last_complete_schema
-                        t.rm_lastNframes(backwards)
-                        t.end_frame = iframe - backwards - 1
-                        self.ty.append(t)
-                        t = Trayectoria()
-                        reading = False
-        self.metricref = metric_reference(refmarks)
+                    if active:
+                        backwards = (i - 1) - last_M
+                        hike.rm_last_added_data(backwards)
+                        hike.end_videoframe_position = i - backwards - 1
+                        hikes.append(hike)
+                        hike = None
+                        active = False
+            ret, frame = self.vid.read()
+            i += 1
 
-    def get_kinematic(self):
-        u"""."""
-        self.kt = Kinematic(self.name, self.fps, self.metricref, self.ty)
+        self.kinematic = Kinematic(hikes)
 
 
 if __name__ == '__main__':
