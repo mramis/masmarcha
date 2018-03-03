@@ -26,6 +26,7 @@ global schema
 #Anterior esquema
 schema = {
     'schema': (2, 2, 3),
+    'slices': ((0, 2), (2, 4), (4, 7)),
     'codes': (('M0', 'M1'), ('M2', 'M3'), ('M4', 'M5', 'M6')),
 }
 
@@ -36,7 +37,7 @@ schema = {
 # }
 
 
-# In[3]:
+# In[7]:
 
 
 # OK!
@@ -259,28 +260,94 @@ def filling(centers, roi, schema):
     return (resized_centers, replace)
 
 
-def interpolate(missing, markers, schema):
-    u"""."""
+def interpolate(markers, missing_frames, schema):
+    u"""Interpolación de datos faltantes.
     
-#         def interpolate(self):
-#         u"""Realiza una interpolación lineal de los datos faltantes."""
-#         if not self._interpolated:
-#             for group in self.schema['ix_groups']:
-#                 indexes = self._to_interpolate[group]
-#                 if indexes:
-#                     frames = [i for i, b in indexes if b is True]
-#                     for ai, bi in interval(frames):
-#                         ai -= self.start_videoframe_position
-#                         bi -= self.start_videoframe_position
-#                         dt = (bi - ai) - 1
-#                         A = self._fixed_cluster[group][ai]
-#                         B = self._fixed_cluster[group][bi]
-#                         for j, arr in zip(range(ai + 1, bi), interp(A, B, dt)):
-#                             self._fixed_cluster[group][j] = arr
-#             self._interpolated = True
+    Esta función interpola en el arreglo de centros de marcadores, 
+    nuevos valores aproximados (lineal) en las regiones y cuadros
+    donde no se pudieron leer los marcadores.
+    :param markers: arreglo de centros de marcadores.
+    :type markers: np.array
+    :param missing_frames: diccionario que contiene por regiones
+    las listas de índices de cuadro en los que faltan datos.
+    :type missing_frames: dict
+    :param schema: es el vector que contiene la información de la cantidad de
+    marcadores que contiene cada región.
+    :type schema: tuple
+    """
+    # missing_frames es un diccionario que tiene como clave
+    # la región en la que se deben interpolar los datos, y como
+    # valor una lista de intervalos de cuadros en los que existen
+    # datos faltantes para esa región.
+    for reg, missing in missing_frames.iteritems():
+        # Por cada región se trabaja sobre cada lista de datos faltante,
+        # y se generan los extremos (xps) de estas listas que poseen datos
+        # verdaderos que sirven de referencia a la función de interpolar.
+        xps = [(m[0]-1, m[-1]+1) for m in missing]
+        for xp, mis in zip(xps, missing):
+            # se debe recorrer cada fila (marcador) del arreglo de
+            # centros que se desea interpolar, porque la función de
+            # numpy.interp solo acepta arreglos de 1d.
+            for i in xrange(*schema['slices'][reg]):
+                # aquí se calculan por vez los valores x, y los
+                # valores y. Los fpx y fpy son los valores que
+                # se presentan en x y en y en los extremos xp
+                # que son los valores referencia de la interpolación.
+                fpx = markers[xp, i, 0]
+                fpy = markers[xp, i, 1]   
+                markers[mis, i, 0] = np.interp(mis, xp, fpx)
+                markers[mis, i, 1] = np.interp(mis, xp, fpy)
 
 
+def gaitCycler(markers, lookout=(-2, -1), lvel=2.5):
+    u"""Busca si existen ciclos de apoyo y balanceo en la caminata.
+    
+    La función busca si existen ciclos de marcha, apoyo y balanceo, dentro
+    de la caminata. Utiliza los centros de los marcadores del pie a través
+    del cambio de velocidad de dichos marcadores.
+    :param markers: arreglo de centros de marcadores.
+    :type markers: np.array
+    :param lookout: son los índice de fila (marcadores) en los que se tiene
+    que tomar la velocidad. Por defecto son los últimos dos, que se
+    corresponden con los del pié según el diagrama del esquema. El vector
+    lookout siempre tiene que ser de dimensión 2 de otra manera se lanzará
+    una exepción. Los argumentos del vector pueden ser el mismo componente
+    (ej: (-2, -2)).
+    :type lookout: tuple
+    :param lvel: Es el umbral que se toma para separar el apoyo del
+    balanceo.
+    :type lvel: float
+    :return: vector que contiene una lista de ciclos, el arreglo de velocidad
+    media de los centros de marcadores de pie, y el arreglo de datos boleanos
+    de movimiento.
+    :rtype: tuple
+    """
+    # La media de la derivada de posicion en x e y de los marcadores
+    # de retro (-2) y ante pie (-1). El valor absoluto es porque solo
+    # estoy interesado en cuando toma valor cero o distinto de cero.
+    
+    # DEBUG: si len(lookout) != 2 esta np.mean va a lanzar una excepción.
+    diff = np.abs(np.gradient(markers[:, lookout, :], axis=0).mean(axis=2))
+    mov = np.logical_and(*(diff >= lvel).transpose())
 
+    st = []  # stance
+    cycles = []
+    for i, (pr, nx) in enumerate(zip(mov[:-1], mov[1:])):
+        # si el pie en el primer cuadro, de esta comparación, está en
+        # movimiento y el próximo no lo está, entonces en el próximo
+        # cuadro el pié se pone en contacto con el suelo.
+        if pr and not nx:
+            st.append(i+1)
+        # si el pie en el primer cuadro no está en movimiento pero
+        # si lo está en el próximo, entonces en el próximo cuadro
+        # el pié se despega del suelo.
+        if not pr and nx:
+            tf = i+1  # toeoff
+        # siempre que haya dos apoyos, hay un ciclo.
+        if len(st) == 2:
+            cycles.append((st[0], tf, st[1]))
+            st.pop(0)
+    return (cycles, diff, mov)
 
 
 class Hike(object):
@@ -311,13 +378,15 @@ class Hike(object):
     
     def SearchingCycles(self, **kwargs):
         u"""."""
-        interpolate()
-        pass
+        interpolate(self.markers, self.missing, self.schema)
+        self.cycles, self.diff, self.mov = gaitCycler(self.markers, **kwargs)
+        
 
     def ParemetersCalculation(self, **kwargs):
         u"""."""
         return NotImplemented
 
+############################################################################
 
 def sliceHikes(buff, container, schema):
     u"""Separa en caminatas el archivo.
@@ -378,10 +447,13 @@ def sliceHikes(buff, container, schema):
 
 def exploreHikes(stream, intervals, container, schema):
     u"""."""
-    # Esta función es la que se desea construir en multiproceso.
     for i, h in enumerate(intervals):
-        hike = Hike(stream=stream, stype='video', interval=h, schema=schema, idy='H{}'.format(i))
+        hike = Hike(
+            stream=stream, stype='video', interval=h,
+            schema=schema, idy='H{}'.format(i)
+        )
         hike.IdentifyingMarkers()
+        hike.SearchingCycles()
         container.append(hike)
     
 
@@ -418,7 +490,7 @@ class VideoManager(object):
             exploreHikes(stream, self.intervals, self.hikes, schema)
 
 
-# In[4]:
+# In[9]:
 
 
 path = '/home/mariano/Descargas/VID_20170720_132629833.mp4'  # Belen
@@ -426,20 +498,28 @@ path = '/home/mariano/Descargas/VID_20170720_132629833.mp4'  # Belen
 t1 = time()
 vid = VideoManager(path)
 vid.run()
-
 print time()- t1
 
-vid.hikes[0].missing
-
-
-# In[5]:
-
-
-vid.hikes[1].missing
+# for hike in vid.hikes:
+#     markers = hike.markers
+#     for m in xrange(sum(schema['schema'])):
+#         plt.plot(markers[:, m, 0],-markers[:, m, 1])
+#     plt.legend(range(sum(schema['schema'])))
+#     plt.show()
 
 
 # In[ ]:
 
+
+# Este es el gráfico que necesito para comprobar que los ciclos están bien.
+# cy, diff, mov = cycler(vid.hikes[0].markers)
+# plt.plot(range(diff.shape[0]), diff.T[0])
+# plt.plot(range(diff.shape[0]), diff.T[1])
+# plt.plot(range(mov.size), mov*100)
+# plt.show()
+
+
+# In[ ]:
 
 
 # OK!
@@ -572,72 +652,31 @@ K.hikes
 # In[ ]:
 
 
+# Test filling
 # path = '/home/mariano/Descargas/VID_20170720_132629833.mp4'  # Belen
-
-# marks = []
-# n = 7
-# temp = np.zeros((7, 2), np.int8)
 # vid = cv2.VideoCapture(path)
-# fps = vid.get(cv2.CAP_PROP_FPS)
-# ret, frame = vid.read()
-# while ret:
-#     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-#     binary = cv2.threshold(gray, 240., 255., cv2.THRESH_BINARY)[1]
-#     dilation = cv2.dilate(binary, np.ones((5, 5), np.uint8), iterations=1)
-#     contours = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-#     mark = np.array(map(center_of_square, contours[1]))
-#     marks.append(mark)
-# #     if mark.shape[0] == n:
-# #         print('@'*3)
-# #         if temp.all():
-# #             print(np.linalg.norm(temp - mark, axis=1).round())
-# #         temp = mark
+# for i in range(10):
 #     ret, frame = vid.read()
+# plt.imshow(frame)
+# plt.show()
 
+# centers = np.array(map(markerCenter, findMarkers(frame)))[::-1]
+# print centers
 
-# In[ ]:
-
-
-path = '/home/mariano/Descargas/VID_20170720_132629833.mp4'  # Belen
-vid = cv2.VideoCapture(path)
-for i in range(10):
-    ret, frame = vid.read()
-plt.imshow(frame)
-plt.show()
-
-centers = np.array(map(markerCenter, findMarkers(frame)))[::-1]
-centers
-
-
-# In[ ]:
-
-
-ROI = regions(centers, schema['schema'], 1.2)
-for c, d in ROI:
-    plt.imshow(frame)
-    plt.axhline(y=c)
-    plt.axhline(y=c-d, color='r')
-    plt.axhline(y=c+d, color='r')
+# ROI = regions(centers, schema['schema'], 1.2)
+# for c, d in ROI:
+#     plt.imshow(frame)
+#     plt.axhline(y=c)
+#     plt.axhline(y=c-d, color='r')
+#     plt.axhline(y=c+d, color='r')
     
-    plt.show()
+#     plt.show()
 
+# print filling(centers, ROI, schema['schema'])
 
-# In[ ]:
+# modified = centers.copy()
+# modified = modified[(0,1, 2, 3, 4, 6), :]
+# print modified
 
-
-filling(centers, ROI, schema['schema'])
-
-
-# In[ ]:
-
-
-modified = centers.copy()
-modified = modified[(0,1, 2, 3, 4, 6), :]
-modified
-
-
-# In[ ]:
-
-
-filling(modified, ROI, schema['schema'])
+# print filling(modified, ROI, schema['schema'])
 
