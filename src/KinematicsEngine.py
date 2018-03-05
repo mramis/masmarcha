@@ -1,50 +1,31 @@
-
+#!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+"""Docstring."""
+
+# Copyright (C) 2018  Mariano Ramis
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-# %matplotlib inline
-import cv2
-import numpy as np
-import matplotlib.pyplot as plt
-from time import time
-
-
-# In[2]:
-
-
-# Desarrollo de esquemas!
-
-global schema
-# Nuevo esquema
-# schema = {
-#     'schema': (3, 2, 3),
-#     'codes': (('M0', 'M1', 'M2'), ('M3', 'M4'), ('M5', 'M6', 'M7')),    
-# }
-
-#Anterior esquema
-schema = {
-    'schema': (2, 2, 3),
-    'slices': ((0, 2), (2, 4), (4, 7)),
-    'codes': (('M0', 'M1'), ('M2', 'M3'), ('M4', 'M5', 'M6')),
-}
-
-#Viejo esquema 
-# schema = {
-#     'schema': (1, 1, 2),
-#     'codes': (('M0'), ('M1'), ('M2', 'M3')),   
-# }
-
-
-# In[7]:
-
-
-# OK!
 import os
 from collections import deque
 from contextlib import contextmanager
 from collections import defaultdict
+import cv2
+import numpy as np
+
 
 
 def findMarkers(frame):
@@ -64,15 +45,16 @@ def markerCenter(contour):
 
 
 def identifyingMarkers(buff, Nframes, schema, **kwargs):
-    u"""Se obtienen e identifican los arreglos de marcadores en el segmento de video.
-    
-    Esta función extrae los centros de marcadores ordenados en sentido descendente,
-    de la forma en la que está diagramado el esquema de los mismos. La función
-    también identifica los cudros y las regiones dentro del cuadro donde faltan
-    datos, es decir, el número de marcadores que se encuentra no es el esperado.
-    Devuelve un arreglo que contiene todos los marcadores del segmento de video que
-    se le pasa como argumento, junto a una lista de cuadros y regiones que deben ser
-    interpoladas.
+    u"""Se obtienen e identifican los arreglos de marcadores.
+
+    Esta función extrae los centros de marcadores ordenados en sentido
+    descendente, de la forma en la que está diagramado el esquema de los
+    mismos. La función también identifica los cudros y las regiones dentro del
+    cuadro donde faltan datos, es decir, el número de marcadores que se
+    encuentra no es el esperado.
+    Devuelve un arreglo que contiene todos los marcadores del segmento de video
+    que se le pasa como argumento, junto a una lista de cuadros y regiones que
+    deben ser interpoladas.
 
     :param buff: stream de video para ser analizado.
     :type buff: cv2.VideoCapture
@@ -144,40 +126,38 @@ def sortFootMarkers(centers, schema):
     # esquema dice que tienen que estar colocados céfalo-caudales, entonces
     # el de tobillo es el antepenúltimo, el de la parte posterior del pie
     # es el anteultimo, y el de la parte anterior del pié es el último.
-    ankle, rearf, frontf = centers[i: j] 
+    ankle, rearf, frontf = centers[i: j]
     d0 = np.linalg.norm(ankle - rearf)
     d1 = np.linalg.norm(ankle - frontf)
-    # Si la distancia entre el marcador de la parte posterior del pie y el tobillo
-    # es mayor que la distancia entre la parte anterior del pie y el tobillo,
-    # entonces el ciclo de la marcha se encuentra en un instante donde el marcador
-    # de la parte anterior del pie está por encima del marcador que se encuentra
-    # en la parte posterior del pie, y la función de encontrar los marcadores de
-    # OpenCV los ha ordenado de forma distinta al que se plantea en el esquema y
-    # se debe corregir.
+    # Si la distancia entre el marcador de la parte posterior del pie y el
+    # tobillo es mayor que la distancia entre la parte anterior del pie y el
+    # tobillo, entonces el ciclo de la marcha se encuentra en un instante donde
+    # el marcador de la parte anterior del pie está por encima del marcador que
+    # se encuentra en la parte posterior del pie, y la función de encontrar los
+    # marcadores de OpenCV los ha ordenado de forma distinta al que se plantea
+    # en el esquema y se debe corregir.
     if d0 > d1:
         centers[i: j] = np.array((ankle, frontf, rearf))
     return centers
 
-    
+
 def regions(centers, schema, r=1.0):
     u"""Encuentra los centros de las regiones del esquema.
-    
-    Los marcadores se encuentran diagramados dentro de un esquema
-    segun regiones. Esta función devuelve el centro de región junto
-    con un radio. Estos dos valores se utilizan para delimitar un
-    entorno donde es posible encontrar los marcadores e identificarlos en
-    un grupo cuando el esquema no está completo, es decir, cuando
-    se pierden marcadores.
-    El valor que devuelve como centro es el valor centro de la región en
-    la coordenada "y", es decir la altura del cuadro donde se encuentra
-    la región.
-    El valor que devuelve como radio, es la distancia que existe entre
-    los marcadores de los extremos de la región, multiplicada por el valor
-    del argumento r.
-    
-    :param centers: arreglo que contiene los centros de los marcadores.
-    este arreglo es de rango completo, contienen el número de marcadores
-    que espera el esquema.
+
+    Los marcadores se encuentran diagramados dentro de un esquema segun
+    regiones. Esta función devuelve el centro de región junto con un radio.
+    Estos dos valores se utilizan para delimitar un entorno donde es posible
+    encontrar los marcadores e identificarlos en un grupo cuando el esquema no
+    está completo, es decir, cuando se pierden marcadores.
+    El valor que devuelve como centro es el valor centro de la región en la
+    coordenada "y", es decir la altura del cuadro donde se encuentra la región.
+    El valor que devuelve como radio, es la distancia que existe entre los
+    marcadores de los extremos de la región, multiplicada por el valor del
+    argumento r.
+
+    :param centers: arreglo que contiene los centros de los marcadores. Este
+    arreglo es de rango completo, contienen el número de marcadores que espera
+    el esquema.
     :type centers: np.ndarray
     :param schema: es el vector que contiene la información de la cantidad de
     marcadores que contiene cada región.
@@ -194,9 +174,8 @@ def regions(centers, schema, r=1.0):
     for s in schema:
         roi = centers[i: i+s]
         # Se toman los valores "y" de los extremos del conjunto.
-        # WARNING: Según este resultado, si el número generado
-        # por el conjunto es 1, entonces no existe radio para
-        # el entorno.
+        # BUG:  Según este resultado, si el número generado por el conjunto es
+        # 1, entonces no existe radio para el entorno.
         y1, y2 = roi[(0, -1), 1]
         dh = (y2 - y1)
         roi_center = y1 + dh*.5
@@ -207,49 +186,45 @@ def regions(centers, schema, r=1.0):
 
 def filling(centers, roi, schema):
     u"""Esta función completa el rango del arreglo de marcadores.
-    
-    Esta función se ejecuta cuando el rango de la matriz de marcadores
-    es menor que el esperado según el esquema. Se analiza el arreglo
-    por regiones, cuando en alguna de ellas existe menor cantidad de
-    datos, entonces la región se rellena con valores aleatorios. Los
-    valores de las regiones donde el número es el correcto se mantienen.
-    
+
+    Esta función se ejecuta cuando el rango de la matriz de marcadores es menor
+    que el esperado según el esquema. Se analiza el arreglo por regiones,
+    cuando en alguna de ellas existe menor cantidad de datos, entonces la
+    región se rellena con valores aleatorios. Los valores de las regiones donde
+    el número es el correcto se mantienen.
+
     :param centers: el arreglo de centro de marcadores.
     :type centers: np.ndarray
-    :param roi: vector con valores de centro y radio de una región
-    para crear un entorno de búsqueda.
+    :param roi: vector con valores de centro y radio de una región para crear
+    un entorno de búsqueda.
     :type roi: list
-    :param schema: vector con el número de marcadores esperados por
-    región.
+    :param schema: vector con el número de marcadores esperados por región.
     :type schema: tuple
-    :return: vector cuya primera componente es el arreglo de marcadores
-    con rango completo, y segunda componete una lista de esquema
-    incompleto.
+    :return: vector cuya primera componente es el arreglo de marcadores con
+    rango completo, y segunda componete una lista de esquema incompleto.
     :rtype: tuple
     """
     # Las variables que se utilizan para indexar el arreglo de centros
-    # marcadores. La variable k es secundaria a j, y se adapta a cuando
-    # existe una región donde faltan datos.
+    # marcadores. La variable k es secundaria a j, y se adapta a cuando existe
+    #una región donde faltan datos.
     j, k = 0, 0
-    # La variable replace es una lista que contiene el índice de la región
-    # del vector esquema al que le faltan datos.
+    # La variable replace es una lista que contiene el índice de la región del
+    #vector esquema al que le faltan datos.
     replace = []
-    # el nuevo arreglo "vacio" que se devuelve para interpolar. Los
-    # espacios que que no son ocupados por la región orignal es
-    # basura, no fiarse de esos valores.
-    # La variable i representa al índice de la región en el esquema.
+    # El nuevo arreglo "vacio" que se devuelve para interpolar. Los espacios
+    #que que no son ocupados por la región orignal es basura, no fiarse de esos
+    # valores. La variable i representa al índice de la región en el esquema.
     resized_centers = np.empty((sum(schema), 2), dtype=int)
     for i, ((c, r), s) in enumerate(zip(roi, schema)):
-        # En el arreglo rmark están los centros de los marcadores
-        # que corresponden al entorno delimitado por la región.
+        # En el arreglo rmark están los centros de los marcadores que
+        # corresponden al entorno delimitado por la región.
         upper_limit = centers[:, 1] > c-r
         lower_limit = centers[:, 1] < c+r
         rmark = centers[np.logical_and(upper_limit, lower_limit)]
         if len(rmark) != s:
-            # Si el número de marcadores dentro de la región no es el
-            # esperado, entonces el arreglo queda "vacio" en ese lugar
-            # y se reduce el número necesario en la variable secundaria
-            # de indexación.
+            # Si el número de marcadores dentro de la región no es el esperado,
+            #entonces el arreglo queda "vacio" en ese lugar y se reduce el
+            # número necesario en la variable secundaria de indexación.
             replace.append(i)
             k = j - (s - len(rmark))
         else:
@@ -262,46 +237,44 @@ def filling(centers, roi, schema):
 
 def interpolate(markers, missing_frames, schema):
     u"""Interpolación de datos faltantes.
-    
-    Esta función interpola en el arreglo de centros de marcadores, 
-    nuevos valores aproximados (lineal) en las regiones y cuadros
-    donde no se pudieron leer los marcadores.
+
+    Esta función interpola en el arreglo de centros de marcadores, nuevos
+    valores aproximados (lineal) en las regiones y cuadros donde no se pudieron
+    leer los marcadores.
     :param markers: arreglo de centros de marcadores.
     :type markers: np.array
-    :param missing_frames: diccionario que contiene por regiones
-    las listas de índices de cuadro en los que faltan datos.
+    :param missing_frames: diccionario que contiene por regiones las listas de
+    índices de cuadro en los que faltan datos.
     :type missing_frames: dict
     :param schema: es el vector que contiene la información de la cantidad de
     marcadores que contiene cada región.
     :type schema: tuple
     """
-    # missing_frames es un diccionario que tiene como clave
-    # la región en la que se deben interpolar los datos, y como
-    # valor una lista de intervalos de cuadros en los que existen
-    # datos faltantes para esa región.
+    # missing_frames es un diccionario que tiene como clave la región en la que
+    # se deben interpolar los datos, y como valor una lista de intervalos de
+    # cuadros en los que existen datos faltantes para esa región.
     for reg, missing in missing_frames.iteritems():
-        # Por cada región se trabaja sobre cada lista de datos faltante,
-        # y se generan los extremos (xps) de estas listas que poseen datos
-        # verdaderos que sirven de referencia a la función de interpolar.
-        xps = [(m[0]-1, m[-1]+1) for m in missing]
-        for xp, mis in zip(xps, missing):
-            # se debe recorrer cada fila (marcador) del arreglo de
-            # centros que se desea interpolar, porque la función de
-            # numpy.interp solo acepta arreglos de 1d.
-            for i in xrange(*schema['slices'][reg]):
-                # aquí se calculan por vez los valores x, y los
-                # valores y. Los fpx y fpy son los valores que
-                # se presentan en x y en y en los extremos xp
-                # que son los valores referencia de la interpolación.
-                fpx = markers[xp, i, 0]
-                fpy = markers[xp, i, 1]   
-                markers[mis, i, 0] = np.interp(mis, xp, fpx)
-                markers[mis, i, 1] = np.interp(mis, xp, fpy)
+        if not missing:
+            continue
+        # Por cada región se trabaja sobre la lista de datos faltantes, y se
+        # generan los extremos (xp) de cada intervalo en missing. Estos
+        # f(xp) = fp{x/y} son valores de reales del arreglo de centros.
+        mis = reduce(lambda x, y: x+y, missing)
+        xp = reduce(lambda x, y: x+y, [(m[0]-1, m[-1]+1) for m in missing])
+        for i in xrange(*schema['slices'][reg]):
+            # aquí se calculan por vez los valores "x", y los valores "y". Los
+            # "fpx" y "fpy" son los valores que se presentan en "x" y en y en
+            # los puntos "xp" que son los valores referencia de la
+            # interpolación.
+            fpx = markers[xp, i, 0]
+            fpy = markers[xp, i, 1]
+            markers[mis, i, 0] = np.interp(mis, xp, fpx)
+            markers[mis, i, 1] = np.interp(mis, xp, fpy)
 
 
 def gaitCycler(markers, lookout=(-2, -1), lvel=2.5):
     u"""Busca si existen ciclos de apoyo y balanceo en la caminata.
-    
+
     La función busca si existen ciclos de marcha, apoyo y balanceo, dentro
     de la caminata. Utiliza los centros de los marcadores del pie a través
     del cambio de velocidad de dichos marcadores.
@@ -322,11 +295,11 @@ def gaitCycler(markers, lookout=(-2, -1), lvel=2.5):
     de movimiento.
     :rtype: tuple
     """
-    # La media de la derivada de posicion en x e y de los marcadores
-    # de retro (-2) y ante pie (-1). El valor absoluto es porque solo
-    # estoy interesado en cuando toma valor cero o distinto de cero.
-    
-    # DEBUG: si len(lookout) != 2 esta np.mean va a lanzar una excepción.
+    # La media de la derivada de posicion en x e y de los marcadores de retro
+    # (-2) y ante pie (-1). El valor absoluto es porque solo estoy interesado
+    # en cuando toma valor cero o distinto de cero.
+
+    # BUG: si len(lookout) != 2 esta np.mean va a lanzar una excepción.
     diff = np.abs(np.gradient(markers[:, lookout, :], axis=0).mean(axis=2))
     mov = np.logical_and(*(diff >= lvel).transpose())
 
@@ -334,13 +307,13 @@ def gaitCycler(markers, lookout=(-2, -1), lvel=2.5):
     cycles = []
     for i, (pr, nx) in enumerate(zip(mov[:-1], mov[1:])):
         # si el pie en el primer cuadro, de esta comparación, está en
-        # movimiento y el próximo no lo está, entonces en el próximo
-        # cuadro el pié se pone en contacto con el suelo.
+        # movimiento y el próximo no lo está, entonces en el próximo cuadro el
+        # pié se pone en contacto con el suelo.
         if pr and not nx:
             st.append(i+1)
-        # si el pie en el primer cuadro no está en movimiento pero
-        # si lo está en el próximo, entonces en el próximo cuadro
-        # el pié se despega del suelo.
+        # si el pie en el primer cuadro no está en movimiento pero si lo está
+        # en el próximo, entonces en el próximo cuadro el pié se despega del
+        # suelo.
         if not pr and nx:
             tf = i+1  # toeoff
         # siempre que haya dos apoyos, hay un ciclo.
@@ -350,52 +323,14 @@ def gaitCycler(markers, lookout=(-2, -1), lvel=2.5):
     return (cycles, diff, mov)
 
 
-class Hike(object):
-    u"""."""
-    # La clase hike recibe los datos de video y los de kinovea. En el
-    # caso de los datos que vienen de un archivo kinove, no es
-    # necesario hacer la identificación de marcadores.
-    def __init__(self, stream, stype, interval, schema, idy='H0'):
-        u"""."""
-        self.id = idy
-        self.stream = stream
-        self.stype = stype
-        self.interval = interval
-        self.schema = schema
-
-    def IdentifyingMarkers(self, **kwargs):
-        u"""."""
-        # Se situa el video en el cuadro en el que empieza la caminata.
-        start, end = self.interval
-        self.stream.set(cv2.CAP_PROP_POS_FRAMES, start)
-        # De cada cuadro de video se extraen arreglos con los centros de
-        # los marcadores, ordenados por fila según el diagrama de esquemas.
-        # Al mismo tiempo se genera una lista de los cuadros y regiones en
-        # los que faltan datos.
-        self.markers, self.missing = identifyingMarkers(
-            self.stream, end-start, self.schema['schema'], **kwargs
-        )
-    
-    def SearchingCycles(self, **kwargs):
-        u"""."""
-        interpolate(self.markers, self.missing, self.schema)
-        self.cycles, self.diff, self.mov = gaitCycler(self.markers, **kwargs)
-        
-
-    def ParemetersCalculation(self, **kwargs):
-        u"""."""
-        return NotImplemented
-
-############################################################################
-
-def sliceHikes(buff, container, schema):
+def slicewalks(buff, container, schema):
     u"""Separa en caminatas el archivo.
-    
+
     Cada caminata tiene como extremos cuadros que contienen exactamente
     el número de marcadores esperados, esto es para que en caso de tener
     que realizar una interpolación de datos, se encuentre el número total
     de marcadores.
-    
+
     :param buff: Es el búfer de video que contiene la marcha.
     :type buff: cv2.VideoCapture
     :param container: Es el contenedor que va a almacenar los intervalos
@@ -445,37 +380,72 @@ def sliceHikes(buff, container, schema):
         i += 1
 
 
-def exploreHikes(stream, intervals, container, schema):
+def explorewalks(stream, intervals, container, schema):
     u"""."""
-    for i, h in enumerate(intervals):
-        hike = Hike(
-            stream=stream, stype='video', interval=h,
-            schema=schema, idy='H{}'.format(i)
+    for idy, inter in enumerate(intervals):
+        vwe = videoWalksExplorer(stream, inter, schema, idy='H{}'.format(idy))
+        vwe.IdentifyingMarkers()
+        vwe.SearchingCycles()
+        container.append(vwe)
+
+
+class videoWalksExplorer(object):
+    u"""."""
+
+    def __init__(self, stream, interval, schema, idy='H0'):
+        u"""."""
+        self.id = idy
+        self.stream = stream
+        self.interval = interval
+        self.schema = schema
+
+    def IdentifyingMarkers(self, **kwargs):
+        u"""."""
+        # Se situa el video en el cuadro en el que empieza la caminata.
+        start, end = self.interval
+        self.stream.set(cv2.CAP_PROP_POS_FRAMES, start)
+        # De cada cuadro de video se extraen arreglos con los centros de
+        # los marcadores, ordenados por fila según el diagrama de esquemas.
+        # Al mismo tiempo se genera una lista de los cuadros y regiones en
+        # los que faltan datos.
+        self.markers, self.missing = identifyingMarkers(
+        self.stream, end-start, self.schema['schema'], **kwargs
         )
-        hike.IdentifyingMarkers()
-        hike.SearchingCycles()
-        container.append(hike)
-    
+    # Esto se puede mejorar aún mas! Interpolar los arreglo debe ir inmediatamente
+    # despues de encontrar las caminatas, luego se deben calcular los ciclos y luego
+    # se pueden tomar los parámetros
+    def SearchingCycles(self, **kwargs):
+        u"""."""
+        interpolate(self.markers, self.missing, self.schema)
+        self.cycles, self.diff, self.mov = gaitCycler(self.markers, **kwargs)
 
-class VideoManager(object):
-    u"""."""
 
-    # Por ahora la lectura de video se limita a un único video por
-    # entrada, en un futuro puede llegar a admitirse más de un video
-    # por entrada.
-    def __init__(self, source):
-        self.intervals = deque(maxlen=50)
-        self.hikes = deque(maxlen=50)
-        self.source = source
+class KinematicsEngine(object):
+    u"""Motor de extracción y procesamiento de datos de marcha humana."""
+
+    intervals = deque(maxlen=50)
+    walks = deque(maxlen=50)
+    cycles = deque(maxlen=100)
+    parameters = {}
+
+    def __init__(self, files, config, schema):
+        self.files = files
+        self.config = config
+        self.schema = schema  # Esto puede salir mas adelante del archivo de configuración
+
+    @contextmanager
+    def openKinovea(self, path):
+        u"""Lectura segura del archivo.
+
+        :param path: La ruta del archivo de texto.
+        :type path: str
+        """
+        return NotImplemented
 
     @contextmanager
     def openVideo(self, path):
-        u"""Context Manager para la apertura del video.
-        
-        Todo lo que se necesite hacer con la información del video
-        debe de estar incluida dentro de la sentencia 'with' con la
-        que se abre el video.
-        
+        u"""Lectura segura del archivo.
+
         :param path: La ruta del archivo de video.
         :type path: str
         """
@@ -483,200 +453,57 @@ class VideoManager(object):
         yield video
         video.release()
 
-    def run(self):
+    def filesExplorer(self):
         u"""."""
-        with self.openVideo(self.source) as stream:
-            sliceHikes(stream, self.intervals, schema['schema'])
-            exploreHikes(stream, self.intervals, self.hikes, schema)
+        for _file in self.files:
+            ext = os.path.basename(_file).split('.')[-1]
+            if ext in ('avi', 'mp4'):
+                self.videoExplorer(_file)
+            elif ext in ('txt',):  # Ver la opcion de xml.
+                "Inicar el explorador de archivos de texto"
+            else:
+                raise Exception(u"MasMarcha: Formato de archivo NO soportado")
 
-
-# In[9]:
-
-
-path = '/home/mariano/Descargas/VID_20170720_132629833.mp4'  # Belen
-
-t1 = time()
-vid = VideoManager(path)
-vid.run()
-print time()- t1
-
-# for hike in vid.hikes:
-#     markers = hike.markers
-#     for m in xrange(sum(schema['schema'])):
-#         plt.plot(markers[:, m, 0],-markers[:, m, 1])
-#     plt.legend(range(sum(schema['schema'])))
-#     plt.show()
-
-
-# In[ ]:
-
-
-# Este es el gráfico que necesito para comprobar que los ciclos están bien.
-# cy, diff, mov = cycler(vid.hikes[0].markers)
-# plt.plot(range(diff.shape[0]), diff.T[0])
-# plt.plot(range(diff.shape[0]), diff.T[1])
-# plt.plot(range(mov.size), mov*100)
-# plt.show()
-
-
-# In[ ]:
-
-
-# OK!
-import os
-from collections import deque
-from contextlib import contextmanager
-
-# tengo que usar logging
-import logging
-logging.info('Encendiendo Motores')
-
-
-class KinematicsEngine(object):
-    u"""."""
-    
-    hikes = deque(maxlen=100)
-    
-    def __init__(self, filename, config):
-        u"""."""
-        self.filename = filename
-        self.config = config
-
-
-    @contextmanager
-    def openKinovea(self, path):
+    def kinoveaExplorer(self, textfile):
         u"""."""
         return NotImplemented
 
-    def run(self):
-        u"""! En desarrollo........"""
-        ext = os.path.basename(self.filename).split('.')[-1]
-        
-        # Se el archivo de entrada es un video, entonces en el existen
-        # al menos una caminata. El proceso de encontrar y extraer los
-        # marcadores es mas complejo, y se necesita contexto distinto
-        # al de un archivo de texto.
-        if ext in self.config.get('Sys', 'videoext').split():
-            with self.openVideo(self.filename) as stream:
-                # Primero se buscan las caminatas dentro del video. Se
-                # recorren todos los cuadros en búsqueda de caminatas.
-                # A este proceso le llamo slicing.
-                self.VideoProcess(stream, 'slice')
-                # Si se obtuvieron caminatas, entonces el proceso
-                # continua con la identificación y agrupación de los
-                # marcadores. A este proceso le llamo grouping.
-                self.VideoProcess(stream, 'group')
-
-        # Si por el contrario el archivo es de texto, entonces se debe
-        # comprobar que sea de kinovea, con el formato apropiado, y
-        # el contexto de manejo y proceso tambien es distinto.
-        elif ext in self.config.get('Sys', 'kinoveaext').split():
-            manager = self.openKinovea
-        
-        # Si la extensión no correponde a un tipo de archivo soportado
-        # entonces se lanza una excepción.
-        else:
-            raise Exception(u"MasMarcha: Formato de archivo NO soportado")
-
-        # Se inicia el proceso de obtención de datos.
-        # Esta parte no está clara del todo.
-
-    def VideoProcess(self, buff, mode='slice', startFrame=0.0, endFrame=None):
-        u"""Procesa el archivo de video que contiene la marcha.
-        
-        Se encarga de ejecutar el procesamiento de video que consta de:
-         - Separar en caminatas el video. Cada caminata es una suceción
-         de cuadros que contiene las coordenadas de los marcadores colo_
-         cados en el cuerpo de la persona que camina frente a la cámara.
-         - Extraer de cada caminata las coordenadas de los marcadores.
-         - Obtener los ciclos que puedan o no hallarse dentro de cada
-         caminata.
-         - Corregir si es necesario el arreglo de marcadores, esto es
-         interpolar y ordenar.
-        """
-        # En caso de que solo se quiera hacer una lectura de una porción del
-        # video se pueden pasar los argumentos startFrame y endFrame. En esta
-        # sección del código establece el cuadro donde debe iniciar el video
-        # y cuantos cuadros debe durar.
-        buff.set(cv2.CAP_PROP_POS_FRAMES, startFrame)    
-        if endFrame:
-            nframes = int(endFrame - startFrame)
-        else:
-            nframes = int(buff.get(cv2.CAP_PROP_FRAME_COUNT) - startFrame)
-
-        # Existen dos funcionalidades distintas que se requieren de este método.
-        # La primera es separar el video completo en caminatas. Para esto se
-        # establece el modo en 'slice'.
-        N = int(self.config.get('Kinematics', 'nmarkers'))
-        if mode == 'slice':
-            sliceHikes(buff, self.hikes, nframes, N)
-
-        # La segunda extraer de cada caminata la información de ubicación de los
-        # marcadores.
-        elif mode == 'group':
-            groupMarkers(buff, self.hikes, nframes, N)
-        
-        # No se contempla ninguna otra opción de modo en el procesamiento del video
-        # por lo tanto se lanza una excepción en el caso no contemplado.
-        else:
-            raise Exception(u"Masmarcha: KinematicsEngine.VideoProcess(modo['slice' o 'group'])")
+    def videoExplorer(self, videofile):
+        u"""."""
+        # Por ahora se hace de esta manera, la idea es que a medida que vayan
+        # apareciendo caminatas se active la extraccion de ciclos
+        # y a medida que aparezcan ciclos se calculen parámetros.
+        with self.openVideo(videofile) as stream:
+            slicewalks(stream, self.intervals, self.schema['schema'])
+            explorewalks(stream, self.intervals, self.walks, self.schema)
 
 
-# In[ ]:
 
+if __name__ == '__main__':
+    from time import time
 
-# main
-from configparser import ConfigParser
-from io import BytesIO
+    # Nuevo esquema
+    # schema = {
+    #     'schema': (3, 2, 3),
+    #     'codes': (('M0', 'M1', 'M2'), ('M3', 'M4'), ('M5', 'M6', 'M7')),
+    # }
 
-configuration_file = """
-[Sys]
-kinoveaext: txt
-videoext: avi mp4
+    #Anterior esquema
+    schema = {
+        'schema': (2, 2, 3),
+        'slices': ((0, 2), (2, 4), (4, 7)),
+        'codes': (('M0', 'M1'), ('M2', 'M3'), ('M4', 'M5', 'M6')),
+    }
 
-[Kinematics]
-nmarkers: 7
-"""
+    #Viejo esquema
+    # schema = {
+    #     'schema': (1, 1, 2),
+    #     'codes': (('M0'), ('M1'), ('M2', 'M3')),
+    # }
 
-
-config = ConfigParser()
-config.read_file(BytesIO(configuration_file))
-
-path = '/home/mariano/Descargas/VID_20170720_132629833.mp4'  # Belen
-
-K = KinematicsEngine(path, config)
-K.run()
-K.hikes
-
-
-# In[ ]:
-
-
-# Test filling
-# path = '/home/mariano/Descargas/VID_20170720_132629833.mp4'  # Belen
-# vid = cv2.VideoCapture(path)
-# for i in range(10):
-#     ret, frame = vid.read()
-# plt.imshow(frame)
-# plt.show()
-
-# centers = np.array(map(markerCenter, findMarkers(frame)))[::-1]
-# print centers
-
-# ROI = regions(centers, schema['schema'], 1.2)
-# for c, d in ROI:
-#     plt.imshow(frame)
-#     plt.axhline(y=c)
-#     plt.axhline(y=c-d, color='r')
-#     plt.axhline(y=c+d, color='r')
-    
-#     plt.show()
-
-# print filling(centers, ROI, schema['schema'])
-
-# modified = centers.copy()
-# modified = modified[(0,1, 2, 3, 4, 6), :]
-# print modified
-
-# print filling(modified, ROI, schema['schema'])
-
+    path = '/home/mariano/Descargas/VID_20170720_132629833.mp4'  # Belen
+    print('Comenzando...')
+    t1 = time()
+    Eng = KinematicsEngine((path, ), None, schema)
+    Eng.filesExplorer()
+    print ('Tiempo de ejecución: {}'.format(time()- t1))
