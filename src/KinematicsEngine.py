@@ -28,7 +28,7 @@ import numpy as np
 import cv2
 
 
-def findMarkers(frame):
+def find_markers(frame):
     u"""."""
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     binary = cv2.threshold(gray, 240., 255., cv2.THRESH_BINARY)[1]
@@ -38,7 +38,7 @@ def findMarkers(frame):
     return contours[1]
 
 
-def markerCenter(contour):
+def marker_center(contour):
     u"""Devuelve los centros de los contorno del marcador."""
     x, y, w, h = cv2.boundingRect(contour)
     xc = x + w/2
@@ -46,7 +46,7 @@ def markerCenter(contour):
     return xc, yc
 
 
-def identifyingMarkers(stream, Nframes, schema, **kwargs):
+def identifying_markers(stream, Nframes, schema, **kwargs):
     u"""Se obtienen e identifican los arreglos de marcadores.
 
     Esta función extrae los centros de marcadores ordenados en sentido
@@ -62,9 +62,8 @@ def identifyingMarkers(stream, Nframes, schema, **kwargs):
     :type stream: cv2.VideoCapture
     :param Nframes: el número de cuadros que contiene el segmento de video.
     :type Nframes: int
-    :param schema: es el vector que contiene la información de la cantidad de
-     marcadores que contiene cada región.
-    :type schema: tuple
+    :param schema: esquema de marcadores diagramado.
+    :type schema: dict
     :return: arreglo con los arreglos de los centros del marcadores que se
      encontraron en el fragmento de video. Lista con los indices de los cuadros
      y las regiones de cada cuadro que contienen datos ausentes.
@@ -83,7 +82,7 @@ def identifyingMarkers(stream, Nframes, schema, **kwargs):
         # Se lee el cuadro y se extraen los centros de los marcadores en
         # un arreglo de numpy.
         __, frame = stream.read()
-        centers = np.array(map(markerCenter, findMarkers(frame)))[::-1]
+        centers = np.array(map(marker_center, find_markers(frame)))[::-1]
         # Si el número de marcadores es el adecuado, entonces se almacena
         # en una variable temporal el arreglo de centros por si es
         # necesario en el siguiente cuadro rellenar un arreglo incompleto
@@ -91,7 +90,7 @@ def identifyingMarkers(stream, Nframes, schema, **kwargs):
             # Se revisa el orden dentro de los marcadores de la región del
             # pie, puesto que en la lectura hecha por OpenCV puede haberse
             # invertido el orden de los marcadores de pie.
-            centers = sortFootMarkers(centers, schema)
+            centers = sort_foot_markers(centers, schema)
             temp = centers
             # Si existen regiones en las que se perdieron datos de marcadores
             # en al menos un cuadro de video, entonces deben agregarse al
@@ -118,11 +117,16 @@ def identifyingMarkers(stream, Nframes, schema, **kwargs):
     return (np.array(markers), missing_frames)
 
 
-def sortFootMarkers(centers, schema):
-    u"""Ordena los marcadores del grupo de tobillo."""
+def sort_foot_markers(centers, schema):
+    u"""Ordena los marcadores del grupo de tobillo.
+
+    :param schema: esquema de marcadores diagramado.
+    :type schema: dict
+    """
     # Por diagrama de marcadores, los que se encuentran en el pie son los
     # que están en la última región.
-    i, j = (sum(schema['schema']) - schema['schema'][-1], sum(schema['schema']))
+    i, j = (sum(schema['schema']) - schema['schema'][-1],
+            sum(schema['schema']))
     # => foot = centers[i: j]
     # Como los marcadores que están en la región de tobillo son tres, y el
     # esquema dice que tienen que estar colocados céfalo-caudales, entonces
@@ -161,9 +165,8 @@ def regions(centers, schema, r=1.0):
      arreglo es de rango completo, contienen el número de marcadores que espera
      el esquema.
     :type centers: np.ndarray
-    :param schema: es el vector que contiene la información de la cantidad de
-     marcadores que contiene cada región.
-    :type schema: tuple
+    :param schema: esquema de marcadores diagramado.
+    :type schema: dict
     :param r: es un escalar con el que se amplia el radio de la región.
     :type r: float
     :return: vectores con el centro y radio de cada una de las regiones
@@ -198,8 +201,8 @@ def filling(centers, roi, schema):
     :param roi: vector con valores de centro y radio de una región para crear
      un entorno de búsqueda.
     :type roi: list
-    :param schema: vector con el número de marcadores esperados por región.
-    :type schema: tuple
+    :param schema: esquema de marcadores diagramado.
+    :type schema: dict
     :return: vector cuya primera componente es el arreglo de marcadores con
      rango completo, y segunda componete una lista de esquema incompleto.
     :rtype: tuple
@@ -247,9 +250,8 @@ def interpolate(markers, missing_frames, schema):
     :param missing_frames: diccionario que contiene por regiones las listas de
      índices de cuadro en los que faltan datos.
     :type missing_frames: dict
-    :param schema: es el vector que contiene la información de la cantidad de
-     marcadores que contiene cada región.
-    :type schema: tuple
+    :param schema: esquema de marcadores diagramado.
+    :type schema: dict
     """
     # missing_frames es un diccionario que tiene como clave la región en la que
     # se deben interpolar los datos, y como valor una lista de intervalos de
@@ -273,7 +275,7 @@ def interpolate(markers, missing_frames, schema):
             markers[mis, i, 1] = np.interp(mis, xp, fpy)
 
 
-def gaitCycler(markers, lookout=(-2, -1), lvel=2.5):
+def gait_cycler(markers, lookout=(-2, -1), lvel=2.5):
     u"""Busca si existen ciclos de apoyo y balanceo en la caminata.
 
     La función busca si existen ciclos de marcha, apoyo y balanceo, dentro
@@ -321,11 +323,11 @@ def gaitCycler(markers, lookout=(-2, -1), lvel=2.5):
         if len(st) == 2:
             cycles.append((st[0], tf, st[1]))
             st.pop(0)
-    return (cycles, diff, mov)
+    return (diff, mov, cycles)
 
 
 @contextmanager
-def openVideo(path):
+def open_video(path):
     u"""Lectura segura del archivo.
 
     :param path: La ruta del archivo de video.
@@ -336,25 +338,29 @@ def openVideo(path):
     video.release()
 
 
-def explorewalk(source, interval, schema, idy='W0', **kwargs):
-        u"""."""
+def explore_walk(source, interval, schema, idy, **kwargs):
+        u""".
+
+        :param schema: esquema de marcadores diagramado.
+        :type schema: dict
+        """
         start, end = interval
-        with openVideo(source) as stream:
+        with open_video(source) as stream:
             # Se situa el video en el cuadro en el que empieza la caminata.
             stream.set(cv2.CAP_PROP_POS_FRAMES, start)
-            # De cada cuadro de video se extraen arreglos con los centros de
-            # los marcadores, ordenados por fila según el diagrama de esquemas.
-            # Al mismo tiempo se genera una lista de los cuadros y regiones en
-            # los que faltan datos.
-            markers, missing = identifyingMarkers(
+            # De cada cuadro de video se extraen arreglos con los centros
+            # de los marcadores, ordenados por fila según el diagrama de
+            # esquemas. Al mismo tiempo se genera una lista de los cuadros
+            # y regiones en los que faltan datos.
+            markers, missing = identifying_markers(
                 stream, end-start, schema, **kwargs
             )
         interpolate(markers, missing, schema)
-        cycles, diff, mov = gaitCycler(markers, **kwargs)
-        return (idy, cycles, markers, diff, mov)
+        diff, mov, cycles = gait_cycler(markers, **kwargs)
+        return (idy, markers, missing, diff, mov, cycles)
 
 
-def slicewalks(source, container, schema):
+def find_walks(source, container, schema):
     u"""Separa en caminatas el archivo.
 
     Cada caminata tiene como extremos cuadros que contienen exactamente
@@ -367,17 +373,16 @@ def slicewalks(source, container, schema):
     :param container: Es el contenedor que va a almacenar los intervalos
      de los cuadros donde se encuentra cada caminata.
     :type container: collections.deque
-    :param schema: es el vector que contiene la información de la cantidad de
-     marcadores que contiene cada región.
-    :type schema: tuple
+    :param schema: esquema de marcadores diagramado.
+    :type schema: dict
     """
     walking = False
     first, backward, i = 0, 0, 0
     N = sum(schema['schema'])
-    with openVideo(source) as stream:
+    with open_video(source) as stream:
         ret, frame = stream.read()
         while ret:
-            n = len(findMarkers(frame))
+            n = len(find_markers(frame))
             # Si el número de marcadores es cero, es porque todavia
             # no comenzó la caminata o acaba de terminar.
             if n == 0:
@@ -412,56 +417,233 @@ def slicewalks(source, container, schema):
             i += 1
 
 
-class KinematicsEngine(object):
-    u"""Motor de extracción y procesamiento de datos de marcha humana."""
+def kinovea_explorer(textfile, container, schema):
+    u""".
 
-    container = deque(100)
-    parameters = {}
+    :param schema: esquema de marcadores diagramado.
+    :type schema: dict
+    """
+    return NotImplemented
 
-    def __init__(self, files, config, schema):
-        self.files = files
-        self.config = config
-        self.schema = schema  # Agregar al archivo de configuración
 
-    def filesExplorer(self):
-        u"""."""
-        for _file in self.files:
-            ext = os.path.basename(_file).split('.')[-1]
-            if ext in ('avi', 'mp4'):
-                self.videoExplorer(_file)
-            elif ext in ('txt',):  # NOTE: Ver la opcion de xml.
-                self.kinoveaExplorer(_file)
-            else:
-                raise Exception(u"MasMarcha: Formato de archivo NO soportado")
+def video_explorer(videofile, container, schema):
+    u""".
 
-    def kinoveaExplorer(self, textfile):
-        u"""."""
-        return NotImplemented
+    :param schema: esquema de marcadores diagramado.
+    :type schema: dict
+    """
+    # Por ahora se hace de esta manera, la idea es que a medida que vayan
+    # apareciendo caminatas se active la extraccion de ciclos
+    # y a medida que aparezcan ciclos se calculen parámetros.
+    find_walks(videofile, container, schema)
+    n = len(container)
+    while n:
+        interval = container.pop()
+        container.appendleft(
+            explore_walk(videofile, interval, schema, 'W%d' % n)
+        )
+        n -= 1
 
-    def videoExplorer(self, videofile):
-        u"""."""
-        # Por ahora se hace de esta manera, la idea es que a medida que vayan
-        # apareciendo caminatas se active la extraccion de ciclos
-        # y a medida que aparezcan ciclos se calculen parámetros.
-        slicewalks(videofile, self.container, self.schema)
-        for interval in self.container:
-            explorewalk(videofile, interval, self.container, self.schema)
+
+def angle(A, B):
+    """Calcula el ángulo(theta) entre dos vectores.
+
+    Según la definición de producto escalar: u·v = |u||v|cos(theta)
+    :param A: arreglo de vectores fila con las posiciones x, y respectivamente
+    de un punto en el plano.
+    :type A: np.ndarray
+    :param B: arreglo de vectores fila con las posiciones x, y respectivamente
+    de un punto en el plano.
+    :type B: np.ndarray
+    :return: arreglo de ángulos en grados.
+    :rtype: np.ndarray
+    """
+    NA = np.linalg.norm(A, axis=1)
+    NB = np.linalg.norm(B, axis=1)
+    AB = A.dot(B.T).diagonal()
+    radians = np.arccos(AB / (NA * NB))
+    return np.degrees(radians)
+
+
+def positiveX(shape):
+    array = np.zeros(shape)
+    array[:, 0] = 1
+    return array
+
+
+def negativeX(shape):
+    array = np.zeros(shape)
+    array[:, 0] = -1
+    return array
+
+
+def hip_joint(tight, canonical):
+    u"""Angulos de la articulación de cadera.
+
+    :param tight: arreglo vectores representantes de muslo. El vector tiene la
+     orientación "céfalo-caudal"
+    :type tight: np.array
+    :param canonical: arreglo de vectores unitarios canonicales fila. Este
+     vector tiene la dirección de avance del sujeto.
+    :type canonical: np.array
+    :return: arreglo de angulos de cadera.
+    :rtype: np.array
+    """
+    return 90 - angle(tight, canonical)
+
+
+def knee_joint(tight, leg, canonical):
+    u"""Angulos de la articulación de rodilla.
+
+    :param tight: arreglo vectores representantes de muslo. El vector tiene la
+     orientación "céfalo-caudal"
+    :type tight: np.array
+    :param leg: arreglo vectores representantes de pierna. El vector tiene la
+     orientación "céfalo-caudal"
+    :type leg: np.array
+    :param canonical: arreglo de vectores unitarios canonicales fila. Este
+     vector tiene la dirección de avance del sujeto.
+    :type canonical: np.array
+    :return: arreglo de angulos de rodilla.
+    :rtype: np.array
+    """
+    hip = hip_joint(tight, canonical)
+    return hip + angle(leg, canonical) - 90
+
+
+def ankle_joint(leg, foot):
+    u"""Angulos de la articulación de tobillo.
+
+    :param leg: arreglo vectores representantes de pierna. El vector tiene la
+     orientación "caudo-cefálico"
+    :type leg: np.array
+    :param foot: arreglo vectores representantes de pie. El vector tiene la
+     orientación "céfalo-caudal"
+    :type foot: np.array
+    :return: arreglo de angulos de tobillo.
+    :rtype: np.array
+    """
+    return 90 - angle(leg * -1, foot)
+
+
+def fourier_fit(array, sample=101, amplitud=4):
+    u"""Devuelve una aproximación de fourier con espectro que se
+    define en ``amplitud``. Por defecto la muestra es de 101
+    valores, sin importar el tamaño de ``array``
+    :param array: arreglo de angulos en grados.
+    :type array: np.ndarray
+    :param sample: número de muestras que se quiere obetener en el arreglo.
+    :type param: int
+    :param amplitud: los primeros n coeficientes de fourier que se
+    utilizan el el cálculo.
+    :type amplitud: int
+    :return: arreglo con los datos de angulos ajustados por la serie de
+    Fourier utilizando los primeros n=amplitud terminos, de tamaño
+    dim(array.rows, sample)
+    :rtype: np.ndarray
+    """
+    scale = sample/float(array.shape[1])
+    fdt = np.fft.rfft(array)
+    fourier_fit = np.fft.irfft(fdt[:, :amplitud], n=sample)*scale
+    return fourier_fit
+
+
+def calculate_angles(markers, cycle, schema, fit=True, **kwargs):
+    u"""Calculo de angulos durante el ciclo de marcha.
+
+
+    :param markers: arreglo de centros de marcadores.
+    :type markers: np.array
+    :param cycle: índices de los cuadros que contienen un ciclo dentro de la
+     caminata
+    :type cycle: tuple
+    :param schema: esquema de marcadores diagramado.
+    :type schema: dict
+    :param fit: ajuste por transformada de Fourier en un arreglo periódico.
+    :type fit: bool
+    :return: arreglo de ángulos según el diagrama de esquema.
+    :rtype: np.array
+    """
+    # Se organizan los marcadores según los códigos diagramados en el esquema.
+    # Si bien se toma todo el arreglo de marcadores de la caminata, solo se
+    # produce el cálculo de ángulos con los cuadros que pertenecen a un ciclo.
+    istrike, __, fstrike = cycle
+    dmarkers = {}
+    for i, m in enumerate(schema['codes']):
+        dmarkers[m] = markers[istrike: fstrike, i, :]
+    # Se forman los segmentos según lo diagramado en el esquema.
+    dsegments = {}
+    for s, (a, b) in schema['segments'].iteritems():
+        dsegments[s] = dmarkers[b] - dmarkers[a]
+    # Se calcula los ángulos siguiendo el diagrama del esquema.
+    langles = []
+    # La dirección de avance se toma de la dirección del pie. Se hace un
+    # promedio del valor de las x, que indica si el pie se mueve en sentido
+    # positivo o negativo con el eje x. Este valor entero, que puede ser "0" o
+    # "1" se utiliza para seleccionar la función con la que se produce un
+    # arreglo de vectores unitarios canonicales. Este arreglo se utiliza para
+    # calcular el ángulo de cadera, (y de forma indirecta rodilla)
+    foot = dsegments['foot']
+    direction = int(foot.mean(axis=0)[0] > 0)
+    dsegments['canonical'] = (negativeX, positiveX)[direction](foot.shape)
+    # Se agrupan las funciones que calculan los angulos en un diccionario para
+    # que el proceso sea ordenado por el esquema.
+    joint_functions = {
+        'hip': hip_joint,
+        'knee': knee_joint,
+        'ankle': ankle_joint
+    }
+    # Lo mismo sucede con los argumentos que necesitan las funciones que
+    # calculan los ángulos.
+    joint_functions_args = {
+        'hip': ('tight', 'canonical'),
+        'knee': ('tight', 'leg', 'canonical'),
+        'ankle': ('leg', 'foot')
+    }
+    for j in schema['joints']:
+        segments = [dsegments[i] for i in joint_functions_args[j]]
+        langles.append(joint_functions[j](*segments))
+    angles = np.array(langles)
+    # Por defecto se ordena que haya un ajuste de furier, pero puede evitarse
+    # devolviendo el arreglo original.
+    if fit:
+        angles = fourier_fit(angles, **kwargs)
+    return angles
+
+
+def KinematicsEngine(files, schema):
+    u"""Motor de extracción y procesamiento de datos de marcha humana.
+
+    :param schema: esquema de marcadores diagramado.
+    :type schema: dict
+    """
+    container = deque(maxlen=100)
+    # parameters = {}
+
+    for f in files:
+        ext = os.path.basename(f).split('.')[-1]
+        if ext in ('avi', 'mp4'):
+            video_explorer(f, container, schema)
+        elif ext in ('txt',):  # NOTE: Ver la opcion de xml.
+            kinovea_explorer(f, container, schema)
+        else:
+            raise Exception(u"MasMarcha: Formato de archivo NO soportado")
+    return container
 
 
 if __name__ == '__main__':
     from time import time
 
-    schema = {
-        'schema': (2, 2, 3),
-        'slices': ((0, 2), (2, 4), (4, 7)),
-        'codes': (('M0', 'M1'), ('M2', 'M3'), ('M4', 'M5', 'M6')),
-    }
+schema = {
+    'schema': (2, 2, 3),
+    'slices': ((0, 2), (2, 4), (4, 7)),
+    'codes': ('M0', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6'),
+    'segments': {'tight': ('M1','M2'), 'leg': ('M3','M4'), 'foot': ('M5','M6')},
+    'joints': ('hip', 'knee', 'ankle')
+}
 
     path = '/home/mariano/Descargas/VID_20170720_132629833.mp4'  # Belen
     t1 = time()
-    w = deque()
-    slicewalks(path, w, schema)
-    c = deque()
-    for interv in w:
-        c.append(explorewalk(path, interv, schema))
+    E = KinematicsEngine((path, ), schema)
+    print E[0]
     print ('Tiempo de ejecución: {}'.format(time() - t1))
