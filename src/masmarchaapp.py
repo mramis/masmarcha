@@ -35,8 +35,7 @@ class MasMarchaApp(App):
         default_config = {
             "capture": {
                 "schema_path": None,
-                "schema_indicator": '',
-                "ft_mov_markers": None,
+                "schema_indicator": ''
             },
             "paths": PATHS,
             "process": {
@@ -49,6 +48,24 @@ class MasMarchaApp(App):
             config.setall(section, default_config[section])
         config.write()
 
+
+"""
+hardcore to setting:
+dilatacion: valor entero para dilatar los marcadores.
+thres: umbral de blancos.
+roi_amp: la aplitud para la buqueda de región de interés en rodilla.
+nomarkerstime: el tiempo que se utiliza para separar la caminta de otra
+distinta.
+dref: la cantidad de marcadores de referencia para pasar de pixeles a metros.
+cal_frames: cantidad de cuadros en los que se espera encontrar los marcadores
+para la calibración de la imagen.
+cycle_level: es el umbral para determinar la velocidad de marcadores.
+stance_swing_markers: decide si se utiliza el patrón definido por esquema para
+la medición de velocidad de pie, o puede alterarse.
+homogenize: limite de ciclos máximo por caminata.
+fuirier_amp: si se aplica el filtrado de furier entonces se deben especificar
+la cantidad de coeficientes.
+"""
 
 
 if __name__ == '__main__':
