@@ -90,7 +90,7 @@ def identifying_markers(stream, Nframes, schema, **kwargs):
             # Se revisa el orden dentro de los marcadores de la región del
             # pie, puesto que en la lectura hecha por OpenCV puede haberse
             # invertido el orden de los marcadores de pie.
-            centers = sort_foot_markers(centers, schema)
+            sort_foot_markers(centers, schema)
             temp = centers
             # Si existen regiones en las que se perdieron datos de marcadores
             # en al menos un cuadro de video, entonces deben agregarse al
@@ -124,17 +124,15 @@ def sort_foot_markers(centers, schema):
     :type schema: dict
     """
     # Por diagrama de marcadores, los que se encuentran en el pie son los
-    # que están en la última región.
-    i, j = (sum(schema['schema']) - schema['schema'][-1],
-            sum(schema['schema']))
-    # => foot = centers[i: j]
+    # que están en la última región: -1, -2, -3
+    foot_markers = (-3, -2, -1)
     # Como los marcadores que están en la región de tobillo son tres, y el
     # esquema dice que tienen que estar colocados céfalo-caudales, entonces
     # el de tobillo es el antepenúltimo, el de la parte posterior del pie
     # es el anteultimo, y el de la parte anterior del pié es el último.
-    ankle, rearf, frontf = centers[i: j]
-    d0 = np.linalg.norm(ankle - rearf)
-    d1 = np.linalg.norm(ankle - frontf)
+    ankle, rearf, frontf = centers[foot_markers, :]
+    d0 = np.linalg.norm(ankle - rearf, ord=1)
+    d1 = np.linalg.norm(ankle - frontf, ord=1)
     # Si la distancia entre el marcador de la parte posterior del pie y el
     # tobillo es mayor que la distancia entre la parte anterior del pie y el
     # tobillo, entonces el ciclo de la marcha se encuentra en un instante donde
@@ -143,8 +141,7 @@ def sort_foot_markers(centers, schema):
     # marcadores de OpenCV los ha ordenado de forma distinta al que se plantea
     # en el esquema y se debe corregir.
     if d0 > d1:
-        centers[i: j] = np.array((ankle, frontf, rearf))
-    return centers
+        centers[foot_markers, :] = np.array((ankle, frontf, rearf))
 
 
 def regions(centers, schema, r=1.0):
@@ -269,10 +266,8 @@ def interpolate(markers, missing_frames, schema):
             # "fpx" y "fpy" son los valores que se presentan en "x" y en y en
             # los puntos "xp" que son los valores referencia de la
             # interpolación.
-            fpx = markers[xp, i, 0]
-            fpy = markers[xp, i, 1]
-            markers[mis, i, 0] = np.interp(mis, xp, fpx)
-            markers[mis, i, 1] = np.interp(mis, xp, fpy)
+            markers[mis, i, 0] = np.interp(mis, xp, markers[xp, i, 0])
+            markers[mis, i, 1] = np.interp(mis, xp, markers[xp, i, 1])
 
 
 def gait_cycler(markers, lookout=(-2, -1), lvel=2.5):
@@ -324,6 +319,22 @@ def gait_cycler(markers, lookout=(-2, -1), lvel=2.5):
             cycles.append((st[0], tf, st[1]))
             st.pop(0)
     return (diff, mov, cycles)
+
+
+def direction(markers):
+    u"""La dirección de la caminata.
+
+    :param markers: arreglo de centros de marcadores.
+    :type markers: np.array
+    """
+    # En todos los esquema generados hasta el momento los de pié siempre
+    # fueron los últimos en el arreglo.
+    xrfoot, xffoot = markers[:, (-2, -1), 0].transpose()
+    # La dirección es la media de las distancias en x entre el pie anterio y el
+    # pie posterior. Si este número es mayor que cero, entonces avanza en
+    # sentido positivo de las x y el lado que se evalua es el derecho, de otra
+    # forma es izquierdo.
+    return int((xffoot - xrfoot).mean(axis=0) > 0)
 
 
 @contextmanager
@@ -441,7 +452,7 @@ def fourier_fit(array, sample=101, amplitud=4):
     return fourier_fit
 
 
-def calculate_angles(markers, cycle, schema, fit=True, **kwargs):
+def calculate_angles(markers, cycle, schema, direction, fit=True, **kwargs):
     u"""Calculo de angulos durante el ciclo de marcha.
 
 
@@ -452,6 +463,8 @@ def calculate_angles(markers, cycle, schema, fit=True, **kwargs):
     :type cycle: tuple
     :param schema: esquema de marcadores diagramado.
     :type schema: dict
+    :param direction: Valor de sentido de avance de la marcha.
+    :type direction: int
     :param fit: ajuste por transformada de Fourier en un arreglo periódico.
     :type fit: bool
     :return: arreglo de ángulos según el diagrama de esquema.
@@ -476,9 +489,8 @@ def calculate_angles(markers, cycle, schema, fit=True, **kwargs):
     # "1" se utiliza para seleccionar la función con la que se produce un
     # arreglo de vectores unitarios canonicales. Este arreglo se utiliza para
     # calcular el ángulo de cadera, (y de forma indirecta rodilla)
-    foot = dsegments['foot']
-    direction = int(foot.mean(axis=0)[0] > 0)
-    dsegments['canonical'] = (negativeX, positiveX)[direction](foot.shape)
+    tight = dsegments['tight']
+    dsegments['canonical'] = (negativeX, positiveX)[direction](tight.shape)
     # Se agrupan las funciones que calculan los angulos en un diccionario para
     # que el proceso sea ordenado por el esquema.
     joint_functions = {
@@ -543,15 +555,18 @@ def calculate_spacetemp(markers, cycle, fps):
 class KinematicsEngine(object):
     u"""Motor de extracción y procesamiento de datos de marcha humana.
 
+    :param files: vector que contiene las rutas de los archivos con datos de
+     marcha, ya sean de video o exportaciones desde Kinovea.
+    :type files: tuple
     :param schema: esquema de marcadores diagramado.
     :type schema: dict
     """
-    main_data = deque(maxlen=100)
-    secondary_data = deque(maxlen=100)
 
     def __init__(self, files, schema):
         self.files = files
         self.schema = schema
+        self.main_data = deque(maxlen=100)
+        self.secondary_data = deque(maxlen=100)
 
     def run(self):
         u"""."""
@@ -574,7 +589,7 @@ class KinematicsEngine(object):
         # motor de lectura cuando se ejecuta sobre un video.
         self.find_walks(videofile)
         n = len(self.main_data)
-        # La función explore_walk modifica las colas principal y secundaria del
+        # La función explore_walk modifica las listas principal y secundaria
         # del motor.
         while n:
             self.explore_walk(videofile, 'W%d' % n, **kwargs)
@@ -673,16 +688,27 @@ class KinematicsEngine(object):
                 i += 1
 
     def calculate_params(self):
-        u""".
-
-        """
+        u"""Calcula los parámetros de marcha."""
         self.parameters = []
+        # Para el cáculo de parámetros se utilizan los datos que se encuentran
+        # en la lista principal.
+        # Cada elemento dentro de la lista es un vector de tres componentes, la
+        # identificación de la caminata, el arreglo de centros de marcadores
+        # de la caminata y el conjunto de índices de cyclos, si es que se
+        # encontró alguno.
         for data in self.main_data:
             idy, markers, cycles = data
+            # Si existen ciclos, por cada uno se calculan los ángulos de las
+            # articulaciones definidas por el esquema, y los parámetros espacio
+            # temporales.
+            dire = direction(markers)
             for i, cycle in enumerate(cycles):
+                # En la lista de parámetros encontrada por el motor, se ordenan
+                # vectores con los componentes: identidad del ciclo, arreglo
+                # de ángulos, y diccionario con parámetros espaciotemporales.
                 self.parameters.append((
-                    '{}C{}'.format(idy, i+1),
-                    calculate_angles(markers, cycle, self.schema),
+                    '{d}{w}C{i}'.format(d=('I', 'D')[dire], w=idy, i=i+1),
+                    calculate_angles(markers, cycle, self.schema, dire),
                     calculate_spacetemp(markers, cycle, self.fps)
                 ))
 
@@ -694,7 +720,11 @@ if __name__ == '__main__':
         'schema': (2, 2, 3),
         'slices': ((0, 2), (2, 4), (4, 7)),
         'codes': ('M0', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6'),
-        'segments': {'tight': ('M1', 'M2'), 'leg': ('M3', 'M4'), 'foot': ('M5', 'M6')},
+        'segments': {
+            'tight': ('M1', 'M2'),
+            'leg': ('M3', 'M4'),
+            'foot': ('M5', 'M6')
+        },
         'joints': ('hip', 'knee', 'ankle')
     }
 
@@ -702,5 +732,4 @@ if __name__ == '__main__':
     t1 = time()
     E = KinematicsEngine((path, ), schema)
     E.run()
-
     print ('Tiempo de ejecución: {}'.format(time() - t1))
