@@ -22,16 +22,26 @@
 from collections import deque
 from contextlib import contextmanager
 from collections import defaultdict
+from json import load
 import os
 # from threading import Thread
 import numpy as np
 import cv2
 
 
-def find_markers(frame):
-    u"""."""
+def find_markers(frame, threshold=240.0):
+    u"""Encontar marcadores.
+
+    La función se encarga de binarizar la imagen del cuadro de video y aplicar
+    un filtrado de umbral para detectar los marcadores. Cuando lo hace devuelve
+    un arreglo de contornos de cada uno de los marcadores.
+    :param threshold: límite de filtrado.
+    :type threshold: float
+    :return: conjunto de arreglo de contornos.
+    :rtype: list
+    """
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    binary = cv2.threshold(gray, 240., 255., cv2.THRESH_BINARY)[1]
+    binary = cv2.threshold(gray, threshold, 255., cv2.THRESH_BINARY)[1]
     contours = cv2.findContours(
         binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
     )
@@ -41,9 +51,7 @@ def find_markers(frame):
 def marker_center(contour):
     u"""Devuelve los centros de los contorno del marcador."""
     x, y, w, h = cv2.boundingRect(contour)
-    xc = x + w/2
-    yc = y + h/2
-    return xc, yc
+    return x + w/2, y + h/2
 
 
 def identifying_markers(stream, Nframes, schema, **kwargs):
@@ -87,10 +95,6 @@ def identifying_markers(stream, Nframes, schema, **kwargs):
         # en una variable temporal el arreglo de centros por si es
         # necesario en el siguiente cuadro rellenar un arreglo incompleto
         if len(centers) == sum(schema['schema']):
-            # Se revisa el orden dentro de los marcadores de la región del
-            # pie, puesto que en la lectura hecha por OpenCV puede haberse
-            # invertido el orden de los marcadores de pie.
-            sort_foot_markers(centers, schema)
             temp = centers
             # Si existen regiones en las que se perdieron datos de marcadores
             # en al menos un cuadro de video, entonces deben agregarse al
@@ -117,31 +121,28 @@ def identifying_markers(stream, Nframes, schema, **kwargs):
     return (np.array(markers), missing_frames)
 
 
-def sort_foot_markers(centers, schema):
+def sort_foot_markers(markers):
     u"""Ordena los marcadores del grupo de tobillo.
 
     :param schema: esquema de marcadores diagramado.
     :type schema: dict
+    :return: indicador de la realización de reordenamiento.
+    :rtype: bool
     """
-    # Por diagrama de marcadores, los que se encuentran en el pie son los
-    # que están en la última región: -1, -2, -3
-    foot_markers = (-3, -2, -1)
-    # Como los marcadores que están en la región de tobillo son tres, y el
-    # esquema dice que tienen que estar colocados céfalo-caudales, entonces
-    # el de tobillo es el antepenúltimo, el de la parte posterior del pie
-    # es el anteultimo, y el de la parte anterior del pié es el último.
-    ankle, rearf, frontf = centers[foot_markers, :]
-    d0 = np.linalg.norm(ankle - rearf, ord=1)
-    d1 = np.linalg.norm(ankle - frontf, ord=1)
-    # Si la distancia entre el marcador de la parte posterior del pie y el
-    # tobillo es mayor que la distancia entre la parte anterior del pie y el
-    # tobillo, entonces el ciclo de la marcha se encuentra en un instante donde
-    # el marcador de la parte anterior del pie está por encima del marcador que
-    # se encuentra en la parte posterior del pie, y la función de encontrar los
-    # marcadores de OpenCV los ha ordenado de forma distinta al que se plantea
-    # en el esquema y se debe corregir.
-    if d0 > d1:
-        centers[foot_markers, :] = np.array((ankle, frontf, rearf))
+    temp = markers.copy()
+    # Se toma la distancia entre el marcador de tobillo y retro pie.
+    d0 = np.linalg.norm(markers[:, -3, :] - markers[:, -2, :], ord=1, axis=1)
+    # Se toma la distancia entre el marcador de tobillo y ante pie.
+    d1 = np.linalg.norm(markers[:, -3, :] - markers[:, -1, :], ord=1, axis=1)
+    # Si la distancia d0 es mayor que d1, entonces find_markers ordenó los
+    # marcadores de pie de forma distinta a lo que se espera según el esquema.
+    swap_mask = d0 > d1
+    if swap_mask.any():
+        markers[swap_mask, -2, :] = temp[swap_mask, -1, :]
+        markers[swap_mask, -1, :] = temp[swap_mask, -2, :]
+        return True
+    else:
+        return False
 
 
 def regions(centers, schema, r=1.0):
@@ -215,7 +216,7 @@ def filling(centers, roi, schema):
     # que que no son ocupados por la región orignal es basura, no fiarse de
     # esos valores. La variable i representa al índice de la región en el
     # esquema.
-    resized_centers = np.empty((sum(schema['schema']), 2), dtype=int)
+    resized_centers = np.zeros((sum(schema['schema']), 2), dtype=int)
     for i, ((c, r), s) in enumerate(zip(roi, schema['schema'])):
         # En el arreglo rmark están los centros de los marcadores que
         # corresponden al entorno delimitado por la región.
@@ -321,15 +322,20 @@ def gait_cycler(markers, lookout=(-2, -1), lvel=2.5):
     return (diff, mov, cycles)
 
 
-def direction(markers):
+def direction(markers, lookout=(-2, -1)):
     u"""La dirección de la caminata.
 
     :param markers: arreglo de centros de marcadores.
     :type markers: np.array
+    :param lookout: vigía, son los marcadores que deben tomarse para determinar
+     la dirección.
+    :type lookout: tuple
+    :return: valor de dirección.
+    :rtype: int
     """
     # En todos los esquema generados hasta el momento los de pié siempre
     # fueron los últimos en el arreglo.
-    xrfoot, xffoot = markers[:, (-2, -1), 0].transpose()
+    xrfoot, xffoot = markers[:, lookout, 0].transpose()
     # La dirección es la media de las distancias en x entre el pie anterio y el
     # pie posterior. Si este número es mayor que cero, entonces avanza en
     # sentido positivo de las x y el lado que se evalua es el derecho, de otra
@@ -370,12 +376,22 @@ def angle(A, B):
 
 
 def positiveX(shape):
+    u"""arreglo de vectores unitarios.
+
+    Estos vectores tienen módulo unitario y dirección positiva en el eje de las
+    x.
+    """
     array = np.zeros(shape)
     array[:, 0] = 1
     return array
 
 
 def negativeX(shape):
+    u"""arreglo de vectores unitarios.
+
+    Estos vectores tienen módulo unitario y dirección negativa en el eje de las
+    x.
+    """
     array = np.zeros(shape)
     array[:, 0] = -1
     return array
@@ -529,18 +545,22 @@ def calculate_spacetemp(markers, cycle, fps):
     :return: parámetros espacio-temporales.
     :rtype: dict
     """
-    # Se toman los extremos del ciclo y se calcula la duración en cuadros,
-    # la duración en segundos, el procentaje de fase de apoyo, el porcentaje
-    # de fase de balanceo, la cadencia en pasos por minutos, la longitud de
-    # la zancada, y la velocidad media durante el ciclo.
-    # Se adjuntan las unidades de cada parámetro.
+    # la duración en segundos,
     istrike, swing, fstrike = cycle
+    # Se calcula la duración en cuadros
     framesduration = float(fstrike - istrike)
+    # la duración en segundos.
     duration = framesduration / fps
+    # la longitud de zancada.
     stride = np.linalg.norm(markers[(0, -1), -2, :])
+    # Se adjuntan las unidades de cada parámetro.
+    # NOTE: Hasta que no se haga la calibración de la imagen y la conversión de
+    # unidades, las distancias van a estar en pixeles.
     units = (('duration', '[s]'), ('stance', '[%]'), ('swing', '[%]'),
              ('cadency', '[steps/min]'), ('stride', '[px]'),
              ('velocity', '[px/s]'))
+    # el procentaje de fase de apoyo, el porcentaje de fase de balanceo, la
+    # cadencia en pasos por minutos, , y la velocidad media durante el ciclo.
     return {
         'duration': duration,
         'stance': (swing - istrike) / framesduration,
@@ -558,18 +578,32 @@ class KinematicsEngine(object):
     :param files: vector que contiene las rutas de los archivos con datos de
      marcha, ya sean de video o exportaciones desde Kinovea.
     :type files: tuple
-    :param schema: esquema de marcadores diagramado.
-    :type schema: dict
+    :param config: API de configuracion.
+    :type config: configparser.ConfigParser
     """
 
-    def __init__(self, files, schema):
+    def __init__(self, files, config):
         self.files = files
-        self.schema = schema
+        self.config = config
         self.main_data = deque(maxlen=100)
-        self.secondary_data = deque(maxlen=100)
+        self.validation_data = deque(maxlen=100)
+        self.debug_markers = deque(maxlen=100)
+        self.sort_markers = deque(maxlen=100)
+
+    def set_config(self):
+        u"""Configuración del motor con valores de usuario."""
+        # Se abre el archivo json de esquemas.
+        with open(self.config.get('engine', 'schema')) as fh:
+            self.schema = load(fh)
+        # Se setea el modo de ejecución.
+        self.mode = self.config.get('engine', 'mode')
 
     def run(self):
-        u"""."""
+        u"""Inicia el motor de búsqueda de parametros de marcha."""
+        # Antes de comenzar la exploración de los archivos se realiza la
+        # configuración de los parámetros que establece el usuario.
+        self.set_config()
+
         for f in self.files:
             ext = os.path.basename(f).split('.')[-1]
             if ext in ('avi', 'mp4'):
@@ -589,7 +623,7 @@ class KinematicsEngine(object):
         # motor de lectura cuando se ejecuta sobre un video.
         self.find_walks(videofile)
         n = len(self.main_data)
-        # La función explore_walk modifica las listas principal y secundaria
+        # La función explore_walk modifica las listas principal y de validacion
         # del motor.
         while n:
             self.explore_walk(videofile, 'W%d' % n, **kwargs)
@@ -619,19 +653,34 @@ class KinematicsEngine(object):
             markers, missing = identifying_markers(
                 stream, end-start, self.schema, **kwargs
             )
+        if self.mode == 'debug':
+            self.debug_markers.appendleft(markers.copy())
+        # Se revisa el orden dentro de los marcadores de la región del pie,
+        # puesto que en la lectura hecha por OpenCV puede haberse invertido el
+        # orden de los marcadores de pie. El valor de retorno es boleano.
+        ret = sort_foot_markers(markers)
+        if self.mode == 'debug':
+            self.sort_markers.appendleft(ret)
         # Se completan los arreglos de centros de datos con valores
         # interpolados con método lineal.
         interpolate(markers, missing, self.schema)
         # Se obtienen los ciclos dentro de la caminata, y dos arreglos mas que
         # se utilizan para mostrar las velocidades y los cambios de fase.
         diff, mov, cycles = gait_cycler(markers, **kwargs)
+        # Si no se encontraron ciclos en los marcadores, y el modo de ejecución
+        # es "regular", entonces finaliza la exploración y no se agregan
+        # valores a las listas de datos primaria y secundarios.
+        if not cycles and self.mode == 'regular':
+            return
+        # Si existen ciclos o el modo de ejecución es "debug", se agregan los
+        # valores hallados a los datos.
         # Los datos que se utilizan en el cálculo de parámetros se almacenan
         # en la cola principal.
         self.main_data.appendleft((idy, markers, cycles))
         # Los datos que se utilizan para mostrar el proceso de los ciclos y las
         # estadisticas de procesado de marcadores  se almacenan en la cola
-        # secundaria.
-        self.secondary_data.appendleft((idy, missing, diff, mov))
+        # de validación.
+        self.validation_data.appendleft((idy, missing, diff, mov))
 
     def find_walks(self, source):
         u"""Separa en caminatas el archivo.
@@ -706,30 +755,36 @@ class KinematicsEngine(object):
                 # En la lista de parámetros encontrada por el motor, se ordenan
                 # vectores con los componentes: identidad del ciclo, arreglo
                 # de ángulos, y diccionario con parámetros espaciotemporales.
-                self.parameters.append((
-                    '{d}{w}C{i}'.format(d=('I', 'D')[dire], w=idy, i=i+1),
-                    calculate_angles(markers, cycle, self.schema, dire),
-                    calculate_spacetemp(markers, cycle, self.fps)
-                ))
+                self.parameters.append(
+                    ('{d}{w}C{i}'.format(d=('I', 'D')[dire], w=idy, i=i+1),
+                     calculate_angles(markers, cycle, self.schema, dire),
+                     calculate_spacetemp(markers, cycle, self.fps))
+                )
 
 
 if __name__ == '__main__':
+    import configparser
+    import io
     from time import time
 
-    schema = {
-        'schema': (2, 2, 3),
-        'slices': ((0, 2), (2, 4), (4, 7)),
-        'codes': ('M0', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6'),
-        'segments': {
-            'tight': ('M1', 'M2'),
-            'leg': ('M3', 'M4'),
-            'foot': ('M5', 'M6')
-        },
-        'joints': ('hip', 'knee', 'ankle')
-    }
+    cfile = io.BytesIO("""
+    [engine]
+    schema = /home/mariano/Devel/masmarcha/src/defaultschemas/schema-7.json
+    mode = debug
+    """)
+    # Se agrega configuración de usuario al motor.
+    # Se establece la posibilidad de ejecutar el motor en dos modos distintos.
+    # El modo debug reune mas información y la almacena en distintas
+    # colecciones para que se más fácil explorar los datos.
+    # El modo regular filtra los datos en los que no se encontraron ciclos.
+
+    # Se quita el argumento esquema para la inciación de los objetos motor y se
+    # agrega la ruta del archivo de esquema.json al archivo de configuración.
 
     path = '/home/mariano/Descargas/VID_20170720_132629833.mp4'  # Belen
     t1 = time()
-    E = KinematicsEngine((path, ), schema)
+    config = configparser.ConfigParser()
+    config.read_file(cfile)
+    E = KinematicsEngine((path, ), config)
     E.run()
     print ('Tiempo de ejecución: {}'.format(time() - t1))
