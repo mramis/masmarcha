@@ -1,9 +1,26 @@
-MasMarcha 2017.
+masmarcha2018 (versión1.1)
 
+[] Desarrollo de motor de cinemática: Lectura y procesamiento de datos.
+	[x] Lectura de video.
+	[] Calibración de imagen de video.
+	[x] Extracción de datos de video.
+	[] Lectura de kinovea.
+	[] Extracción de datos de kinovea.
+	[x] Cálculo de parámetros por ciclo.
+	[] Transformación de unidades de distancia.
 [] Desarrollo de base de datos SQLite.
-[] Desarrollo de manejador de archivos.
-[] Desarrollo de instancias masmarcha.
+	[x] Diseño de base relacional.
+	[] Creación de las tablas.
+	[] Métodos de introducción de datos en las tablas.
+	[] Métodos de lectura de datos de tablas.
+	[] Métodos de cálculo de datos de tablas.
 [] Desarrollo de interfaz de usuario.
-[] Decición de API para dibujo (matplotlib o bokeh).
-[] Desarrollo de automatización de video.
- 
+	[] Pantalla de ingreso de datos.
+	[] Pantalla de lectura de datos.
+	[] Configuración de usuario.
+[] Exportación de datos.
+	[] Hojas de cálculo.
+	[] Informes.
+[] Implementación.
+	[] Instalación del producto.
+	[] Activación del producto.
