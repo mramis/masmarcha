@@ -33,14 +33,18 @@ class MasMarchaApp(App):
     def build_config(self, config):
         u"""."""
         default_config = {
-            "capture": {
-                "schema_path": None,
-                "schema_indicator": ''
+            "input-widget": {
+                "schema-indicator": ''
             },
             "paths": PATHS,
-            "process": {
-                "fourierfit": True,
-                "f_coeff": 4,
+            "engine": {
+                "mode": "debug",
+                "image_threshold": 240.0,
+                "ratio_scale": 1.0,
+                "ph_threshold": 2.5,
+                "cy_markers": "M5-M6",
+                "fft_scope": 4,
+                "ffit": True,
             }
         }
         for section in default_config:
