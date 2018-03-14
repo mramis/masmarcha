@@ -32,7 +32,9 @@ import numpy as np
 # [x] Agregar a la sección de configuración los argumentos que puede ingresar
 # el usuario.
 # [] Informacion de interpolación y suavizado.
-# [] Implementar logging
+# [] Implementar logging.
+# [] Conversión de unidades de distancia.
+# [] Calibración de la imagen.
 # [] Revisar la documentación.
 
 
@@ -129,30 +131,6 @@ def identifying_markers(stream, n_frames, schema, **kwargs):
     return (np.array(markers), missing_frames)
 
 
-def sort_foot_markers(markers):
-    u"""Ordena los marcadores del grupo de tobillo.
-
-    :param schema: esquema de marcadores diagramado.
-    :type schema: dict
-    :return: indicador de la realización de reordenamiento.
-    :rtype: bool
-    """
-    temp = markers.copy()
-    # Se toma la distancia entre el marcador de tobillo y retro pie.
-    d0 = np.linalg.norm(markers[:, -3, :] - markers[:, -2, :], ord=1, axis=1)
-    # Se toma la distancia entre el marcador de tobillo y ante pie.
-    d1 = np.linalg.norm(markers[:, -3, :] - markers[:, -1, :], ord=1, axis=1)
-    # Si la distancia d0 es mayor que d1, entonces find_markers ordenó los
-    # marcadores de pie de forma distinta a lo que se espera según el esquema.
-    swap_mask = d0 > d1
-    if swap_mask.any():
-        markers[swap_mask, -2, :] = temp[swap_mask, -1, :]
-        markers[swap_mask, -1, :] = temp[swap_mask, -2, :]
-        return True
-    else:
-        return False
-
-
 def regions(centers, schema, ratio_scale=1.0):
     u"""Encuentra los centros de las regiones del esquema.
 
@@ -245,13 +223,39 @@ def filling(centers, roi, schema):
     return (resized_centers, replace)
 
 
+def sort_foot_markers(markers):
+    u"""Ordena los marcadores del grupo de tobillo.
+
+    :param markers: arreglo de conjunto de centros de marcadores.
+    :type markers: np.array
+    :param schema: esquema de marcadores diagramado.
+    :type schema: dict
+    :return: indicador de la realización de reordenamiento.
+    :rtype: bool
+    """
+    temp = markers.copy()
+    # Se toma la distancia entre el marcador de tobillo y retro pie.
+    d0 = np.linalg.norm(markers[:, -3, :] - markers[:, -2, :], ord=1, axis=1)
+    # Se toma la distancia entre el marcador de tobillo y ante pie.
+    d1 = np.linalg.norm(markers[:, -3, :] - markers[:, -1, :], ord=1, axis=1)
+    # Si la distancia d0 es mayor que d1, entonces find_markers ordenó los
+    # marcadores de pie de forma distinta a lo que se espera según el esquema.
+    swap_mask = d0 > d1
+    if swap_mask.any():
+        markers[swap_mask, -2, :] = temp[swap_mask, -1, :]
+        markers[swap_mask, -1, :] = temp[swap_mask, -2, :]
+        return True
+    else:
+        return False
+
+
 def interpolate(markers, missing_frames, schema):
     u"""Interpolación de datos faltantes.
 
     Esta función interpola en el arreglo de centros de marcadores, nuevos
     valores aproximados (lineal) en las regiones y cuadros donde no se pudieron
     leer los marcadores.
-    :param markers: arreglo de centros de marcadores.
+    :param markers: arreglo de conjunto de centros de marcadores.
     :type markers: np.array
     :param missing_frames: diccionario que contiene por regiones las listas de
      índices de cuadro en los que faltan datos.
@@ -285,7 +289,7 @@ def gait_cycler(markers, schema, cy_markers=("M5", "M6"), ph_threshold=2.5):
     La función busca si existen ciclos de marcha, apoyo y balanceo, dentro
     de la caminata. Utiliza los centros de los marcadores del pie a través
     del cambio de velocidad de dichos marcadores.
-    :param markers: arreglo de centros de marcadores.
+    :param markers: arreglo de conjunto de centros de marcadores.
     :type markers: np.array
     :param schema: esquema de marcadores diagramado.
     :type schema: dict
@@ -341,7 +345,7 @@ def gait_cycler(markers, schema, cy_markers=("M5", "M6"), ph_threshold=2.5):
 def direction(markers, schema):
     u"""La dirección de la caminata.
 
-    :param markers: arreglo de centros de marcadores.
+    :param markers: arreglo de conjunto de centros de marcadores.
     :type markers: np.array
     :param schema: esquema de marcadores diagramado.
     :type schema: dict
@@ -464,12 +468,26 @@ def ankle_joint(leg, foot):
     return 90 - angle(leg * -1, foot)
 
 
-def fourier_fit(array, sample=101, fft_scope=4):
+def expanse_sample(angles, sample):
+    u"""."""
+    # Se aumenta la cantidad de elemento del dominio de x.
+    x = np.linspace(0, angles.shape[1], sample)
+    # El dominio original del arreglo de ángulos.
+    xs = np.arange(angles.shape[1])
+    expanse = []
+    # Por cada articulación se hace una interpolación lineal por cada elemento,
+    # nuevo en el dominio de x para aumentar el tamaño de la muestra a "sample"
+    for joint in angles:
+        expanse.append(np.interp(x, xs, joint))
+    return np.array(expanse)
+
+
+def fourier_fit(angles, sample, fft_scope=4):
     u"""Devuelve una aproximación de fourier con espectro que se
     define en ``fft_scope``. Por defecto la muestra es de 101
-    valores, sin importar el tamaño de ``array``
-    :param array: arreglo de angulos en grados.
-    :type array: np.ndarray
+    valores, sin importar el tamaño de ``angles``
+    :param angles: arreglo de angulos en grados.
+    :type angles: np.ndarray
     :param sample: número de muestras que se quiere obetener en el arreglo.
     :type param: int
     :param fft_scope: los primeros n coeficientes de fourier que se
@@ -477,11 +495,11 @@ def fourier_fit(array, sample=101, fft_scope=4):
     :type fft_scope: int
     :return: arreglo con los datos de angulos ajustados por la serie de
     Fourier utilizando los primeros n=fft_scope terminos, de tamaño
-    dim(array.rows, sample)
+    dim(angles.rows, sample)
     :rtype: np.ndarray
     """
-    scale = sample/float(array.shape[1])
-    fdt = np.fft.rfft(array)
+    scale = sample/float(angles.shape[1])
+    fdt = np.fft.rfft(angles)
     fourier_fit = np.fft.irfft(fdt[:, :fft_scope], n=sample)*scale
     return fourier_fit
 
@@ -489,8 +507,7 @@ def fourier_fit(array, sample=101, fft_scope=4):
 def calculate_angles(markers, cycle, schema, direction, **kwargs):
     u"""Calculo de angulos durante el ciclo de marcha.
 
-
-    :param markers: arreglo de centros de marcadores.
+    :param markers: arreglo de conjunto de centros de marcadores.
     :type markers: np.array
     :param cycle: índices de los cuadros que contienen un ciclo dentro de la
      caminata
@@ -541,25 +558,30 @@ def calculate_angles(markers, cycle, schema, direction, **kwargs):
         segments = [dsegments[i] for i in joint_functions_args[j]]
         langles.append(joint_functions[j](*segments))
     angles = np.array(langles)
-    # Por defecto se ordena que haya un ajuste de furier, pero puede evitarse
-    # devolviendo el arreglo original.
-    if 'ffit' in kwargs and kwargs['ffit']:
-        angles = fourier_fit(angles, fft_scope=kwargs['fft_scope'])
-    return angles
+    # El usuario puede elegir si quiere que los datos obtenidos sean ajustados
+    # por el uso de la transformada de fourier y así suavizadas las curvas con
+    # los extremos alineados.
+    if kwargs['ffit']:
+        return fourier_fit(angles, sample=100, fft_scope=kwargs['fft_scope'])
+    # En caso de que no se elija el ajuste los ángulos se devuelven con tamaño
+    # de muestra de 100 elementos.
+    else:
+        return expanse_sample(angles, sample=100)
 
 
 def calculate_spacetemp(markers, cycle, fps):
     u"""Cálculo de los parámetros espacio temporales.
 
-    :param markers: arreglo de centros de marcadores.
+    :param markers: arreglo de conjunto de centros de marcadores.
     :type markers: np.array
     :param cycle: índices de los cuadros que contienen un ciclo dentro de la
      caminata
     :type cycle: tuple
     :param fps: cuadros por segundos.
     :type fps: float
-    :return: parámetros espacio-temporales.
-    :rtype: dict
+    :return: parámetros espacio-temporales: (duracion ciclo, fase de apoyo,
+     fase de balanceo, cadencia, zancada, velocidad media).
+    :rtype: tuple
     """
     # la duración en segundos,
     istrike, swing, fstrike = cycle
@@ -568,24 +590,18 @@ def calculate_spacetemp(markers, cycle, fps):
     # la duración en segundos.
     duration = framesduration / fps
     # la longitud de zancada.
-    stride = np.linalg.norm(markers[(0, -1), -2, :])
+    stride = np.linalg.norm(markers[(0, -1), -2, :], ord=1)
     # Se adjuntan las unidades de cada parámetro.
     # NOTE: Hasta que no se haga la calibración de la imagen y la conversión de
     # unidades, las distancias van a estar en pixeles.
-    units = (('duration', '[s]'), ('stance', '[%]'), ('swing', '[%]'),
-             ('cadency', '[steps/min]'), ('stride', '[px]'),
-             ('velocity', '[px/s]'))
-    # el procentaje de fase de apoyo, el porcentaje de fase de balanceo, la
-    # cadencia en pasos por minutos, , y la velocidad media durante el ciclo.
-    return {
-        'duration': duration,
-        'stance': (swing - istrike) / framesduration,
-        'swing': (fstrike - swing) / framesduration,
-        'cadency': 120 / duration,
-        'velocity': stride / duration,
-        'stride': stride,
-        'units': units
-    }
+    return (
+        (duration, '[s]'),
+        ((swing - istrike) / framesduration, '[%]'),
+        ((fstrike - swing) / framesduration, '[%]'),
+        (120 / duration, '[steps/min]'),
+        (stride, '[px]'),
+        (stride / duration, '[px/s]')
+    )
 
 
 class KinematicsEngine(object):
@@ -599,13 +615,15 @@ class KinematicsEngine(object):
     """
 
     def __init__(self, files, config):
+        self.user = {}
         self.files = files
         self.config = config
         self.main_data = deque(maxlen=100)
         self.validation_data = deque(maxlen=100)
-        self.debug_markers = deque(maxlen=100)
-        self.sort_markers = deque(maxlen=100)
-        self.user = {}
+        # Desde acá se encuntran las colecciones que se utilizan cuando se le
+        # ordena al motor ejecutarse en modo debug.
+        self.original_markers = deque(maxlen=100)
+        self.boolean_sorted_markers = deque(maxlen=100)
 
     def set_config(self):
         u"""Configuración del motor con valores de usuario."""
@@ -684,13 +702,16 @@ class KinematicsEngine(object):
                 stream, end-start, self.schema, **kwargs
             )
         if self.mode == 'debug':
-            self.debug_markers.appendleft(markers.copy())
+            self.original_markers.appendleft(markers.copy())
         # Se revisa el orden dentro de los marcadores de la región del pie,
         # puesto que en la lectura hecha por OpenCV puede haberse invertido el
         # orden de los marcadores de pie. El valor de retorno es boleano.
         ret = sort_foot_markers(markers)
+        # Si el modo de ejecución es debug, entonces se agregan a la cola
+        # boolean_sorted_markers valores boleanos que indican si los marcadores
+        # fueron ordenados o no.
         if self.mode == 'debug':
-            self.sort_markers.appendleft(ret)
+            self.boolean_sorted_markers.appendleft(ret)
         # Se completan los arreglos de centros de datos con valores
         # interpolados con método lineal.
         interpolate(markers, missing, self.schema)
@@ -802,7 +823,7 @@ if __name__ == '__main__':
 
     cfile = io.BytesIO("""
     [engine]
-    mode = debug
+    mode = regular
     schema = /home/mariano/Devel/masmarcha/src/defaultschemas/schema-7.json
     image_threshold = 240.0
     ratio_scale = 1.0
