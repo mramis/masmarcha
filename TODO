@@ -2,7 +2,12 @@ masmarcha2018 (versión1.1)
 
 [] Desarrollo de motor de cinemática: Lectura y procesamiento de datos.
 	[x] Lectura de video.
-	[] Calibración de imagen de video.
+	[] Calibración de imagen de video. Para la calibración de la imagen se
+	   piensa utilizar un código aparte del motor de detección de cinemática.
+	   Este hace la lectura de un video en el que se pasa un tablero de ajedrez
+	   de dimensiones conocidas, cuando se obtienen suficientes cuadros con
+	   información, entonces se guardan los datos de distorsión de la cámara en
+       un archivo de texto para que lo utilice el motor de lectura.
 	[x] Extracción de datos de video.
 	[] Lectura de kinovea.
 	[] Extracción de datos de kinovea.
@@ -14,6 +19,10 @@ masmarcha2018 (versión1.1)
 	[] Métodos de introducción de datos en las tablas.
 	[] Métodos de lectura de datos de tablas.
 	[] Métodos de cálculo de datos de tablas.
+[] Desarrollo del módulo de representación.
+    [] Tablas de datos paramétricos.
+	[] Gráficas de ángulos.
+	[] Gráficas de indicadores.
 [] Desarrollo de interfaz de usuario.
 	[] Pantalla de ingreso de datos.
 	[] Pantalla de lectura de datos.

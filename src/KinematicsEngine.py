@@ -32,9 +32,8 @@ import numpy as np
 # [x] Agregar a la sección de configuración los argumentos que puede ingresar
 # el usuario.
 # [] Informacion de interpolación y suavizado.
-# [] Implementar logging.
 # [] Conversión de unidades de distancia.
-# [] Calibración de la imagen.
+# [] Implementar logging.
 # [] Revisar la documentación.
 
 
@@ -283,6 +282,41 @@ def interpolate(markers, missing_frames, schema):
             markers[mis, i, 1] = np.interp(mis, xp, markers[xp, i, 1])
 
 
+def interpolate_info(cycle, missing_frames, schema):
+    u"""Devuelve la proporción de cuadros interpolados por ciclo.
+
+    :param cycle: índices de los cuadros que contienen un ciclo dentro de la
+     caminata
+    :type cycle: tuple
+    :param missing_frames: diccionario que contiene por regiones las listas de
+     índices de cuadro en los que faltan datos.
+    :type missing_frames: dict
+    :param schema: esquema de marcadores diagramado.
+    :type schema: dict
+    :return: proporción de datos interpolados en un ciclo.
+    :rtype: float
+    """
+    # NOTE: Algunas de las líneas que se ejecutan en esta función ya están
+    # presentes en otras funciones.
+    # Por ahora se piensa agregar esta a función a la ejecución debug de la
+    # aplicación, por lo tanto no correría todas las veces.
+
+    # El inicio y final del ciclo para poder evaluar solo la cantidad de
+    # cuadros interpolados dentro del ciclo.
+    istrike, __, fstrike = cycle
+    cycle = np.arange(istrike, fstrike + 1)
+    # la cantidad de marcadores que tiene el ciclo.
+    n_cycle_markers = cycle.size*sum(schema['schema'])
+    # la cantidad de marcadores que son interpolados en el ciclo
+    n_interpolated_markers = 0.0
+    for r in missing_frames:
+        missing_per_region = reduce(lambda x, y: x+y, missing_frames[r])
+        frames = [m for m in missing_per_region if m in cycle]
+        n_interpolated_markers += len(frames)*schema['schema'][r]
+
+    return n_interpolated_markers / n_cycle_markers
+
+
 def gait_cycler(markers, schema, cy_markers=("M5", "M6"), ph_threshold=2.5):
     u"""Busca si existen ciclos de apoyo y balanceo en la caminata.
 
@@ -468,18 +502,30 @@ def ankle_joint(leg, foot):
     return 90 - angle(leg * -1, foot)
 
 
-def expanse_sample(angles, sample):
-    u"""."""
-    # Se aumenta la cantidad de elemento del dominio de x.
+def resize_angles_sample(angles, sample):
+    u"""Modifica el tamaño de la muestra de ángulos.
+
+    La función modifica el tamaño del arreglo, en cada vector de ángulos, a la
+    cantidad de elementos que se pasa como argumentos de angles.
+
+    :param angles: arreglo de ángulos fila.
+    :type angles: np.array
+    :param sample: tamaño al que se quiere llevar a cada vector de ángulos
+     dentro del arreglo.
+    :return: arreglo de ángulos cuya cantidad de componentes ha sido modificada
+     por un proceso de interpolación lineal.
+    :rtype: np.array
+    """
+    # Se modifica la cantidad de elemento del dominio de x al tamaño de sample.
     x = np.linspace(0, angles.shape[1], sample)
     # El dominio original del arreglo de ángulos.
     xs = np.arange(angles.shape[1])
-    expanse = []
+    resized = []
     # Por cada articulación se hace una interpolación lineal por cada elemento,
     # nuevo en el dominio de x para aumentar el tamaño de la muestra a "sample"
     for joint in angles:
-        expanse.append(np.interp(x, xs, joint))
-    return np.array(expanse)
+        resized.append(np.interp(x, xs, joint))
+    return np.array(resized)
 
 
 def fourier_fit(angles, sample, fft_scope=4):
@@ -504,7 +550,7 @@ def fourier_fit(angles, sample, fft_scope=4):
     return fourier_fit
 
 
-def calculate_angles(markers, cycle, schema, direction, **kwargs):
+def calculate_angles(markers, cycle, direction, schema):
     u"""Calculo de angulos durante el ciclo de marcha.
 
     :param markers: arreglo de conjunto de centros de marcadores.
@@ -554,19 +600,12 @@ def calculate_angles(markers, cycle, schema, direction, **kwargs):
         'knee': ('tight', 'leg', 'canonical'),
         'ankle': ('leg', 'foot')
     }
+    # Se calculan los ángulos para cada articulación según lo diagramado en el
+    # esquema.
     for j in schema['joints']:
         segments = [dsegments[i] for i in joint_functions_args[j]]
         langles.append(joint_functions[j](*segments))
-    angles = np.array(langles)
-    # El usuario puede elegir si quiere que los datos obtenidos sean ajustados
-    # por el uso de la transformada de fourier y así suavizadas las curvas con
-    # los extremos alineados.
-    if kwargs['ffit']:
-        return fourier_fit(angles, sample=100, fft_scope=kwargs['fft_scope'])
-    # En caso de que no se elija el ajuste los ángulos se devuelven con tamaño
-    # de muestra de 100 elementos.
-    else:
-        return expanse_sample(angles, sample=100)
+    return np.array(langles)
 
 
 def calculate_spacetemp(markers, cycle, fps):
@@ -614,16 +653,16 @@ class KinematicsEngine(object):
     :type config: configparser.ConfigParser
     """
 
-    def __init__(self, files, config):
+    def __init__(self, files, config, maxitems=100):
         self.user = {}
         self.files = files
         self.config = config
-        self.main_data = deque(maxlen=100)
-        self.validation_data = deque(maxlen=100)
+        self.main_data = deque(maxlen=maxitems)
+        self.validation_data = deque(maxlen=maxitems)
         # Desde acá se encuntran las colecciones que se utilizan cuando se le
         # ordena al motor ejecutarse en modo debug.
-        self.original_markers = deque(maxlen=100)
-        self.boolean_sorted_markers = deque(maxlen=100)
+        self.original_markers = deque(maxlen=maxitems)
+        self.boolean_sorted_markers = deque(maxlen=maxitems)
 
     def set_config(self):
         u"""Configuración del motor con valores de usuario."""
@@ -642,9 +681,6 @@ class KinematicsEngine(object):
         # Enteros:
         for k in ('fft_scope',):
             self.user[k] = self.config.getint('engine', k)
-        # Boleanos:
-        for k in ('ffit',):
-            self.user[k] = self.config.getboolean('engine', k)
 
     def run(self):
         u"""Inicia el motor de búsqueda de parametros de marcha."""
@@ -705,13 +741,9 @@ class KinematicsEngine(object):
             self.original_markers.appendleft(markers.copy())
         # Se revisa el orden dentro de los marcadores de la región del pie,
         # puesto que en la lectura hecha por OpenCV puede haberse invertido el
-        # orden de los marcadores de pie. El valor de retorno es boleano.
+        # orden de los marcadores de pie. El valor de retorno es boleano y se
+        # agrega a la cola de validación.
         ret = sort_foot_markers(markers)
-        # Si el modo de ejecución es debug, entonces se agregan a la cola
-        # boolean_sorted_markers valores boleanos que indican si los marcadores
-        # fueron ordenados o no.
-        if self.mode == 'debug':
-            self.boolean_sorted_markers.appendleft(ret)
         # Se completan los arreglos de centros de datos con valores
         # interpolados con método lineal.
         interpolate(markers, missing, self.schema)
@@ -731,9 +763,15 @@ class KinematicsEngine(object):
         # en la cola principal.
         self.main_data.appendleft((wid, markers, cycles))
         # Los datos que se utilizan para mostrar el proceso de los ciclos y las
-        # estadisticas de procesado de marcadores  se almacenan en la cola
-        # de validación.
-        self.validation_data.appendleft((wid, missing, diff, mov))
+        # estadisticas de procesado de marcadores se almacenan en la cola de
+        # validación.
+        # Proporción de cuadros interpolados en los ciclos de la caminata. Por
+        # defecto no se calcula, a menos de que la ejecución sea en modo debug.
+        cprop = []
+        if self.mode == 'debug':
+            cprop = [interpolate_info(cycle, missing, self.schema)
+                     for cycle in cycles]
+        self.validation_data.appendleft((wid, missing, ret, diff, mov, cprop))
 
     def find_walks(self, source):
         u"""Separa en caminatas el archivo.
@@ -789,8 +827,18 @@ class KinematicsEngine(object):
                 ret, frame = stream.read()
                 i += 1
 
-    def calculate_params(self):
-        u"""Calcula los parámetros de marcha."""
+    def calculate_params(self, fix=None):
+        u"""Calcula los parámetros de marcha.
+
+        :param fix: existe la opción de modificar los datos originales
+         obtenidos a partir de los marcadores. Son dos la posibilidades; si fix
+         toma el valor de "fourier" entonces se realiza un ajuste de los datos
+         a través de la transformada, también cambia el tamaño del arreglo de
+         ángulos a 100 datos por articulación. si fix toma el valor de "resize"
+         entonces la cantidad de datos por articulación pasa a ser de 100 a
+         través de un proceso de interpolación lineal.
+        :type fix: str
+        """
         self.parameters = []
         # Para el cáculo de parámetros se utilizan los datos que se encuentran
         # en la lista principal.
@@ -809,11 +857,17 @@ class KinematicsEngine(object):
                 # vectores con los componentes: identidad del ciclo, arreglo
                 # de ángulos, y diccionario con parámetros espaciotemporales.
                 cid = '{d}{w}C{i}'.format(d=('I', 'D')[dire], w=wid, i=i+1)
-                angles = calculate_angles(
-                    markers, cycle, self.schema, dire, **self.user
-                )
-                stemp = calculate_spacetemp(markers, cycle, self.fps)
-                self.parameters.append((cid, angles, stemp))
+                angles = calculate_angles(markers, cycle, dire, self.schema)
+                spatemp = calculate_spacetemp(markers, cycle, self.fps)
+                # Si se le pasa el argumento fix como fourier entonces al
+                # arreglo de ángulos se lo ajusta con la transformada.
+                if fix == 'fourier':
+                    angles = fourier_fit(angles, 100, self.user['fft_scope'])
+                # Si se le pasa el argumento fix como resized, entonces al
+                # arreglo se lo expande o contrae a 100 datos por articulacion.
+                elif fix == 'resize':
+                    angles = resize_angles_sample(angles, 100)
+                self.parameters.append((cid, angles, spatemp))
 
 
 if __name__ == '__main__':
@@ -830,7 +884,6 @@ if __name__ == '__main__':
     ph_threshold = 2.5
     cy_markers = M5-M6
     fft_scope = 4
-    ffit = True
     """)
 
     path = '/home/mariano/Descargas/VID_20170720_132629833.mp4'  # Belen
@@ -841,4 +894,5 @@ if __name__ == '__main__':
     t1 = time()
     E = KinematicsEngine((path, ), config)
     E.run()
+    E.calculate_params()
     print ('Tiempo de ejecución: {}'.format(time() - t1))
