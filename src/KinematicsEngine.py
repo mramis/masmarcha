@@ -411,6 +411,42 @@ def open_video(path):
     video.release()
 
 
+def pixel_scale(source, fps, scale=.5):
+    u"""Esta función obtiene la escala para convertir de pixeles a metros.
+
+    Busca en el primer segundo del video el valor escalar con el que se
+    convierte la distancia del cuadro de pixeles a metros.
+    :param source: dirección del archivo de video.
+    :type source: str
+    :param fps: cuadros por segundo.
+    :type fps: float
+    :param scale: Distancia en metros que existene entre los dos marcadores que
+     se utilizan para obtener el escalar.
+    :type scale: float
+    """
+    # Para poder establecer la relación entre pixeles y metros en la imagen, se
+    # propone que se utilicen marcadores al inicio del video con una distancia
+    # conocida. Se propone que la cantida de marcadores sea 2.
+    lenght = 0
+    with open_video(source) as stream:
+        # La cantidad de cuadros desde que se inicia el video para obtener los
+        # los marcadores que se utilizan para convertir distancias es de un
+        # segundo.
+        for n in xrange(int(fps)):
+            __, frame = stream.read()
+            centers = np.array(map(marker_center, find_markers(frame)))[::-1]
+            # Se propone que la cantida de marcadores que distancia conocida
+            # sea de 2 marcadores.
+            if len(centers) == 2:
+                # Se obtiene la distancia que existe entre los dos marcadores.
+                # Es importante que estos marcadores se encuentren a la misma
+                # distancia de la cámara que la pasarela donde se efectúa la
+                # marcha.
+                lenght = np.linalg.norm(centers[1] - centers[0])
+                break
+    return lenght / scale
+
+
 def angle(A, B):
     """Calcula el ángulo(theta) entre dos vectores.
 
@@ -608,7 +644,7 @@ def calculate_angles(markers, cycle, direction, schema):
     return np.array(langles)
 
 
-def calculate_spacetemp(markers, cycle, fps):
+def calculate_spatemp(markers, cycle, fps, pixel_to_meter):
     u"""Cálculo de los parámetros espacio temporales.
 
     :param markers: arreglo de conjunto de centros de marcadores.
@@ -618,6 +654,8 @@ def calculate_spacetemp(markers, cycle, fps):
     :type cycle: tuple
     :param fps: cuadros por segundos.
     :type fps: float
+    :param pixel_to_meter: escalar para la conversión de distancia.
+    :type pixel_to_meter: float
     :return: parámetros espacio-temporales: (duracion ciclo, fase de apoyo,
      fase de balanceo, cadencia, zancada, velocidad media).
     :rtype: tuple
@@ -629,17 +667,17 @@ def calculate_spacetemp(markers, cycle, fps):
     # la duración en segundos.
     duration = framesduration / fps
     # la longitud de zancada.
-    stride = np.linalg.norm(markers[(0, -1), -2, :], ord=1)
+    # NOTE: La distancia está en metros. Si no se obtuvo el escalar de
+    # conversión pixel_to_meter, entonces la distancia de zancada toma valor 0.
+    stride = np.linalg.norm(markers[-1, -2] - markers[0, -2])*pixel_to_meter
     # Se adjuntan las unidades de cada parámetro.
-    # NOTE: Hasta que no se haga la calibración de la imagen y la conversión de
-    # unidades, las distancias van a estar en pixeles.
     return (
         (duration, '[s]'),
         ((swing - istrike) / framesduration, '[%]'),
         ((fstrike - swing) / framesduration, '[%]'),
         (120 / duration, '[steps/min]'),
-        (stride, '[px]'),
-        (stride / duration, '[px/s]')
+        (stride, '[m]'),
+        (stride / duration, '[m/s]')
     )
 
 
@@ -676,7 +714,9 @@ class KinematicsEngine(object):
         for k in ('cy_markers',):
             self.user[k] = self.config.get('engine', k).split('-')
         # Flotantes:
-        for k in ('image_threshold', 'ph_threshold', 'ratio_scale'):
+        float_keys = ('image_threshold', 'ph_threshold',
+                      'ratio_scale', 'meter_scale')
+        for k in float_keys:
             self.user[k] = self.config.getfloat('engine', k)
         # Enteros:
         for k in ('fft_scope',):
@@ -707,6 +747,12 @@ class KinematicsEngine(object):
         # motor de lectura cuando se ejecuta sobre un video.
         self.find_walks(videofile)
         n = len(self.main_data)
+        # Se busca en la primera parte del video los marcadores que utilizan
+        # para convertir la unidad de pixeles en metros.
+        if n:
+            self.pixel_to_meter = pixel_scale(
+                videofile, self.fps, self.user['meter_scale']
+            )
         # La función explore_walk modifica las listas principal y de validacion
         # del motor.
         while n:
@@ -858,7 +904,9 @@ class KinematicsEngine(object):
                 # de ángulos, y diccionario con parámetros espaciotemporales.
                 cid = '{d}{w}C{i}'.format(d=('I', 'D')[dire], w=wid, i=i+1)
                 angles = calculate_angles(markers, cycle, dire, self.schema)
-                spatemp = calculate_spacetemp(markers, cycle, self.fps)
+                spatemp = calculate_spatemp(
+                    markers, cycle, self.fps, self.pixel_to_meter
+                )
                 # Si se le pasa el argumento fix como fourier entonces al
                 # arreglo de ángulos se lo ajusta con la transformada.
                 if fix == 'fourier':
@@ -884,6 +932,7 @@ if __name__ == '__main__':
     ph_threshold = 2.5
     cy_markers = M5-M6
     fft_scope = 4
+    meter_scale = 0.5
     """)
 
     path = '/home/mariano/Descargas/VID_20170720_132629833.mp4'  # Belen
