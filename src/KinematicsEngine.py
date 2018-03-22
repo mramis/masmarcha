@@ -31,8 +31,8 @@ import numpy as np
 # TODO:
 # [x] Agregar a la sección de configuración los argumentos que puede ingresar
 # el usuario.
-# [] Informacion de interpolación y suavizado.
-# [] Conversión de unidades de distancia.
+# [x] Informacion de interpolación y suavizado.
+# [x] Conversión de unidades de distancia.
 # [] Implementar logging.
 # [] Revisar la documentación.
 
@@ -538,54 +538,6 @@ def ankle_joint(leg, foot):
     return 90 - angle(leg * -1, foot)
 
 
-def resize_angles_sample(angles, sample):
-    u"""Modifica el tamaño de la muestra de ángulos.
-
-    La función modifica el tamaño del arreglo, en cada vector de ángulos, a la
-    cantidad de elementos que se pasa como argumentos de angles.
-
-    :param angles: arreglo de ángulos fila.
-    :type angles: np.array
-    :param sample: tamaño al que se quiere llevar a cada vector de ángulos
-     dentro del arreglo.
-    :return: arreglo de ángulos cuya cantidad de componentes ha sido modificada
-     por un proceso de interpolación lineal.
-    :rtype: np.array
-    """
-    # Se modifica la cantidad de elemento del dominio de x al tamaño de sample.
-    x = np.linspace(0, angles.shape[1], sample)
-    # El dominio original del arreglo de ángulos.
-    xs = np.arange(angles.shape[1])
-    resized = []
-    # Por cada articulación se hace una interpolación lineal por cada elemento,
-    # nuevo en el dominio de x para aumentar el tamaño de la muestra a "sample"
-    for joint in angles:
-        resized.append(np.interp(x, xs, joint))
-    return np.array(resized)
-
-
-def fourier_fit(angles, sample, fft_scope=4):
-    u"""Devuelve una aproximación de fourier con espectro que se
-    define en ``fft_scope``. Por defecto la muestra es de 101
-    valores, sin importar el tamaño de ``angles``
-    :param angles: arreglo de angulos en grados.
-    :type angles: np.ndarray
-    :param sample: número de muestras que se quiere obetener en el arreglo.
-    :type param: int
-    :param fft_scope: los primeros n coeficientes de fourier que se
-    utilizan el el cálculo.
-    :type fft_scope: int
-    :return: arreglo con los datos de angulos ajustados por la serie de
-    Fourier utilizando los primeros n=fft_scope terminos, de tamaño
-    dim(angles.rows, sample)
-    :rtype: np.ndarray
-    """
-    scale = sample/float(angles.shape[1])
-    fdt = np.fft.rfft(angles)
-    fourier_fit = np.fft.irfft(fdt[:, :fft_scope], n=sample)*scale
-    return fourier_fit
-
-
 def calculate_angles(markers, cycle, direction, schema):
     u"""Calculo de angulos durante el ciclo de marcha.
 
@@ -644,6 +596,54 @@ def calculate_angles(markers, cycle, direction, schema):
     return np.array(langles)
 
 
+def resize_angles_sample(angles, sample):
+    u"""Modifica el tamaño de la muestra de ángulos.
+
+    La función modifica el tamaño del arreglo, en cada vector de ángulos, a la
+    cantidad de elementos que se pasa como argumentos de angles.
+
+    :param angles: arreglo de ángulos fila.
+    :type angles: np.array
+    :param sample: tamaño al que se quiere llevar a cada vector de ángulos
+     dentro del arreglo.
+    :return: arreglo de ángulos cuya cantidad de componentes ha sido modificada
+     por un proceso de interpolación lineal.
+    :rtype: np.array
+    """
+    # Se modifica la cantidad de elemento del dominio de x al tamaño de sample.
+    x = np.linspace(0, angles.shape[1], sample)
+    # El dominio original del arreglo de ángulos.
+    xs = np.arange(angles.shape[1])
+    resized = []
+    # Por cada articulación se hace una interpolación lineal por cada elemento,
+    # nuevo en el dominio de x para aumentar el tamaño de la muestra a "sample"
+    for joint in angles:
+        resized.append(np.interp(x, xs, joint))
+    return np.array(resized)
+
+
+def fourier_fit(angles, sample, fft_scope=4):
+    u"""Devuelve una aproximación de fourier con espectro que se
+    define en ``fft_scope``. Por defecto la muestra es de 101
+    valores, sin importar el tamaño de ``angles``
+    :param angles: arreglo de angulos en grados.
+    :type angles: np.ndarray
+    :param sample: número de muestras que se quiere obetener en el arreglo.
+    :type param: int
+    :param fft_scope: los primeros n coeficientes de fourier que se
+    utilizan el el cálculo.
+    :type fft_scope: int
+    :return: arreglo con los datos de angulos ajustados por la serie de
+    Fourier utilizando los primeros n=fft_scope terminos, de tamaño
+    dim(angles.rows, sample)
+    :rtype: np.ndarray
+    """
+    scale = sample/float(angles.shape[1])
+    fdt = np.fft.rfft(angles)
+    fourier_fit = np.fft.irfft(fdt[:, :fft_scope], n=sample)*scale
+    return fourier_fit
+
+
 def calculate_spatemp(markers, cycle, fps, pixel_to_meter):
     u"""Cálculo de los parámetros espacio temporales.
 
@@ -679,6 +679,18 @@ def calculate_spatemp(markers, cycle, fps, pixel_to_meter):
         (stride, '[m]'),
         (stride / duration, '[m/s]')
     )
+
+
+def kinovea_time(strtime):
+    u"""Convierte el formato de tiempo de kinovea en segundos.
+
+    :param strtime: formato de tiempo de kinovea.
+    :type strtime: str
+    :return: tiempo en segundos.
+    :rtype: float
+    """
+    h, m, s, ms = map(float, strtime.split(':'))
+    return h*3600 + m*60 + s + ms/1000
 
 
 class KinematicsEngine(object):
@@ -759,13 +771,77 @@ class KinematicsEngine(object):
             self.explore_walk(videofile, 'W%d' % n, **kwargs)
             n -= 1
 
-    def kinovea_explorer(self, textfile):
+    def kinovea_explorer(self, textfile, wid):
         u""".
 
         :param schema: esquema de marcadores diagramado.
         :type schema: dict
         """
-        return NotImplemented
+        with open(textfile) as fh:
+            data = fh.readlines()
+        # Se separan los datos del texto en listas. La lista trayectory es la
+        # que recive los datos de cada trayectoria. La lista markers es la que
+        # recibe cada trayectoria.
+        trayectory = []
+        markers_ls = []
+
+        header = data[0]
+        assert(header.startswith('#Kinovea'))
+
+        # Los datos de trayectorias comienzan en la tercer línea.
+        for line in data[2:]:
+            # kinovea separa las trayectorias con 2 "\r\n" consecutivas.
+            if line == '\r\n':
+                if trayectory:
+                    markers_ls.append(trayectory)
+                trayectory = []
+            else:
+                # en algunas plataformas kinovea entrega los puntos flotantes
+                # con comas.
+                trayectory.append(line.replace(',', '.').split())
+
+        # Se toman los fps. Para esto se utiliza el dato de tiempo:[0] de la
+        # última fila:[-1] de cualquiera de los conjuntos de trayectorias del
+        # archivo de texto (acá se utiliza el primero:[0]).
+        sample = markers_ls[0]
+        frames = len(sample)
+        cycle_duration = kinovea_time(sample[-1][0])
+        self.fps = frames / cycle_duration
+
+        # Se convierten las trayectorias en texto a arreglos numpy de
+        # flotantes.
+        markers_np = []
+        for marker in markers_ls:
+            markers_np.append(np.float16(np.array(marker)[:, 1:]))
+        markers = np.array(markers_np)
+
+        # Se reorganizan los arreglos de marcadores para que estén los
+        # marcadores agrupados por frame.
+        N = sum(self.schema['schema'])
+        markers_reshape = np.empty((frames, N, 2))
+        for i in xrange(frames):
+            markers_reshape[i] = markers[:, i]
+
+        # Se obtienen los ciclos dentro de la caminata, y dos arreglos mas que
+        # se utilizan para mostrar las velocidades y los cambios de fase.
+        diff, mov, cycles = gait_cycler(markers_reshape,
+                                        self.schema,
+                                        self.user['cy_markers'],
+                                        self.user['ph_threshold'])
+        if not cycles and self.mode == 'regular':
+            return
+        # Si existen ciclos o el modo de ejecución es "debug", se agregan los
+        # valores hallados a los datos.
+        # Los datos que se utilizan en el cálculo de parámetros se almacenan
+        # en la cola principal.
+        self.main_data.appendleft((wid, markers_reshape, cycles))
+        # Los datos que se utilizan para mostrar el proceso de los ciclos y las
+        # estadisticas de procesado de marcadores se almacenan en la cola de
+        # validación. A diferencia del proceso de video, cuando se hace una
+        # lectura de kinovea, no se ordenan ni intertpolan cuadros. Para
+        # mantener el mismo número de datos se agregan valores vacios.
+        cprop, missing, ret = None, None, None
+        self.validation_data.appendleft((wid, missing, ret, diff, mov, cprop))
 
     def explore_walk(self, source, wid, **kwargs):
         u""".
@@ -808,15 +884,15 @@ class KinematicsEngine(object):
         # Los datos que se utilizan en el cálculo de parámetros se almacenan
         # en la cola principal.
         self.main_data.appendleft((wid, markers, cycles))
-        # Los datos que se utilizan para mostrar el proceso de los ciclos y las
-        # estadisticas de procesado de marcadores se almacenan en la cola de
-        # validación.
         # Proporción de cuadros interpolados en los ciclos de la caminata. Por
         # defecto no se calcula, a menos de que la ejecución sea en modo debug.
         cprop = []
         if self.mode == 'debug':
             cprop = [interpolate_info(cycle, missing, self.schema)
                      for cycle in cycles]
+        # Los datos que se utilizan para mostrar el proceso de los ciclos y las
+        # estadisticas de procesado de marcadores se almacenan en la cola de
+        # validación.
         self.validation_data.appendleft((wid, missing, ret, diff, mov, cprop))
 
     def find_walks(self, source):
