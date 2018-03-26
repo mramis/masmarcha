@@ -1,28 +1,4 @@
-Objetivos planteados para la nueva versión 2017 de la aplicación MasMarcha.
+masmarcha
+version-1.2
 
-Revisión de las antiguas versiones.
-===================================
-- Posibilidad de calcular ángulos de cadera, rodilla y tobillo. A partir de
-archivos de texto, que se extraen del software Kinovea, es posible calcular
-los ángulos articulares ya mencionados.
-- Estos ángulos están suavizados por un filtro de Furier, de coeficientes
-constantes.
-- Se puede obtener medidas de resumen, como la media y desvío de la muestra
-utilizada.
-- Se puede detectar el cambio de fase de durante el ciclo de la marcha. *En
-particular este punto se origina para un estudio presentado a un simposio en
-colaboración con Ma. Belén Hidalgo (Ingeniera Biomédica).
-- Presentación de dos test que muestran datos sencillos de comparación
-con una muestra normal. *Igual al punto anterior.
-
-Objetivos:
-==========
-- Bases de datos: se generará base de datos para poder tener acceso a
-información de diversos tipos: entre ellos históricos de pacientes, valores de
-media y desvío poblacional, etc.
-
--Interfaz: Una interfaz donde se pueda hacer combinación de las herramientas
-del procesamiento de los datos (variables, aspecto de las graficas).
-
-- Autodetección de video. Es el más ambicioso de los objetivos, se necesita un
-nuevo diseño de los marcadores.
+- Cythonizar el motor de cinemática.

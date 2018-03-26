@@ -21,6 +21,7 @@
 
 from collections import deque, defaultdict
 from contextlib import contextmanager
+import logging
 import json
 import os
 from threading import Thread
@@ -28,22 +29,13 @@ import cv2
 import numpy as np
 
 
-# TODO:
-# Creo que se pueden quitar las funciones que exploran cada caminata de la
-# clase. Ver si es necesario almacenar toda la información. Quizás se pueden
-# crear contenedores auxiliares si se corre en modo extendido.
-# Hay que ver como se agregan los detalles del archivo kinovea.
-
-
-# Seguir la secuencia, y comprobar si aparecen excepciones con los distintos
-# videos que tenemos.
-
-
-# [] Implementar logging.
-# [] Revisar la documentación.
-
-
-# Terminar!
+# logging setup
+logger = logging.getLogger(__name__)
+handler = logging.StreamHandler()
+formatter = logging.Formatter('%(name)-12s %(levelname)-8s %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+logger.setLevel(logging.DEBUG)
 
 
 def find_markers(frame, image_threshold=240.0):
@@ -511,14 +503,14 @@ def ankle_joint(leg, foot):
     return 90 - angle(leg * -1, foot)
 
 
-def calculate_angles(markers, cycle, direction, schema):
+def calculate_angles(cycle, markers, direction, schema):
     u"""Calculo de angulos durante el ciclo de marcha.
 
-    :param markers: arreglo de conjunto de centros de marcadores.
-    :type markers: np.array
     :param cycle: índices de los cuadros que contienen un ciclo dentro de la
      caminata
     :type cycle: tuple
+    :param markers: arreglo de conjunto de centros de marcadores.
+    :type markers: np.array
     :param schema: esquema de marcadores diagramado.
     :type schema: dict
     :param direction: Valor de sentido de avance de la marcha.
@@ -617,50 +609,14 @@ def fourier_fit(angles, sample, fft_scope=4):
     return fourier_fit
 
 
-def pixel_scale(source, fps, scale=.5):
-    u"""Esta función obtiene la escala para convertir de pixeles a metros.
-
-    Busca en el primer segundo del video el valor escalar con el que se
-    convierte la distancia del cuadro de pixeles a metros.
-    :param source: dirección del archivo de video.
-    :type source: str
-    :param fps: cuadros por segundo.
-    :type fps: float
-    :param scale: Distancia en metros que existene entre los dos marcadores que
-     se utilizan para obtener el escalar.
-    :type scale: float
-    """
-    # Para poder establecer la relación entre pixeles y metros en la imagen, se
-    # propone que se utilicen marcadores al inicio del video con una distancia
-    # conocida. Se propone que la cantida de marcadores sea 2.
-    lenght = 0
-    with open_video(source) as stream:
-        # La cantidad de cuadros desde que se inicia el video para obtener los
-        # los marcadores que se utilizan para convertir distancias es de un
-        # segundo.
-        for n in xrange(int(fps)):
-            __, frame = stream.read()
-            centers = np.array(map(marker_center, find_markers(frame)))[::-1]
-            # Se propone que la cantida de marcadores que distancia conocida
-            # sea de 2 marcadores.
-            if len(centers) == 2:
-                # Se obtiene la distancia que existe entre los dos marcadores.
-                # Es importante que estos marcadores se encuentren a la misma
-                # distancia de la cámara que la pasarela donde se efectúa la
-                # marcha.
-                lenght = np.linalg.norm(centers[1] - centers[0])
-                break
-    return lenght / scale
-
-
-def calculate_spatemp(markers, cycle, fps, pixel_to_meter):
+def calculate_spatemp(cycle, markers, fps, pixel_to_meter):
     u"""Cálculo de los parámetros espacio temporales.
 
-    :param markers: arreglo de conjunto de centros de marcadores.
-    :type markers: np.array
     :param cycle: índices de los cuadros que contienen un ciclo dentro de la
      caminata
     :type cycle: tuple
+    :param markers: arreglo de conjunto de centros de marcadores.
+    :type markers: np.array
     :param fps: cuadros por segundos.
     :type fps: float
     :param pixel_to_meter: escalar para la conversión de distancia.
@@ -702,6 +658,8 @@ def kinovea_time(strtime):
     return h*3600 + m*60 + s + ms/1000
 
 
+# NOTE: Se puede agregar una ListProperty de kivy para ir imprimiento los
+# estadios del proceso.
 class KinematicsEngine(object):
     u"""Motor de extracción y procesamiento de datos de marcha humana.
 
@@ -713,8 +671,12 @@ class KinematicsEngine(object):
     """
 
     def __init__(self, config, maxitems=100):
-        self.config = config
+        logger.info(u"Iniciando Motor de cinemática")
         self.main_container = deque(maxlen=maxitems)
+        self.fft = config.getint('engine', 'fft_scope')
+        self.config = config
+        with open(config.get('engine', 'schema')) as fh:
+            self.schema = json.load(fh)
 
     def run(self, files):
         u"""Inicia el motor de búsqueda de parametros de marcha."""
@@ -723,43 +685,80 @@ class KinematicsEngine(object):
         for n, f in enumerate(files):
             ext = os.path.basename(f).split('.')[-1]
             if ext in ('avi', 'mp4'):
-                v_ex = VideoExplorer(f, 'VF%d' % n, self.config)
-                v_ex.find_walks()
-                v_ex.terminate_exploration(self.main_container)
+                v_ex = VideoExplorer(f, 'VF%d' % (n+1), self.config)
+                v_ex.find_walks(self.main_container)
             elif ext in ('txt',):
-                self.kinovea_explorer(f, **self.user)  # igual
+                k_ex = KinoveaExplorer(f, 'KF%d' % (n+1), self.config)
+                k_ex.find_walks(self.main_container, 120.0)  # NOTE: Hardcore
             else:
                 raise Exception(u"MasMarcha: Formato de archivo NO soportado")
+        logger.info(u"Se finaliza el procesamiento de %d archivo/s" % (n+1))
 
-    def video_explorer(self, videofile, **kwargs):  # deprecated
-        u""".
+    def calculate_params(self, fix=None):
+        u"""Calcula los parámetros de marcha.
 
+        :param fix: existe la opción de modificar los datos originales
+         obtenidos a partir de los marcadores. Son dos la posibilidades; si fix
+         toma el valor de "fourier" entonces se realiza un ajuste de los datos
+         a través de la transformada, también cambia el tamaño del arreglo de
+         ángulos a 100 datos por articulación. si fix toma el valor de "resize"
+         entonces la cantidad de datos por articulación pasa a ser de 100 a
+         través de un proceso de interpolación lineal.
+        :type fix: str
         """
-        # La función de find_walks reccorre todo el video en búsqueda de
-        # caminatas que cumplan la condicion de tener los extremos de esquema
-        # completo. Es la función que mas afecta en el tiempo de ejecución del
-        # motor de lectura cuando se ejecuta sobre un video.
-        self.find_walks(videofile)
-        n = len(self.main_data)
-        # Se busca en la primera parte del video los marcadores que utilizan
-        # para convertir la unidad de pixeles en metros.
-        if n:
-            self.pixel_to_meter = pixel_scale(
-                videofile, self.fps, self.user['meter_scale']
-            )
-        # La función explore_walk modifica las listas principal y de validacion
-        # del motor.
-        while n:
-            self.explore_walk(videofile, 'W%d' % n, **kwargs)
-            n -= 1
+        self.parameters = []
+        # Para el cáculo de parámetros se utilizan los datos que se encuentran
+        # en la lista principal.
+        # Cada elemento dentro de la lista es un vector de tres componentes, la
+        # identificación de la caminata, el arreglo de centros de marcadores
+        # de la caminata y el conjunto de índices de cyclos, si es que se
+        # encontró alguno.
+        cidy = '{d}{w}C{i}'
+        for data in self.main_container:
+            # Si existen ciclos, por cada uno se calculan los ángulos de las
+            # articulaciones definidas por el esquema, y los parámetros espacio
+            # temporales.
+            dire = direction(data['markers'], self.schema)
+            for i, cycle in enumerate(data['cycles']):
+                # En la lista de parámetros encontrada por el motor, se ordenan
+                # vectores con los componentes: identidad del ciclo, arreglo
+                # de ángulos, y diccionario con parámetros espaciotemporales.
+                angles = calculate_angles(cycle,
+                                          data['markers'],
+                                          dire,
+                                          self.schema)
+                spatemp = calculate_spatemp(cycle,
+                                            data['markers'],
+                                            data['frames_per_seconds'],
+                                            data['pixel_to_meter'])
+                # Si se le pasa el argumento fix como fourier entonces al
+                # arreglo de ángulos se lo ajusta con la transformada.
+                if fix == 'fourier':
+                    angles = fourier_fit(angles, 100, self.fft)
+                # Si se le pasa el argumento fix como resized, entonces al
+                # arreglo se lo expande o contrae a 100 datos por articulacion.
+                elif fix == 'resize':
+                    angles = resize_angles_sample(angles, 100)
+                # Se identifica el ciclo segun la caminata.
+                cidy = cidy.format(d=('I', 'D')[dire], w=data['idy'], i=i+1)
+                self.parameters.append((cidy, angles, spatemp))
 
-    def kinovea_explorer(self, textfile, wid, meter_scale, pixel_scale):
-        u""".
 
-        :param schema: esquema de marcadores diagramado.
-        :type schema: dict
-        """
-        with open(textfile) as fh:
+class KinoveaExplorer(object):
+
+    def __init__(self, filename, file_id, config):
+        logger.info(u"Se inicia exploración de kinovea %s" % filename)
+        self.filename = filename
+        self.file_id = file_id
+        self.cym = config.get('engine', 'cycle_markers')
+        self.pht = config.getfloat('engine', 'phase_threshold')
+        self.mts = config.getfloat('engine', 'meter_scale')
+        with open(config.get('engine', 'schema')) as fh:
+            self.schema = json.load(fh)
+
+    def find_walks(self, container, pixel_scale):
+        # Se lee todo el archivo de kinovea.
+        with open(self.filename) as fh:
             data = fh.readlines()
         # Se separan los datos del texto en listas. La lista trayectory es la
         # que recive los datos de cada trayectoria. La lista markers es la que
@@ -792,7 +791,7 @@ class KinematicsEngine(object):
 
         # Se deben ingresar los dos valores por parte del usuario para pasar
         # de pixeles a metros.
-        self.pixel_to_meter = pixel_scale / meter_scale
+        self.pixel_to_meter = pixel_scale / self.mts
 
         # Se convierten las trayectorias en texto a arreglos numpy de
         # flotantes.
@@ -812,90 +811,35 @@ class KinematicsEngine(object):
         # se utilizan para mostrar las velocidades y los cambios de fase.
         diff, mov, cycles = gait_cycler(markers_reshape,
                                         self.schema,
-                                        self.user['cy_markers'],
-                                        self.user['ph_threshold'])
-        if not cycles and self.mode == 'regular':
-            return
-        # Si existen ciclos o el modo de ejecución es "debug", se agregan los
-        # valores hallados a los datos.
-        # Los datos que se utilizan en el cálculo de parámetros se almacenan
-        # en la cola principal.
-        self.main_data.appendleft((wid, markers_reshape, cycles))
-        # Los datos que se utilizan para mostrar el proceso de los ciclos y las
-        # estadisticas de procesado de marcadores se almacenan en la cola de
-        # validación. A diferencia del proceso de video, cuando se hace una
-        # lectura de kinovea, no se ordenan ni interpolan cuadros. Para
-        # mantener el mismo número de datos se agregan valores vacios.
-        cprop, missing, ret = None, None, None
-        self.validation_data.appendleft((wid, missing, ret, diff, mov, cprop))
-
-    def calculate_params(self, fix=None):
-        u"""Calcula los parámetros de marcha.
-
-        :param fix: existe la opción de modificar los datos originales
-         obtenidos a partir de los marcadores. Son dos la posibilidades; si fix
-         toma el valor de "fourier" entonces se realiza un ajuste de los datos
-         a través de la transformada, también cambia el tamaño del arreglo de
-         ángulos a 100 datos por articulación. si fix toma el valor de "resize"
-         entonces la cantidad de datos por articulación pasa a ser de 100 a
-         través de un proceso de interpolación lineal.
-        :type fix: str
-        """
-        self.parameters = []
-        # Para el cáculo de parámetros se utilizan los datos que se encuentran
-        # en la lista principal.
-        # Cada elemento dentro de la lista es un vector de tres componentes, la
-        # identificación de la caminata, el arreglo de centros de marcadores
-        # de la caminata y el conjunto de índices de cyclos, si es que se
-        # encontró alguno.
-        for data in self.main_data:
-            wid, markers, cycles = data
-            # Si existen ciclos, por cada uno se calculan los ángulos de las
-            # articulaciones definidas por el esquema, y los parámetros espacio
-            # temporales.
-            dire = direction(markers, self.schema)
-            for i, cycle in enumerate(cycles):
-                # En la lista de parámetros encontrada por el motor, se ordenan
-                # vectores con los componentes: identidad del ciclo, arreglo
-                # de ángulos, y diccionario con parámetros espaciotemporales.
-                cid = '{d}{w}C{i}'.format(d=('I', 'D')[dire], w=wid, i=i+1)
-                angles = calculate_angles(markers, cycle, dire, self.schema)
-                spatemp = calculate_spatemp(
-                    markers, cycle, self.fps, self.pixel_to_meter
-                )
-                # Si se le pasa el argumento fix como fourier entonces al
-                # arreglo de ángulos se lo ajusta con la transformada.
-                if fix == 'fourier':
-                    angles = fourier_fit(angles, 100, self.user['fft_scope'])
-                # Si se le pasa el argumento fix como resized, entonces al
-                # arreglo se lo expande o contrae a 100 datos por articulacion.
-                elif fix == 'resize':
-                    angles = resize_angles_sample(angles, 100)
-                self.parameters.append((cid, angles, spatemp))
-
-#######################################
-
-# TODO:
-# [] Agregar el código para transformar pixeles en metros.
-# [] Agregar el código para conocer los frames por segundos para el cálculo de
-#    parámetros espaciotemporales.
-# [] Agregar el código de logging.
+                                        self.cym,
+                                        self.pht)
+        # Se envian los resultados al motor.
+        container.append({
+            'idy': '%sW1' % self.file_id,
+            'markers': markers,
+            'missing': None,
+            'cycles': cycles,
+            'diff': diff,
+            'mov': mov
+        })
 
 
 class VideoExplorer(object):
 
     def __init__(self, filename, file_id, config):
+        logger.info(u"Se inicia exploración de video %s" % filename)
         self.filename = filename
         self.file_id = file_id
         self.container = deque(maxlen=50)
         self.cym = config.get('engine', 'cycle_markers')
         self.pht = config.getfloat('engine', 'phase_threshold')
         self.rts = config.getfloat('engine', 'ratio_scale')
+        self.mts = config.getfloat('engine', 'meter_scale')
         with open(config.get('engine', 'schema')) as fh:
             self.schema = json.load(fh)
 
-    def explore_walk(self, walk_interval, idy):
-        result = {}
+    def explore_walk(self, container, walk_interval, idy):
+        logger.info('Explorando caminata %s' % idy)
         start, end = walk_interval
         with open_video(self.filename) as stream:
             # Se situa el video en el cuadro en el que empieza la caminata.
@@ -921,21 +865,27 @@ class VideoExplorer(object):
                                         self.schema,
                                         self.cym,
                                         self.pht)
-        # Se empujan los datos en la cola.
-        result = {
+        # Se envian los resultados al motor.
+        container.append({
             'idy': idy,
             'markers': markers,
             'missing': missing,
             'cycles': cycles,
             'diff': diff,
-            'mov': mov
-        }
-        self.container.append(result)
+            'mov': mov,
+            'frames_per_seconds': self.fps,
+            'pixel_to_meter': self.pixel_to_meter
+        })
 
-    def find_walks(self):
-        walking = False
-        first, backward, w_id, i = 0, 0, 0, 0
+    def find_walks(self, container):
+        # Se adquiere un escalar para convertir pixeles a metros.
+        self.video_pixel_scale()
+        # Se establecen parámetros para el control del flujo de datos.
+        i, backward, first, w_id, walking = 0, 0, 0, 0, False
         N = sum(self.schema['schema'])
+        # Se comienza con la búsqueda de caminatas. Cada caminata se concibe
+        # como un conjunto de cuadros consecutivos, en los que el primer y
+        # último cuadro presentan el esquema completo de marcadores.
         with open_video(self.filename) as stream:
             ret, frame = stream.read()
             while ret:
@@ -956,7 +906,8 @@ class VideoExplorer(object):
                         # concurrencia.
                         thread = Thread(
                             target=self.explore_walk,
-                            args=(walk_between, '%sW%d' % (self.file_id, w_id))
+                            args=(container, walk_between,
+                                  '%sW%d' % (self.file_id, w_id))
                         )
                         thread.start()
                         thread.join()
@@ -990,9 +941,35 @@ class VideoExplorer(object):
                 ret, frame = stream.read()
                 i += 1
 
-    def terminate_exploration(self, main_container):
-        for data in self.container:
-            main_container.append(data)
+    def video_pixel_scale(self):
+        u"""Esta función obtiene la escala para convertir de pixeles a metros.
+
+        Busca en el primer segundo del video el valor escalar con el que se
+        convierte la distancia del cuadro de pixeles a metros.
+        """
+        # Para poder establecer la relación entre pixeles y metros en la imagen
+        # se propone que se utilicen marcadores al inicio del video con una
+        # distancia conocida. Se propone que la cantida de marcadores sea 2.
+        lenght = 0
+        with open_video(self.filename) as stream:
+            # La cantidad de cuadros desde que se inicia el video para obtener
+            # los marcadores que se utilizan para convertir distancias es de un
+            # segundo. Este valor se agrega a la clase para poder utilizarlo
+            # el el cálculo de parametros posterior.
+            self.fps = stream.get(cv2.CAP_PROP_FPS)
+            for n in xrange(int(self.fps)):
+                __, frame = stream.read()
+                centers = np.array(map(marker_center, find_markers(frame)))
+                # Se propone que la cantida de marcadores que distancia
+                # conocida sea de 2 marcadores.
+                if len(centers) == 2:
+                    # Se obtiene la distancia que existe entre los dos
+                    # marcadores. Es importante que estos marcadores se
+                    # encuentren a la misma distancia de la cámara que la
+                    # pasarela donde se efectúa la marcha.
+                    lenght = np.linalg.norm(centers[1] - centers[0])
+                    break
+        self.pixel_to_meter = lenght / self.mts
 
 
 if __name__ == '__main__':
@@ -1012,6 +989,7 @@ if __name__ == '__main__':
     """)
 
     path = '/home/mariano/Descargas/VID_20170720_132629833.mp4'  # Belen
+    # path = '/home/mariano/Escritorio/marcha/matiak/pre/PreQx-Der2@Matiak.txt'
 
     config = configparser.ConfigParser()
     config.read_file(cfile)
@@ -1019,4 +997,8 @@ if __name__ == '__main__':
     t1 = time()
     E = KinematicsEngine(config)
     E.run((path, ))
-    print ('Tiempo de ejecución: {}'.format(time() - t1))
+    t2 = time()
+    print ('Tiempo de busqueda: {}'.format(t2 - t1))
+    E.calculate_params()
+    t3 = time()
+    print ('Tiempo de calculo: {}'.format(t3 - t2))
