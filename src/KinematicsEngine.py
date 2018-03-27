@@ -686,13 +686,13 @@ class KinematicsEngine(object):
             ext = os.path.basename(f).split('.')[-1]
             if ext in ('avi', 'mp4'):
                 v_ex = VideoExplorer(f, 'VF%d' % (n+1), self.config)
-                v_ex.find_walks(self.main_container)
+                v_ex.start(self.main_container)
             elif ext in ('txt',):
                 k_ex = KinoveaExplorer(f, 'KF%d' % (n+1), self.config)
-                k_ex.find_walks(self.main_container, 120.0)  # NOTE: Hardcore
+                k_ex.start(self.main_container, 120.0)  # NOTE: Hardcore
             else:
-                raise Exception(u"MasMarcha: Formato de archivo NO soportado")
-        logger.info(u"Se finaliza el procesamiento de %d archivo/s" % (n+1))
+                logger.warning(u"Archivo no soportado - %s" % f)
+        logger.info(u"Fin del procesamiento - %d archivo/s" % (n+1))
 
     def calculate_params(self, fix=None):
         u"""Calcula los parámetros de marcha.
@@ -747,7 +747,7 @@ class KinematicsEngine(object):
 class KinoveaExplorer(object):
 
     def __init__(self, filename, file_id, config):
-        logger.info(u"Se inicia exploración de kinovea %s" % filename)
+        logger.info(u"Exploración de kinovea %s" % filename)
         self.filename = filename
         self.file_id = file_id
         self.cym = config.get('engine', 'cycle_markers')
@@ -756,7 +756,7 @@ class KinoveaExplorer(object):
         with open(config.get('engine', 'schema')) as fh:
             self.schema = json.load(fh)
 
-    def find_walks(self, container, pixel_scale):
+    def start(self, container, pixel_scale):
         # Se lee todo el archivo de kinovea.
         with open(self.filename) as fh:
             data = fh.readlines()
@@ -813,9 +813,13 @@ class KinoveaExplorer(object):
                                         self.schema,
                                         self.cym,
                                         self.pht)
+
+        idy = '%sW1' % self.file_id
+        logger.info(u"Caminata %s - %d ciclos" % (idy, len(cycles)))
+
         # Se envian los resultados al motor.
         container.append({
-            'idy': '%sW1' % self.file_id,
+            'idy': idy,
             'markers': markers,
             'missing': None,
             'cycles': cycles,
@@ -827,7 +831,7 @@ class KinoveaExplorer(object):
 class VideoExplorer(object):
 
     def __init__(self, filename, file_id, config):
-        logger.info(u"Se inicia exploración de video %s" % filename)
+        logger.info(u"Exploración de video %s" % filename)
         self.filename = filename
         self.file_id = file_id
         self.container = deque(maxlen=50)
@@ -839,7 +843,6 @@ class VideoExplorer(object):
             self.schema = json.load(fh)
 
     def explore_walk(self, container, walk_interval, idy):
-        logger.info('Explorando caminata %s' % idy)
         start, end = walk_interval
         with open_video(self.filename) as stream:
             # Se situa el video en el cuadro en el que empieza la caminata.
@@ -865,6 +868,9 @@ class VideoExplorer(object):
                                         self.schema,
                                         self.cym,
                                         self.pht)
+
+        logger.info(u"Caminata %s - %d ciclos" % (idy, len(cycles)))
+
         # Se envian los resultados al motor.
         container.append({
             'idy': idy,
@@ -877,7 +883,7 @@ class VideoExplorer(object):
             'pixel_to_meter': self.pixel_to_meter
         })
 
-    def find_walks(self, container):
+    def start(self, container):
         # Se adquiere un escalar para convertir pixeles a metros.
         self.video_pixel_scale()
         # Se establecen parámetros para el control del flujo de datos.
