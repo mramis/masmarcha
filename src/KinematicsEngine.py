@@ -621,8 +621,9 @@ def calculate_spatemp(cycle, markers, fps, pixel_to_meter):
     :type fps: float
     :param pixel_to_meter: escalar para la conversión de distancia.
     :type pixel_to_meter: float
-    :return: parámetros espacio-temporales: (duracion ciclo, fase de apoyo,
-     fase de balanceo, cadencia, zancada, velocidad media).
+    :return: parámetros espacio-temporales: (duracion ciclo[m],
+     fase de apoyo[%], fase de balanceo[%], zancada[m], cadencia[p/min],
+     velocidad media[m/s]).
     :rtype: tuple
     """
     # la duración en segundos,
@@ -635,15 +636,14 @@ def calculate_spatemp(cycle, markers, fps, pixel_to_meter):
     # NOTE: La distancia está en metros. Si no se obtuvo el escalar de
     # conversión pixel_to_meter, entonces la distancia de zancada toma valor 0.
     stride = np.linalg.norm(markers[-1, -2] - markers[0, -2])*pixel_to_meter
-    # Se adjuntan las unidades de cada parámetro.
-    return (
-        (duration, '[s]'),
-        ((swing - istrike) / framesduration, '[%]'),
-        ((fstrike - swing) / framesduration, '[%]'),
-        (120 / duration, '[steps/min]'),
-        (stride, '[m]'),
-        (stride / duration, '[m/s]')
-    )
+    # Se adjuntan las unidades de los parámetros son :
+    # (m, %, %, m, p/min, m/s)
+    return (duration,
+            (swing - istrike) / framesduration,
+            (fstrike - swing) / framesduration,
+            stride,
+            120 / duration,
+            stride / duration)
 
 
 def kinovea_time(strtime):
@@ -713,7 +713,6 @@ class KinematicsEngine(object):
         # identificación de la caminata, el arreglo de centros de marcadores
         # de la caminata y el conjunto de índices de cyclos, si es que se
         # encontró alguno.
-        cidy = '{d}{w}C{i}'
         for data in self.main_container:
             # Si existen ciclos, por cada uno se calculan los ángulos de las
             # articulaciones definidas por el esquema, y los parámetros espacio
@@ -740,8 +739,9 @@ class KinematicsEngine(object):
                 elif fix == 'resize':
                     angles = resize_angles_sample(angles, 100)
                 # Se identifica el ciclo segun la caminata.
+                cidy = '{d}{w}C{i}'
                 cidy = cidy.format(d=('I', 'D')[dire], w=data['idy'], i=i+1)
-                self.parameters.append((cidy, angles, spatemp))
+                self.parameters.append((cidy, spatemp, angles))
 
 
 class KinoveaExplorer(object):
