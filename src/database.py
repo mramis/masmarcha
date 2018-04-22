@@ -18,10 +18,21 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import logging
 import sqlite3
+import re
+import io
 
 import numpy as np
-import io
+
+
+# logging setup
+logger = logging.getLogger(__name__)
+handler = logging.StreamHandler()
+formatter = '[%(name)10s line:%(lineno)d] - %(levelname)-8s - %(message)s'
+handler.setFormatter(logging.Formatter(formatter))
+logger.addHandler(handler)
+logger.setLevel(logging.DEBUG)
 
 
 # Este fragmento es la solución que encontré en stackoverflow para almacenar
@@ -52,146 +63,175 @@ def create(filename):
     # tablas que contienen toda la información de la aplicación. Se realiza
     # por única vez cuando se corre el archivo setup.
     with sqlite3.connect(filename, detect_types=1) as conn:
-        cursor = conn.cursor()
-        # Se tienen que crear tres tablas según el diagrama de relaciones.
-        # La primer tabla es la de persona.
-        cursor.execute("""CREATE TABLE person
-                          (pid TEXT PRIMARY KEY NOT NULL,
-                           fullname TEXT,
-                           age TEXT NOT NULL,
-                           dx TEXT NOT NULL)""")
-        # La pŕoxima tabla es la de estudio.
-        cursor.execute("""CREATE TABLE session
-                          (sid INT PRIMARY KEY NOT NULL,
-                           personid TEXT,
-                           day DATE,
-                           assistance TEXT,
-                           test TEXT,
-                           archive TEXT,
-                           FOREIGN KEY(personid) REFERENCES person(pid))
-                           """)
-        # la última tabla es la parámetros.
-        cursor.execute("""CREATE TABLE parameters (
-                          cid INT PRIMARY KEY NOT NULL,
-                          sessionid INT,
-                          laterality CHAR,
-                          duration REAL,
-                          stance REAL,
-                          swing REAL,
-                          stride REAL,
-                          cadency REAL,
-                          velocity REAL,
-                          hip ARRAY,
-                          knee ARRAY,
-                          ankle ARRAY,
-                          FOREIGN KEY(sessionid) REFERENCES session(sid))
-                          """)
+        conn.execute("""CREATE TABLE person(
+                        id TEXT PRIMARY KEY NOT NULL,
+                        lastname TEXT NOT NULL,
+                        name TEXT NOT NULL,
+                        age TEXT NOT NULL,
+                        dx TEXT NOT NULL)""")
+
+        conn.execute("""CREATE TABLE session(
+                        id INTEGER PRIMARY KEY NOT NULL,
+                        pid TEXT NOT NULL,
+                        day DATE NOT NULL,
+                        assistance TEXT,
+                        test TEXT,
+                        note TEXT,
+                        FOREIGN KEY(pid) REFERENCES person(id))""")
+
+        conn.execute("""CREATE TABLE parameters (
+                        id INTEGER PRIMARY KEY NOT NULL,
+                        sid INTEGER NOT NULL,
+                        lat CHAR,
+                        duration REAL,
+                        stance REAL,
+                        swing REAL,
+                        stride REAL,
+                        cadency REAL,
+                        velocity REAL,
+                        hip ARRAY,
+                        knee ARRAY,
+                        ankle ARRAY,
+                        FOREIGN KEY(sid) REFERENCES session(id))""")
 
 
-def insert(filename, person, session, parameters):
+def insert(database, person, session, parameters):
     u"""."""
-    with sqlite3.connect(filename, detect_types=1) as conn:
-        cursor = conn.cursor()
-        # Si la persona no está en la base de datos entonces se agrega.
-        cursor.execute("SELECT pid from person")
-        ids = [Id for Id, in cursor.fetchall()]
-        if not person[0] in ids:
-            cursor.execute("INSERT INTO person VALUES (?,?,?,?)", person)
-        # El id de sesiones se incrementa cada vez que se insertan datos,
-        # además se agrega la identificación del paciente.
-        cursor.execute("SELECT count(sid) from session")
-        session.insert(0, cursor.fetchone()[-1] + 1)
-        session.insert(1, person[0])
-        cursor.execute("INSERT INTO session VALUES (?,?,?,?,?,?)", session)
-        # El id de parameters se incrementa cada vez que se ingresan datos.
-        cursor.execute("SELECT count(cid) from parameters")
-        n = cursor.fetchone()[-1]
-        command = "INSERT INTO parameters VALUES (?,?,?,?,?,?,?,?,?,?,?,?)"
-        for idy, spt, angles in parameters:
-            n += 1
-            cursor.execute(
-                command, (n, session[0], idy[0]) + spt + tuple(angles)
-            )
-
-
-def construct_select_stmt(column, table, fields):
-    # La sintaxis sql para la selección de la columna c en la tabla t
-    # donde las condiciones son verdaderas.
-    base_stmt = "SELECT {c} FROM {t} WHERE ".format(c=column, t=table)
-    # Se construyen las condiciones de selección según la lista que se
-    # pasa como fields.
-    conditions = []
-    # La lista fields son pares columna (de la tabla t) valor que se
-    # busca dentro de la columna col.
-    for col, value in fields:
-        if value:
-            conditions.append("{k} = {v!r}".format(k=col, v=value))
-    # Si no hay valores en fields, entonces la función devuelve None.
-    if not conditions:
-        return
-    # Se construyen las condiciones para la claúsula WHERE del
-    # base_stmt, a través del operador sql AND.
-    full_conditions_stmt = ' AND '.join(conditions)
-    return base_stmt + '(' + full_conditions_stmt + ')'
-
-
-def search(database, person, session, platerality):
-    # Se busca en la base de datos database a través de las listas de valores
-    # para cada una de las tablas.
-    sid_from_person, sid_from_session = None, None
     with sqlite3.connect(database, detect_types=1) as conn:
         cur = conn.cursor()
-        if any(person):
-            person_fields = zip(('fullname', 'age', 'dx'), person)
-            # Se selecciona de la tabla personas las id (pid) de las personas
-            # que cumplen con los valores que se pide en la lista person.
-            cur.execute(construct_select_stmt('pid', 'person', person_fields))
-            pids = [str(pid) for pid, in cur.fetchall()]
-            # Ahora se seleccionan de la tabla sesiones las pid.
-            if pids:
-                pids_fields = zip(('personid',), pids)
-                cur.execute(
-                    construct_select_stmt('sid', 'session', pids_fields)
-                    )
-                sid_from_person = {sid for sid, in cur.fetchall()}
+        # La persona puede existir(id), por eso está en un try-except.
+        try:
+            cur.execute("insert into person values (?,?,?,?,?)", person)
+        except sqlite3.IntegrityError:
+            logging.info("person-id(%s) existe en %s" % (person[0], database))
 
-        if any(session):
-            session_fields = zip(('assistance', 'test'), session)
-            # Se selecciona de la tabla sesiones las id (sid) de las sesiones
-            # que cumplen con los valores que se piden en la lista session.
-            cur.execute(
-                construct_select_stmt('sid', 'session', session_fields)
-                )
-            sid_from_session = {sid for sid, in cur.fetchall()}
+        cur.execute("""
+            insert into session(pid, day, assistance, test, note)
+            values (?,?,?,?,?)""", (person[0], ) + session)
 
-        if sid_from_person and sid_from_session:
-            # Si se pasaron las dos listas con al menos un valor en cada una,
-            # entonces se aceptan los valores en común (intersect).
-            sids = tuple(sid_from_person.intersection(sid_from_session))
+        insert_stmt = """
+            insert into parameters(sid, lat, duration, stance, swing, stride,
+            cadency, velocity, hip, knee, ankle)
+            values (?,?,?,?,?,?,?,?,?,?,?)"""
+        sid = cur.lastrowid
+        for idy, spt, angles in parameters:
+            cur.execute(insert_stmt, (sid, idy[0]) + spt + tuple(angles))
 
-        elif sid_from_person:
-            sids = tuple(sid_from_person)
 
-        elif sid_from_session:
-            sids = tuple(sid_from_session)
+def search(database, name, lastname, age, dx, assistance, test):
+    u"""."""
+    # En este código se realiza una búsqueda (y extracción) de parámetros
+    # basada en la sentencia SELECT sqlite. Esta sentencia contienen la
+    # cláusula WHERE (condición).
+    with sqlite3.connect(database, detect_types=1) as conn:
+        cur = conn.cursor()
+        # En el las líneas que siguen se construyen las condiciones de la
+        # clausula WHERE para la tabla persona. La lista where_clause_cond
+        # contiene las cadenas de texto que forman una condición según la
+        # sintaxis sqlite3: "column = ?", la lista where_clause_values
+        # contiene los valores que la función `sqlite3.cursor().execute`
+        # reemplaza en los tokens "?" de las codiciones. Es importante que las
+        # listas tengan el mismo número de componentes, es decir, un valor para
+        # cada token "?".
+        person_ids = []
+        where_clause_cond = []
+        where_clause_values = []
+        if lastname:
+            where_clause_cond.append('lastname = ?')
+            where_clause_values.append(lastname)
+        if name:
+            where_clause_cond.append('name = ?')
+            where_clause_values.append(name)
+        if age:
+            age = re.findall('[0-9]+', age)
+            where_clause_cond.append('age >= ?')
+            where_clause_values.append(min(age))
+            where_clause_cond.append('age <= ?')
+            where_clause_values.append(max(age))
+        if dx:
+            where_clause_cond.append('dx = ?')
+            where_clause_values.append(dx)
 
-        # Si no se consiguieron identificaciones en la base de datos entonces
-        # se devuelve None.
+        # Si la función recibió argumentos que están en la tabla personas,
+        # se ensambla el argumento de la clausula WHERE. Cada condición de
+        # la lista where_clause_cond se une a través del operador "AND" de
+        # sql. Al final se obtiene la sentencia SELECT con las condiciones
+        # requeridas para la búsqueda de pids en la tabla personas.
+        # Estas pids luego se utilizan en la tabla sesiones para la búsqueda
+        # de sids(identificador de sesiones)
+        if where_clause_cond:
+            where_args = ' AND '.join(where_clause_cond)
+            select_stmt = "SELECT id FROM person WHERE (...)"
+            cur.execute(select_stmt.replace('...', where_args),
+                        where_clause_values)
+            person_ids = [ID for ID, in cur.fetchall()]
+
+        # En el las líneas que siguen se construyen las condiciones de la
+        # clausula WHERE para la tabla sesiones. Se utiliza el mismo principio
+        # para la construcción de las condiciones, aunque se hacen ligeramente
+        # distintas.
+        session_ids = []
+        where_clause_cond = []
+        where_clause_values = []
+        # Si existen identificaciones de la tabla persona (pids), entonces el
+        # operador que une las condiciones cambia por "OR".
+        # Además si existen argumentos para la tabla sesiones, se debe crear
+        # una condición por cada pid junto a cada columna de la tabla sesiones,
+        # y estas separadas por un operador "AND".
+        if person_ids:
+            operator = " OR "
+            if assistance and test:
+                for pid in person_ids:
+                    where_clause_cond.append(
+                        'pid = ? AND assistance = ? AND test = ?'
+                        )
+                    where_clause_values.append((pid, assistance, test))
+            elif assistance:
+                for pid in person_ids:
+                    where_clause_cond.append('pid = ? AND assistance = ?')
+                    where_clause_values.append((pid, assistance))
+            elif test:
+                for pid in person_ids:
+                    where_clause_cond.append('pid = ? AND test = ?')
+                    where_clause_values.append((pid, test))
+            else:
+                for pid in person_ids:
+                    where_clause_cond.append('pid = ?')
+                    where_clause_values.append((pid,))
         else:
-            return None
+            # Si no existen argumentos que pertenencen a la tabla personas
+            # entonces la construcción de las sentencias es la misma que para
+            # la tabla personas.
+            operator = ' AND '
+            if assistance:
+                where_clause_cond.append('assistance = ?')
+                where_clause_values.append((assistance,))
+            if test:
+                where_clause_cond.append('test = ?')
+                where_clause_values.append((test,))
 
-        parameters = []
-        for sid in sids:
-            cur.execute('SELECT * FROM parameters WHERE sessionid = ?', (sid,))
-            for row in cur.fetchall():
-                idy = row[:3][::-1]
-                spt = row[3:9]
-                angles = np.array(row[9:])
-                # NOTE: Se modifica el identificador de ciclos. En el motor de
-                # cinemática el identificador tenia los componentes :
-                # lateralidad, tipo de stream, caminata y ciclo.
-                # Ahora los componentes del identificador son:
-                # lateralidad, sesion, y ciclo (referido al orden en que se
-                # introdujeron en la base de datos).
-                parameters.append(('{0}SS{1}CY{2}'.format(*idy), spt, angles))
-    return parameters
+        # Si se recibió algun argumento no nulo, entonces, se buscan y extraen
+        # los sids (identificadores de session) que se utilizan para la
+        # búsqueda de parámetros en esa tabla.
+        if where_clause_cond:
+            where_args = operator.join(where_clause_cond)
+            select_stmt = "SELECT id FROM session WHERE (...)"
+            # Acá el ensamblaje de las condiciones es ligeramente distinta
+            # porque la lista where_clause_values no contiene cadenas si no,
+            # tuples de cadenas, y lo que se hace es simplemente unir los
+            # tuples en uno solo.
+            where_clause_values = reduce(lambda a, b: a+b, where_clause_values)
+            cur.execute(select_stmt.replace('...', where_args),
+                        where_clause_values)
+            session_ids = [ID for ID, in cur.fetchall()]
+
+        # Finalmente si se pasa al menos algún argumento a la función, se
+        # devuelven los parámetros donde se encontraron coincidencias.
+        where_clause_cond = []
+        if session_ids:
+            for sid in session_ids:
+                where_clause_cond.append('sid = ?')
+            select_stmt = "SELECT * FROM parameters WHERE (...)"
+            where_args = " OR ".join(where_clause_cond)
+            cur.execute(select_stmt.replace('...', where_args), session_ids)
+            return cur.fetchall()
