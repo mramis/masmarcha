@@ -84,7 +84,7 @@ def create(database):
                         day DATE NOT NULL,
                         assistance TEXT,
                         test TEXT,
-                        note TEXT,
+                        notes TEXT,
                         FOREIGN KEY(pid) REFERENCES person(id))""")
 
         conn.execute("""CREATE TABLE parameters (
@@ -119,29 +119,36 @@ def insert(database, person, session, parameters):
      arreglo de tobillo).
     :type parameters: tuple
     """
+
+    def id_adder(sid, parameters):
+        fullparamters = []
+        for param in parameters:
+            fullparamters.append(((sid,) + param))
+        return fullparamters
+
+    insert_person = """
+    INSERT INTO person VALUES (?,?,?,?,?);
+    """
+    insert_session = """
+    INSERT INTO session(pid, day, assistance, test, notes) VALUES (?,?,?,?,?);
+    """
+    insert_parameters = """
+    INSERT INTO parameters(sid, lat, duration, stance, swing, stride, cadency,
+    velocity, hip, knee, ankle) VALUES (?,?,?,?,?,?,?,?,?,?,?);
+    """
+
     with sqlite3.connect(database, detect_types=1) as conn:
         cur = conn.cursor()
-        # La persona puede existir(id), por eso está en un try-except.
         try:
-            cur.execute("INSERT INTO person VALUES (?,?,?,?,?)", person)
+            # La persona puede existir dentro de la base de datos, entonces
+            # no se agrega, y salta la excepción.
+            cur.execute(insert_person, person)
+
         except sqlite3.IntegrityError:
             logging.error("person-id(%s) existe en %s" % (person[0], database))
 
-        cur.execute("""
-            INSERT INTO session(pid, day, assistance, test, note)
-            VALUES (?,?,?,?,?)""", (person[0], ) + session)
-
-        insert_stmt = """
-            INSERT INTO parameters(sid, lat, duration, stance, swing, stride,
-            cadency, velocity, hip, knee, ankle)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?)"""
-        # NOTE: Existe un comando executemany para ingresar varios valores
-        # al mismo tiempo y así evitar el bucle for, pero necesito agregar
-        # la letra de lateralidad a los parámetros. Fijarse en el motor para
-        # modificar esto.
-        sid = cur.lastrowid
-        for idy, spt, angles in parameters:
-            cur.execute(insert_stmt, (sid, idy[0]) + spt + tuple(angles))
+        cur.execute(insert_session, (person[0], ) + session)
+        cur.executemany(insert_parameters, id_adder(cur.lastrowid, parameters))
 
 
 def search(database, **kwargs):
@@ -154,55 +161,82 @@ def search(database, **kwargs):
     :return: parámetros cinemáticos.
     :rtype: list
     """
-    # Los kwargs son pares columna=valor para la busqueda en las
-    # tablas sesion y persona.
-    tab_mapper = {'name': 'person', 'lastname': 'person', 'dx': 'person',
-                  'test': 'session', 'assistance': 'session'}
+    # Para encontrar los parámetros que buscamos bajo las condiciones que se
+    # argumentan en kwargs, primero tenemos que encontrar los identificadores
+    # de sesión(sids). Para esto construimos una tabla con la sentencia sql
+    # INNER JOIN que junta los valores de las tablas session y person. Sobre
+    # esta tabla con la clausula WHERE añadimos las condiciones de busqueda
+    # que se pasan en kwargs. El resultado son las sids que nos indican que
+    # valores de parameters son los que nos interesan.
+
+    # **kwargs es un diccionario con el nombre de la columna y el valor que
+    # se debe buscar dentro de la base de datos para encontrar coincidencias.
+
+    # Este diccionario se utiliza para escoger el nombre de la tabla en la
+    # que se encuentra la columna que contiene nuestra búsqueda. La letra
+    # mayúscula es el alias de la tabla que se define mas adelante en la
+    # sentencia SELECT.
+    tab_mapper = {'name': 'P', 'lastname': 'P', 'dx': 'P',
+                  'test': 'S', 'assistance': 'S'}
 
     # Se construyen las condiciones de la clausula WHERE según los
-    # parámetros que se ingresan en kwargs.
+    # pares "col=value" que se ingresan en kwargs.
     values, search_conditions = [], []
-    try:
-        for col, val in kwargs.iteritems():
-            if not val:
-                continue
+    for col, val in kwargs.iteritems():
+        if not val:
+            continue
 
-            # En la búsqueda por edad se tiene que tomar un rango.
-            if col == 'age':
-                age_values = re.findall('[0-9]+', val)
-                search_conditions.append('person.age >= ? AND person.age <= ?')
-                values.append(min(age_values))
-                values.append(max(age_values))
-                continue
+        # En la búsqueda por edad se tiene que tomar un rango.
+        if col == 'age':
+            age_values = re.findall('[0-9]+', val)
+            search_conditions.append('P.age >= ? AND P.age <= ?')
+            values.append(min(age_values))
+            values.append(max(age_values))
+            continue
 
-            search_conditions.append(
-                '{tab}.{col} = ?'.format(tab=tab_mapper[col], col=col))
-            values.append(val)
-    # Este except está puesto porque no existe control sobre las claves
-    # de kwargs.
-    except KeyError as error:
-        logging.error('Mala columna: %s' % error)
-        return
+        search_conditions.append(
+            '{tab}.{col} = ?'.format(tab=tab_mapper[col], col=col))
+        values.append(val)
 
+    # NOTE: Si todos los argumentos en kwargs son cadenas vacias, entonces
+    # se sale de la excepción. Hay que ver si este código es necesario.
     if not search_conditions:
         return
 
+    # Se forma el argumento de la clausula WHERE a través del operador AND.
     where_argument = ' AND '.join(search_conditions)
-    select_session_ids = """
-        SELECT session.id, session.day, person.name, person.lastname
-        FROM person INNER JOIN session
-        ON person.id = session.pid WHERE (...)
-        """.replace('...', where_argument)
 
-    parameters = []
-    # NOTE: rendimiento: Se está consultando a la base de datos por cada
-    # sid para poder asociarla a cada metadata. La metadata es necesaria
-    # para poderidentificar los datos en las gráficas. Tratar de optimizar
+    # Esta es la sentencia base SELECT, que además de obtener los sids,
+    # tambien extrae la metadata que debe informar el contexto de los
+    # datos.
+    select_stmt = """
+    SELECT S.id, S.day, P.name, P.lastname, P.dx, S.notes
+    FROM session S INNER JOIN person P ON S.pid = P.id WHERE (...)
+    """
+
     with sqlite3.connect(database, detect_types=1) as conn:
         cur = conn.cursor()
-        cur.execute(select_session_ids, values)
-        for sid, date, name, lastname in cur.fetchall():
-            cur.execute("SELECT * FROM parameters WHERE sid = ?", (sid,))
-            meta = [date, ' '.join((name, lastname))]
-            parameters.append((meta, cur.fetchall()))
-    return parameters
+        cur.execute(select_stmt.replace('...', where_argument), values)
+        fulldata = cur.fetchall()
+
+    # Separamos los sids de la metadata, ademas construimos los argumentos
+    # de la clausula WHERE para la sentencia SELECT que extrae los parámetros
+    # según los sids.
+    metadata = {}
+    values, search_conditions = [], []
+    for sid, d, n, ln, dx, nt in fulldata:
+        search_conditions.append('sid = ?')
+        values.append(sid)
+        metadata[sid] = (d, n, ln, dx, nt)
+
+    where_argument = ' OR '.join(search_conditions)
+    select_stmt = "SELECT * FROM parameters WHERE (...)"
+
+    print select_stmt.replace('...', where_argument)
+
+    with sqlite3.connect(database, detect_types=1) as conn:
+        cur = conn.cursor()
+        cur.execute(select_stmt.replace('...', where_argument), values)
+        parameters = cur.fetchall()
+
+    return metadata, parameters
