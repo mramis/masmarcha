@@ -232,8 +232,6 @@ def search(database, **kwargs):
     where_argument = ' OR '.join(search_conditions)
     select_stmt = "SELECT * FROM parameters WHERE (...)"
 
-    print select_stmt.replace('...', where_argument)
-
     with sqlite3.connect(database, detect_types=1) as conn:
         cur = conn.cursor()
         cur.execute(select_stmt.replace('...', where_argument), values)
