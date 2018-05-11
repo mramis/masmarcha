@@ -19,7 +19,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from sys import path as syspath
-from os import curdir, path
+from os import curdir, path, remove, listdir
 
 import numpy as np
 
@@ -56,8 +56,9 @@ def test_joint_plot():
 
     # Se excede el tamaño de la muestra de sesiones (>10) para que se dibujen
     # más de un gráfico.
-    meta = meta * 4  # se van a pasar 12 sesiones.
-    nsesiones = 9  # ya hay tres sesiones en data.
+
+    data = []
+    nsesiones = 12  # ya hay tres sesiones en data.
     for i in np.random.randint(3, 10, nsesiones):
         session = []
         for j in xrange(i):
@@ -65,4 +66,14 @@ def test_joint_plot():
             session.append(np.array((X + np.random.normal(0, 5.), np.sin(X))))
         data.append(session)
 
+    meta = [['20-20-20', 'Mariano', 'Izq', '', ''],
+            ['20-20-20', 'Mariano', 'Izq', 'botox', ''],
+            ['20-20-20', 'Mariano', 'Izq', 'ferula 32a', '']]
+
+    meta = meta * 4  # se van a pasar 12 sesiones.
     representation.basic_joint_plot(joint, data, meta, (mean, std, 100))
+
+    # borramos los archivos generados.
+    for filepath in listdir('.'):
+        if filepath.endswith('.png'):
+            remove(filepath)

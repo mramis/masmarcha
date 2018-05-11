@@ -46,24 +46,27 @@ JOINTLIMITS = dict(
 
 def basic_joint_plot(joint_name, joint_data, joint_meta, sac=None):
     u"""."""
+
+    # Cada gráfico de articulación tiene como leyenda la metadata de la sesión,
+    # esto es, la fecha, el nombre, si recibió algún tipo de asistencia y/o se
+    # realizó algún tipo de prueba.
+    # Si la cantidad de sesiones excede a 10, entonces se produce un mecanismo
+    # de recursión en el que se generan las gráficas necesarias para que en
+    # cada uno de ellos haya hasta diez sesiones. Este procedimiento se
+    # implementa por una cuestión estética.
     data_lenght = len(joint_data)
-    if data_lenght > 10:
-        # Si la cantidad de sesiones es mayor a 10, para que la tabla que
-        # contiene la metadata no ocupe mas superficie que el gráfico, se
-        # recortan los datos en listas de diez.
-        if data_lenght % 10 == 0:
-            n_plots = data_lenght / 10
-        else:
-            n_plots = data_lenght / 10 + 1
-        # Aquí se produce la recursión de la función de dibujo.
+    nplots = data_lenght / 10 + bool(data_lenght % 10)
+    if nplots > 1:
         i = 0
-        for j in xrange(n_plots):
+        for j in xrange(nplots):
             basic_joint_plot('%s_%d' % (joint_name, j+1),
                              joint_data[i: (j+1)*10],
                              joint_meta[i: (j+1)*10],
                              sac)
             i += (j+1)*10
         return
+
+    # Desde aquí el código de dibujo de curvas.
 
     # NOTE: esto se tiene que agregar a la configuración.
     psize = (10, 7)
@@ -120,5 +123,5 @@ def basic_joint_plot(joint_name, joint_data, joint_meta, sac=None):
     meta_plot.axis('off')
     meta_plot.table(**tabcollection)
 
-    plt.show()  # Cambiar por plt.savefig()
+    plt.savefig('%s.png' % joint_name)  # Cambiar por plt.savefig()
     plt.close()
