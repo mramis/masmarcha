@@ -21,6 +21,7 @@
 
 from string import capitalize
 from collections import defaultdict
+from os import path
 
 import matplotlib.pyplot as plt
 import matplotlib.style as style
@@ -44,9 +45,10 @@ JOINTLIMITS = dict(
 )
 
 
-def basic_joint_plot(joint_name, joint_data, joint_meta, sac=None):
+def basic_joint_plot(joint_name, joint_data, joint_meta, config, sac=None):
     u"""."""
 
+    plt.close()
     # Cada gráfico de articulación tiene como leyenda la metadata de la sesión,
     # esto es, la fecha, el nombre, si recibió algún tipo de asistencia y/o se
     # realizó algún tipo de prueba.
@@ -62,17 +64,17 @@ def basic_joint_plot(joint_name, joint_data, joint_meta, sac=None):
             basic_joint_plot('%s_%d' % (joint_name, j+1),
                              joint_data[i: (j+1)*10],
                              joint_meta[i: (j+1)*10],
+                             config,
                              sac)
             i += (j+1)*10
         return
 
     # Desde aquí el código de dibujo de curvas.
 
-    # NOTE: esto se tiene que agregar a la configuración.
-    psize = (10, 7)
-    dpi = 80
+    figsize = map(int, config.get('drawparams', 'figsize').split(','))
+    dpi = config.getint('drawparams', 'dpi')
 
-    fig = plt.figure(figsize=psize, dpi=dpi)
+    fig = plt.figure(figsize=figsize, dpi=dpi)
     fig.suptitle(capitalize(joint_name), fontsize=24)
     fig.subplots_adjust(hspace=0.12*data_lenght)
 
@@ -123,5 +125,4 @@ def basic_joint_plot(joint_name, joint_data, joint_meta, sac=None):
     meta_plot.axis('off')
     meta_plot.table(**tabcollection)
 
-    plt.savefig('%s.png' % joint_name)  # Cambiar por plt.savefig()
-    plt.close()
+    plt.savefig('%s.png' % path.join(config.get('paths', 'plots'), joint_name))

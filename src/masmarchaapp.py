@@ -44,6 +44,10 @@ class MasMarchaApp(App):
                 "ph_threshold": 2.5,
                 "cy_markers": "M5-M6",
                 "fft_scope": 4,
+            },
+            "drawparams": {
+                "figsize": "10, 7",
+                "dpi": 80
             }
         }
         for section in default_config:

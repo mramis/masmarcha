@@ -20,12 +20,28 @@
 
 from sys import path as syspath
 from os import curdir, path, remove, listdir
+from configparser import ConfigParser
+from io import BytesIO
 
 import numpy as np
 
 syspath.append(path.join(curdir, 'src'))
 
 import representation
+
+
+config = ConfigParser()
+config.readfp(
+    BytesIO("""
+    [paths]
+    plots = %s
+
+    [drawparams]
+    figsize = 10, 7
+    dpi = 80
+
+    """ % (path.join(curdir, 'test')))
+)
 
 
 def test_joint_plot():
@@ -47,12 +63,13 @@ def test_joint_plot():
             ['20-20-20', 'Mariano', 'Izq', 'ferula 32a', '']]
 
     # Se prueba la función con datos aleatorios de tres sesiones.
-    representation.basic_joint_plot(joint, data, meta)
+    representation.basic_joint_plot(joint, data, meta, config)
 
     mean = np.exp(-X)
     std = (np.cos(X)-np.sin(X))*10
     # Se le agregan valores medios sin alteración clínica.
-    representation.basic_joint_plot(joint, data, meta, (mean, std, 100))
+    representation.basic_joint_plot(joint, data, meta,
+                                    config, (mean, std, 100))
 
     # Se excede el tamaño de la muestra de sesiones (>10) para que se dibujen
     # más de un gráfico.
@@ -71,9 +88,5 @@ def test_joint_plot():
             ['20-20-20', 'Mariano', 'Izq', 'ferula 32a', '']]
 
     meta = meta * 4  # se van a pasar 12 sesiones.
-    representation.basic_joint_plot(joint, data, meta, (mean, std, 100))
-
-    # borramos los archivos generados.
-    for filepath in listdir('.'):
-        if filepath.endswith('.png'):
-            remove(filepath)
+    representation.basic_joint_plot(joint, data, meta,
+                                    config, (mean, std, 100))

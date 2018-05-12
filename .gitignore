@@ -2,3 +2,5 @@
 *.swp
 *.db
 *.ipynb
+.coverage
+*.png
