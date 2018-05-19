@@ -29,7 +29,7 @@ import numpy as np
 
 style.use('seaborn')
 
-COLORMAP = plt.cm.get_cmap('tab10').colors
+COLORMAP = plt.cm.get_cmap('tab20').colors
 
 TABASICS = dict(
     loc='center',
@@ -45,7 +45,7 @@ JOINTLIMITS = dict(
 )
 
 
-def basic_joint_plot(joint_name, joint_data, joint_meta, config, sac=None):
+def joint_plot(joint_name, joint_data, joint_meta, config, sac=None):
     u"""."""
 
     plt.close()
@@ -61,11 +61,10 @@ def basic_joint_plot(joint_name, joint_data, joint_meta, config, sac=None):
     if nplots > 1:
         i = 0
         for j in xrange(nplots):
-            basic_joint_plot('%s_%d' % (joint_name, j+1),
-                             joint_data[i: (j+1)*10],
-                             joint_meta[i: (j+1)*10],
-                             config,
-                             sac)
+            joint_plot('%s_%d' % (joint_name, j+1),
+                       joint_data[i: (j+1)*10],
+                       joint_meta[i: (j+1)*10],
+                       config, sac)
             i += (j+1)*10
         return
 
@@ -126,3 +125,34 @@ def basic_joint_plot(joint_name, joint_data, joint_meta, config, sac=None):
     meta_plot.table(**tabcollection)
 
     plt.savefig('%s.png' % path.join(config.get('paths', 'plots'), joint_name))
+
+
+def spacetemporal_plot(sptemp_data, config, boxplot=False):
+    u"""."""
+
+    table_rows = [u'Muestra', u'Duración', u'Apoyo', u'Balanceo',
+                  u'Zancada', u'Cadencia', u'Velocidad']
+
+    figsize = map(int, config.get('drawparams', 'figsize').split(','))
+    dpi = config.getint('drawparams', 'dpi')
+
+    fig = plt.figure(figsize=figsize, dpi=dpi)
+    fig.suptitle(u'Parámetros espacio-temporales', fontsize=24)
+    fig.subplots_adjust(hspace=0.12)
+
+    table = plt.subplot2grid((2, 6), (0, 0), colspan=6)
+    table.axis('off')
+    table.table(loc='center', cellLoc='center',
+                colLoc='left', rowLabels=table_rows,
+                cellText=sptemp_data.round(2),
+                colColours=COLORMAP[:sptemp_data.shape[1]])
+
+    if boxplot:
+        for iparam in range(6):
+            ax = plt.subplot2grid((2, 6), (1, iparam))
+            ax.boxplot(sptemp_data[1:, iparam],
+                       labels=(table_rows[1:][iparam],),
+                       showmeans=True)
+
+    plt.tight_layout()
+    plt.show()
