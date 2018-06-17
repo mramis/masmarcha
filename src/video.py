@@ -37,7 +37,7 @@ def open_video(filepath):
     cv2.destroyAllWindows()
 
 
-def find_contours(frame, threshold=250.0, dilate=False):
+def find_contours(frame, threshold=250.0, dilate=True):
     u"""Encuentra dentro del cuadro los contornos de los marcadores.
     """
     # Se pasa el cuadro a canal de grises
@@ -220,7 +220,6 @@ def explore_walk(walk, schema, extrapx):
     # posición de cada uno de los marcadores que no se entoctró en el cuadro
     # (missing_frames).
     interpolate_lost_frames(markers, missing_frames, schema, walk[0][0])
-
     return(markers, regions)
 
 
@@ -355,7 +354,7 @@ def get_ends(missing_frames_list):
     # Puede suceder que la lísta contenga un solo elemento, por lo tanto se
     #  escriben las siguientes do líneas.
     if len(missing_frames_list) == 1:
-        return((missing_frames_list[0]-1, missing_frames_list[0]+1))
+        return(np.array((missing_frames_list[0]-1, missing_frames_list[0]+1)))
     else:
         ends = []
         # first es una bandera que indica cuál es el primero de los extremos.
@@ -439,11 +438,3 @@ def draw_rois(frame, regions, iframe, schema):
         for p0, p1 in regions[iframe]:
             cv2.rectangle(frame, tuple(np.int16(p0)),
                           tuple(np.int16(p1)), (0, 0, 255), 3)
-
-  
-def main(filepath, userconfig):
-      logging.info('STARTING')
-      schema = json.load(open(userconfig.get('engine', 'schema')))
-      extra_px = userconfig.getfloat('engine', 'region_extrapx')
-      for walk in find_walks(filepath, schema):
-          markers, regions = explore_walk(walk, schema, extra_px)
