@@ -22,7 +22,7 @@
 import numpy as np
 
 
-def gait_cycler(markers, schema, cy_markers=("M5", "M6"), ph_threshold=2.5):
+def gait_cycler(markers, schema, cyclers=("M5", "M6"), threshold=2.5):
     u"""Busca si existen ciclos de apoyo y balanceo en la caminata.
 
     La función busca si existen ciclos de marcha, apoyo y balanceo, dentro
@@ -32,16 +32,16 @@ def gait_cycler(markers, schema, cy_markers=("M5", "M6"), ph_threshold=2.5):
     :type markers: np.array
     :param schema: esquema de marcadores diagramado.
     :type schema: dict
-    :param cy_markers: son los índice de fila (marcadores) en los que se
+    :param cyclers: son los índice de fila (marcadores) en los que se
      tiene que tomar la velocidad. Por defecto son los últimos dos, que se
      corresponden con los del pié según el diagrama del esquema. El vector
-     cy_markers siempre tiene que ser de dimensión 2 de otra manera se
+     cyclers siempre tiene que ser de dimensión 2 de otra manera se
      lanzará una exepción. Los argumentos del vector pueden ser el mismo
      componente (ej: ("M5", "M5")).
-    :type cy_markers: tuple
-    :param ph_threshold: Es el umbral que se toma para separar el apoyo del
+    :type cyclers: tuple
+    :param threshold: Es el umbral que se toma para separar el apoyo del
      balanceo.
-    :type ph_threshold: float
+    :type threshold: float
     :return: vector que contiene una lista de ciclos, el arreglo de velocidad
      media de los centros de marcadores de pie, y el arreglo de datos boleanos
      de movimiento.
@@ -52,14 +52,14 @@ def gait_cycler(markers, schema, cy_markers=("M5", "M6"), ph_threshold=2.5):
     # duplica el índice para que la función np.mean que se toma después de
     # aplicar la función np.gradient no lanze una excepción por el kwarg
     # "axis".
-    ix = [k for k, m in enumerate(schema['codes']) if m in cy_markers]
+    ix = [k for k, m in enumerate(schema['codes']) if m in cyclers]
     if len(ix) == 1:
         ix += ix
     # La media de la derivada de posicion en x e y de los marcadores de retro
     # (-2) y ante pie (-1). El valor absoluto es porque solo estoy interesado
     # en cuando toma valor cero o distinto de cero.
     diff = np.abs(np.gradient(markers[:, ix, :], axis=0).mean(axis=2))
-    mov = np.logical_and(*(diff >= ph_threshold).transpose())
+    mov = np.logical_and(*(diff >= threshold).transpose())
 
     st = []  # stance
     cycles = []
@@ -219,7 +219,7 @@ def calculate_angles(cycle, markers, direction, schema):
         dmarkers[m] = markers[istrike: fstrike, i, :]
     # Se forman los segmentos según lo diagramado en el esquema.
     dsegments = {}
-    for s, (a, b) in schema['segments'].iteritems():
+    for s, (a, b) in schema['segments'].items():
         dsegments[s] = dmarkers[b] - dmarkers[a]
     # Se calcula los ángulos siguiendo el diagrama del esquema.
     langles = []

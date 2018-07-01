@@ -37,7 +37,7 @@ def open_video(filepath):
     cv2.destroyAllWindows()
 
 
-def find_contours(frame, threshold=250.0, dilate=True):
+def find_contours(frame, threshold=250.0, dilate=False):
     u"""Encuentra dentro del cuadro los contornos de los marcadores.
     """
     # Se pasa el cuadro a canal de grises
@@ -220,7 +220,7 @@ def explore_walk(walk, schema, extrapx):
     # posición de cada uno de los marcadores que no se entoctró en el cuadro
     # (missing_frames).
     interpolate_lost_frames(markers, missing_frames, schema, walk[0][0])
-    return(markers, regions)
+    return(np.arange(*walk[0]), markers, regions)
 
 
 def get_regions(centers, schema, px=50):
@@ -400,14 +400,22 @@ def interpolate_lost_frames(markers, missing_frames, schema, first_frame_index):
             markers[missing, i, 1] = np.interp(missing, xp, markers[xp, i, 1])
 
 
-def draw_on(filepath, sleeptime, function, fargs, size=(800, 400)):
+def draw_on(filepath, sleeptime, function, fargs, ends=(), size=(800, 400)):
     with open_video(filepath) as video:
+
+        if isinstance(ends, np.ndarray):
+            video.set(cv2.CAP_PROP_POS_FRAMES, ends[0])
+
         ret, frame = video.read()
         cv2.namedWindow(filepath, cv2.WINDOW_NORMAL)
         cv2.resizeWindow(filepath, *size)
 
+        i = 0
         while ret:
-            function(frame, *fargs)
+            if isinstance(ends, np.ndarray) and (ends[-1] - ends[0]) == i:
+                break
+
+            function(frame, i, *fargs)
             cv2.imshow(filepath, frame)
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -415,18 +423,22 @@ def draw_on(filepath, sleeptime, function, fargs, size=(800, 400)):
 
             ret, frame = video.read()
             sleep(sleeptime)
+            i += 1
 
 
-def draw_markers(frame, markers):
-    if not markers:
+def draw_markers(frame, index, markers, wichone):
+    if not isinstance(markers, np.ndarray):
         for mark in contour_centers_array(find_contours(frame)):
             cv2.circle(frame, tuple(mark), 10, (0, 0, 255), -1)
     else:
-        for mark in markers:
-            cv2.circle(frame, tuple(mark), 10, (0, 0, 255), -1)
+        if wichone is -1:
+            for mark in markers[index]:
+                cv2.circle(frame, tuple(mark), 10, (0, 0, 255), -1)
+        else:
+            cv2.circle(frame, tuple(markers[index, wichone]), 10, (0, 0, 255), -1)
 
 
-def draw_rois(frame, regions, iframe, schema):
+def draw_rois(frame, index, regions, schema):
     if not regions:
         markers = contour_centers_array(find_contours(frame))
         if markers.shape[0] == sum(schema['schema']):
@@ -435,6 +447,6 @@ def draw_rois(frame, regions, iframe, schema):
                 cv2.rectangle(frame, tuple(np.int16(p0)),
                               tuple(np.int16(p1)), (0, 0, 255), 3)
     else:
-        for p0, p1 in regions[iframe]:
+        for p0, p1 in regions[index][1]:
             cv2.rectangle(frame, tuple(np.int16(p0)),
                           tuple(np.int16(p1)), (0, 0, 255), 3)
