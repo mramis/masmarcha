@@ -400,7 +400,7 @@ def interpolate_lost_frames(markers, missing_frames, schema, first_frame_index):
             markers[missing, i, 1] = np.interp(missing, xp, markers[xp, i, 1])
 
 
-def draw_on(filepath, sleeptime, function, fargs, ends=(), size=(800, 400)):
+def play(filepath, pausetime, dfunction, ends=(), size=(640, 480), **kwargs):
     with open_video(filepath) as video:
 
         if isinstance(ends, np.ndarray):
@@ -415,18 +415,18 @@ def draw_on(filepath, sleeptime, function, fargs, ends=(), size=(800, 400)):
             if isinstance(ends, np.ndarray) and (ends[-1] - ends[0]) == i:
                 break
 
-            function(frame, i, *fargs)
+            dfunction(frame, i, **kwargs)
             cv2.imshow(filepath, frame)
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
             ret, frame = video.read()
-            sleep(sleeptime)
+            sleep(float(pausetime))
             i += 1
 
 
-def draw_markers(frame, index, markers, wichone):
+def draw_markers(frame, index, markers, wichone, **kwargs):
     if not isinstance(markers, np.ndarray):
         for mark in contour_centers_array(find_contours(frame)):
             cv2.circle(frame, tuple(mark), 10, (0, 0, 255), -1)
@@ -435,10 +435,11 @@ def draw_markers(frame, index, markers, wichone):
             for mark in markers[index]:
                 cv2.circle(frame, tuple(mark), 10, (0, 0, 255), -1)
         else:
-            cv2.circle(frame, tuple(markers[index, wichone]), 10, (0, 0, 255), -1)
+            cv2.circle(
+                frame, tuple(markers[index, wichone]), 10, (0, 0, 255), -1)
 
 
-def draw_rois(frame, index, regions, schema):
+def draw_rois(frame, index, regions, schema, **kwargs):
     if not regions:
         markers = contour_centers_array(find_contours(frame))
         if markers.shape[0] == sum(schema['schema']):

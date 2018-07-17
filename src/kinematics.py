@@ -76,7 +76,7 @@ def gait_cycler(markers, schema, cyclers=("M5", "M6"), threshold=2.5):
             tf = i+1  # toeoff
         # siempre que haya dos apoyos, hay un ciclo.
         if len(st) == 2:
-            cycles.append((st[0], tf, st[1]))
+            cycles.append(np.array((st[0], tf, st[1])))
             st.pop(0)
     return (diff, mov, cycles)
 
