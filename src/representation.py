@@ -128,46 +128,35 @@ class JointPlot(object):
 
 class STPlot(object):
 
-    def __init__(self, fig, label, limits, cfg, *args, **kwargs):
+    def __init__(self, fig, cfg):
         self.dirpath = cfg.get('paths', 'splots')
-        self.label = label
         self.fig = fig
         self.fig.subplots_adjust(bottom=0.3)
         self.ax = fig.add_subplot(1, 1, 1)
-        self.ax.set_xlabel(u'% Ciclo')
-        self.ax.set_ylabel(u'° Grados')
-        self.ax.set_ylim(limits)
+        self.ax.axis('off')
+        self.params = []
         self.sactext = ''
 
-# # def spacetemporal_plot(sptemp_data, cfg, boxplot=False):
-# #     u"""."""
-# #
-# #     table_rows = [u'Muestra', u'Duración', u'Apoyo', u'Balanceo',
-# #                   u'Zancada', u'Cadencia', u'Velocidad']
-# #
-# #     figsize = map(int, cfg.get('drawparams', 'figsize').split(','))
-# #     dpi = cfg.getint('drawparams', 'dpi')
-# #
-# #     fig = plt.figure(figsize=figsize, dpi=dpi)
-# #     fig.suptitle(u'Parámetros espacio-temporales', fontsize=24)
-# #     fig.subplots_adjust(hspace=0.12)
-# #
-# #     table = plt.subplot2grid((2, 6), (0, 0), colspan=6)
-# #     table.axis('off')
-# #     table.table(loc='center', cellLoc='center',
-# #                 colLoc='left', rowLabels=table_rows,
-# #                 cellText=sptemp_data.round(2),
-# #                 colColours=COLORMAP[:sptemp_data.shape[1]])
-# #
-# #     if boxplot:
-# #         for iparam in range(6):
-# #             ax = plt.subplot2grid((2, 6), (1, iparam))
-# #             ax.boxplot(sptemp_data[1:, iparam],
-# #                        labels=(table_rows[1:][iparam],),
-# #                        showmeans=True)
-# #
-# #     plt.tight_layout()
-# #     plt.show()
+    def add_cycle(self, parameters, label=None):
+        if label:
+            parameters = [label,] + list(parameters)
+        self.params.append(parameters)
+
+    def build_table(self, withlabels=False):
+        rows = [u'Duración', u'Apoyo', u'Balanceo', u'Zancada', u'Cadencia',
+            u'Velocidad']
+        if withlabels:
+            rows.insert(0, u'Etiqueta')
+        self.ax.table(loc='center', cellLoc='center', colLoc='left',
+            rowLabels=rows, cellText=np.array(self.params).transpose())
+
+    def save(self, withtext=False):
+        label = self.fig.get_label()
+        if withtext:
+            self.draw_text()
+        # self.fig.legend(fontsize=8)
+        self.fig.savefig('%s.png' % path.join(self.dirpath, label))
+        # NOTE: CONTINUER DESDE AQUI
 
 
 class Plotter(object):
@@ -212,6 +201,34 @@ class Plotter(object):
     def saveplots(self, withtext=False):
         for __, plot in self.plots.items():
             plot['ax'].save(withtext)
+
+    def table_plot(self):
+        label = u'Parámetros espacio-temporales'
+        fig = self.new_figure(label)
+        ax = STPlot(fig, self.cfg)
+        self.plots[label]['ax'] = ax
+        return(ax)
+
+# # def spacetemporal_plot(sptemp_data, cfg, boxplot=False):
+# #     u"""."""
+# #
+# #     table_rows = [u'Muestra', u'Duración', u'Apoyo', u'Balanceo',
+# #                   u'Zancada', u'Cadencia', u'Velocidad']
+# #
+# #     table.table(loc='center', cellLoc='center',
+# #                 colLoc='left', rowLabels=table_rows,
+# #                 cellText=sptemp_data.round(2),
+# #                 colColours=COLORMAP[:sptemp_data.shape[1]])
+# #
+# #     if boxplot:
+# #         for iparam in range(6):
+# #             ax = plt.subplot2grid((2, 6), (1, iparam))
+# #             ax.boxplot(sptemp_data[1:, iparam],
+# #                        labels=(table_rows[1:][iparam],),
+# #                        showmeans=True)
+# #
+# #     plt.tight_layout()
+# #     plt.show()
 
 
 #     def add_sac(self, sac):

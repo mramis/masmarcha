@@ -19,10 +19,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+import logging
 import numpy as np
 
 
-def gait_cycler(markers, schema, cyclers=("M5", "M6"), threshold=2.5):
+def gait_cycler(markers, schema, cyclers=("M5", "M6"), threshold=2.5,
+                safephase=10):
     u"""Busca si existen ciclos de apoyo y balanceo en la caminata.
 
     La función busca si existen ciclos de marcha, apoyo y balanceo, dentro
@@ -76,12 +78,20 @@ def gait_cycler(markers, schema, cyclers=("M5", "M6"), threshold=2.5):
             tf = i+1  # toeoff
         # siempre que haya dos apoyos, hay un ciclo.
         if len(st) == 2:
-            cycles.append(np.array((st[0], tf, st[1])))
+            # NOTE: Cuando se marca un ciclo se corrobora que la distancia
+            # entre moemntos de fases cumpla con un mínimo. Para darle
+            # flexibilidad vamos a hacer que ese mínimo pueda ser regulado por
+            # el usuario.
+            if (tf - st[0]) > safephase and (st[1] - tf) > safephase:
+                cycles.append(np.array((st[0], tf, st[1])))
+            else:
+                logging.error("""Cinemática. Ciclo, diferencia de cuadros entre
+                fases demasiado corta (<{})""".format(safephase))
             st.pop(0)
     return (diff, mov, cycles)
 
 
-def direction(markers, schema):
+def get_direction(markers, schema):
     u"""La dirección de la caminata.
 
     :param markers: arreglo de conjunto de centros de marcadores.
@@ -195,12 +205,9 @@ def ankle_joint(leg, foot):
     return 90 - angle(leg * -1, foot)
 
 
-def calculate_angles(cycle, markers, direction, schema):
+def calculate_angles(markers, direction, schema):
     u"""Calculo de angulos durante el ciclo de marcha.
 
-    :param cycle: índices de los cuadros que contienen un ciclo dentro de la
-     caminata
-    :type cycle: tuple
     :param markers: arreglo de conjunto de centros de marcadores.
     :type markers: np.array
     :param schema: esquema de marcadores diagramado.
@@ -213,11 +220,13 @@ def calculate_angles(cycle, markers, direction, schema):
     # Se organizan los marcadores según los códigos diagramados en el esquema.
     # Si bien se toma todo el arreglo de marcadores de la caminata, solo se
     # produce el cálculo de ángulos con los cuadros que pertenecen a un ciclo.
-    istrike, __, fstrike = cycle
     dmarkers = {}
     for i, m in enumerate(schema['codes']):
-        dmarkers[m] = markers[istrike: fstrike, i, :]
+        # dmarkers[m] = markers[istrike: fstrike, i, :]
+        dmarkers[m] = markers[:, i, :]
+
     # Se forman los segmentos según lo diagramado en el esquema.
+
     dsegments = {}
     for s, (a, b) in schema['segments'].items():
         dsegments[s] = dmarkers[b] - dmarkers[a]
@@ -301,7 +310,7 @@ def fourier_fit(angles, sample, fft_scope=4):
     return fourier_fit
 
 
-def calculate_spatemp(cycle, markers, fps, pixel_to_meter):
+def calculate_spatiotemporal(cycle, markers, fps, pixel_scale):
     u"""Cálculo de los parámetros espacio temporales.
 
     :param cycle: índices de los cuadros que contienen un ciclo dentro de la
@@ -311,8 +320,8 @@ def calculate_spatemp(cycle, markers, fps, pixel_to_meter):
     :type markers: np.array
     :param fps: cuadros por segundos.
     :type fps: float
-    :param pixel_to_meter: escalar para la conversión de distancia.
-    :type pixel_to_meter: float
+    :param pixel_scale: escalar para la conversión de distancia.
+    :type pixel_scale: float
     :return: parámetros espacio-temporales: (duracion ciclo[m],
      fase de apoyo[%], fase de balanceo[%], zancada[m], cadencia[p/min],
      velocidad media[m/s]).
@@ -326,13 +335,12 @@ def calculate_spatemp(cycle, markers, fps, pixel_to_meter):
     duration = framesduration / fps
     # la longitud de zancada.
     # NOTE: La distancia está en metros. Si no se obtuvo el escalar de
-    # conversión pixel_to_meter, entonces la distancia de zancada toma valor 0.
-    stride = np.linalg.norm(markers[-1, -2] - markers[0, -2])*pixel_to_meter
-    # Se adjuntan las unidades de los parámetros son :
-    # (m, %, %, m, p/min, m/s)
-    return (duration,
-            (swing - istrike) / framesduration,
-            (fstrike - swing) / framesduration,
-            stride,
-            120 / duration,
-            stride / duration)
+    # conversión pixel_scale, entonces la distancia de zancada toma valor 0.
+    stride = np.linalg.norm(markers[-1, -2] - markers[0, -2])*pixel_scale
+    # Las unidades de los parámetros son: (s, %, %, m, pasos/min, m/s)
+    return np.array((duration,
+                     (swing - istrike) / framesduration * 100,
+                     (fstrike - swing) / framesduration * 100,
+                     stride,
+                     120 / duration,
+                     stride / duration))

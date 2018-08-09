@@ -1,7 +1,0 @@
-{
-    "schema": [2, 2, 3],
-    "slices": [[0, 2], [2, 4], [4, 7]],
-    "codes": ["M0", "M1", "M2", "M3", "M4", "M5", "M6"],
-    "segments": {"tight": ["M1", "M2"], "leg": ["M3", "M4"], "foot": ["M5", "M6"]},
-    "joints": ["hip", "knee", "ankle"]
-}

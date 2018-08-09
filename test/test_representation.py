@@ -50,7 +50,10 @@ def test_joint_plot():
 
     # Graficar tabla espaciotemporal
     plotter = representation.Plotter(config)
-
+    table = plotter.table_plot()
+    table.add_cycle(range(6))
+    table.build_table()
+    table.save()
 
     # Graficar cinemática de una articulacion
     # plotter = representation.Plotter(config)

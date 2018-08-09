@@ -37,6 +37,11 @@ def open_video(filepath):
     cv2.destroyAllWindows()
 
 
+def get_fps(filepath):
+    with open_video(filepath) as video:
+        return video.get(cv2.CAP_PROP_FPS)
+
+
 def find_contours(frame, threshold=250.0, dilate=False):
     u"""Encuentra dentro del cuadro los contornos de los marcadores.
     """
@@ -162,19 +167,18 @@ def explore_walk(walk, schema, extrapx):
         if centers.shape[0] == sum(schema['schema']):
             # cada vez que el esquema está completo tienen que calcularse las
             # regiones de interes (ROI) y agregarse a la lista de regiones.
-            # En este punto el sistema tiene una fragilidad o BUG, no puede
+            # En este punto el sistema tiene una fragilidad, no puede
             # etiquetar correctamente a los contornos, supone que no existe
             # contaminación visual y entonces cada uno de los contornos es un
             # marcador.
-            cur_region = (cur_walk_video_frame_index,
-                          get_regions(centers, schema, extrapx))
-
+            cur_regions = get_regions(cur_walk_video_frame_index, centers,
+                                      schema, extrapx)
             if lost:
                 # Si existen cuadros perdidos o incompletos, entonces se tienen
                 # se tienen que generar las regiones de interés que no pudieron
                 # ser calculadas asi que se interpolan los componentes de las
                 # mismas en la siguiente función.
-                iregions = interpolate_lost_regions((regions[-1], cur_region),
+                iregions = interpolate_lost_regions((regions[-1], cur_regions),
                                                      schema)
                 # una vez que se tienen las rois (interpoladas), se obtienen
                 # nuevos arreglos de centros que quiene la misma dimensión que
@@ -184,9 +188,12 @@ def explore_walk(walk, schema, extrapx):
                 # aprocimaciones lineales.
                 # Esta función toma la  lista de cuadros perdidos para
                 # agregarles estos datos.
-                fmarkers = filling_missing_schema(lost, iregions,
-                                                  missing_frames,
-                                                  schema)
+                try:
+                    fmarkers = filling_missing_schema(lost, iregions,
+                                                      missing_frames,
+                                                      schema)
+                except Exception:
+                    return None
                 # Se inicializa la lista de cuadros de esquma incompleto.
                 lost.clear()
                 # Se agrega a la lista marcadores el centro actual, para
@@ -195,11 +202,11 @@ def explore_walk(walk, schema, extrapx):
                 markers.append(centers)
 
                 regions.extend(iregions)
-                regions.append(cur_region)
+                regions.append(cur_regions)
 
             else:
                 markers.append(centers)
-                regions.append(cur_region)
+                regions.append(cur_regions)
 
         else:
             # Si no se cumplió con el esquema, entonces el arreglo de centros
@@ -212,62 +219,92 @@ def explore_walk(walk, schema, extrapx):
             lost.append(centers)
         # aumenta en cada bucle el índice relativo al video.
         cur_walk_video_frame_index += 1
-    markers = np.array(markers)
-    # se ordenan los marcadores del pie, que pueden haberse intercambiado en la
-    # lectura.
-    sort_foot_markers(markers)
-    # se hace una interpolación lineal de las componentes del vector de
-    # posición de cada uno de los marcadores que no se entoctró en el cuadro
-    # (missing_frames).
-    interpolate_lost_frames(markers, missing_frames, schema, walk[0][0])
-    return(np.arange(*walk[0]), markers, regions)
+    if markers:
+        markers = np.array(markers)
+        # se ordenan los marcadores del pie, que pueden haberse intercambiado
+        # en la lectura.
+        sort_foot_markers(markers)
+        # se hace una interpolación lineal de las componentes del vector de
+        # posición de cada uno de los marcadores que no se entoctró en el
+        # cuadro (missing_frames).
+        interpolate_lost_frames(markers, missing_frames, schema, walk[0][0])
+        return(np.arange(*walk[0]), markers, regions)
 
 
-def get_regions(centers, schema, px=50):
-    u"""."""
+def get_regions(frame_index, centers, schema, extrapx):
+    u"""Arreglos de vértices coordenados de una regione en la imagen.
+
+    Las regiones de interés son arreglos Nx2x2 (N definida en el
+    esquema). Cada fila de subarreglo 2X2 tiene como filas las cordenadas de
+    los puntos extremos P0, P1 de un rectángulo en la imagen.
+    :param centers: arreglo de marcadores de rango completo.
+    :type centers: np.ndarray
+    :param schema: esquema de marcadores definido por el usuario.
+    :type schema: dict
+    :param px: inremento en pixeles de los límites de la region encontrada.
+    :param px: int
+    """
     regions = []
     # Se separa el arreglo de centros de marcadores según el esquema.
     for i, j in schema['slices']:
+        # NOTE: quizás px tenga que ser proporcional, a la resolución del vid.
         regions.append(
-            np.array((np.min(centers[i: j], axis=0) - px,
-                      np.max(centers[i: j], axis=0) + px)))
-    return regions
+            np.array((np.min(centers[i: j], axis=0) - extrapx,
+                      np.max(centers[i: j], axis=0) + extrapx)))
+    return np.hstack((frame_index, np.array(regions).flatten()))
 
 
 def interpolate_lost_regions(regions, schema):
         u"""."""
-        # El primer vector es el j-esimo índice de frame y la j-esima región
-        # de interés; el segundo puede leerse de la misma forma. Son los
-        # valores extremos obtenidos de la lectura de los cuadros, y se
-        # utilizan como referencia para poder interpolar los puntos esquina
-        # que conforman los roi de cada región de cada cuadro que hay que
-        # rellenar.
-        (jf, jroi), (kf, kroi) = regions
-        # arreglo de índices, es el dominio (x) de la función de interpolación,
-        # cuyo resultado es f(x).
-        xindex = np.arange(jf + 1, kf)
-        # los valores que tienen los índices en los extremos, es uno de los
-        # datos conocidos que requiere la función.
-        xends = (jf, kf)
-        # los valores que tienen los puntos en esos índices extremos.
-        yends = np.array((jroi, kroi))
-        # El arreglo que tiene la forma que se necesita, y que después va a
-        # se completada con los valores interpolados.
-        yrois = np.empty((len(xindex), len(schema['schema']), 2, 2))
-        for i in range(len(schema['schema'])):
-            # Se interpolan las coordenadas de las esquinas, superior izquierda
-            # P0 = x0, y0, y la esquina inferior derecha P1 = x1, y1, para cada
-            # uno de los cuadros en los que se perdieron (o sobran) marcadores.
-            yrois[:, i, 0, 0] = np.interp(xindex, xends, yends[:, i, 0, 0])
-            yrois[:, i, 1, 0] = np.interp(xindex, xends, yends[:, i, 1, 0])
-            yrois[:, i, 0, 1] = np.interp(xindex, xends, yends[:, i, 0, 1])
-            yrois[:, i, 1, 1] = np.interp(xindex, xends, yends[:, i, 1, 1])
+        # NOTE: hay que reformar el codigo para aceptar la nueva disposición.
 
-        return[(index, list(rois)) for index, rois in zip(xindex, yrois)]
+        # prev y cur son las regiones (arreglos) extremas de una sucesión de
+        # regiones sin datos, y son estas regiones las que aportan los datos
+        # para la interpolación.
+
+        pre, cur = regions
+        dom = np.arange(pre[0] + 1, cur[0])
+
+        empty = np.empty((dom.size, len(schema['schema'])*2*2))
+        for i in range(pre[1:].size):
+            empty[:, i] = np.interp(dom, (pre[0], cur[0]), (pre[i+1], cur[i+1]))
+
+        return(np.hstack((dom.reshape(dom.size, 1), empty)))
+
+        # NOTE: OLD
+        # # El primer valor del arreglo de regiones es el índice del cuadro al
+        # # que pertenecen.
+        # (jf, jroi), (kf, kroi) = regions
+        # # arreglo de índices, es el dominio (x) de la función de interpolación,
+        # # cuyo resultado es f(x).
+        # xindex = np.arange(prev[0] + 1, cur[0])
+        # # los valores que tienen los índices en los extremos, es uno de los
+        # # datos conocidos que requiere la función.
+        # xends = (prev[0], cur[0])
+        # # los valores que tienen los puntos en esos índices extremos.
+        # yends = np.array((jroi, kroi))
+        # # El arreglo que tiene la forma que se necesita, y que después va a
+        # # se completada con los valores interpolados.
+        # yrois = np.empty((len(xindex), len(schema['schema']), 2, 2))
+        # for i in range(len(schema['schema'])):
+        #     # Se interpolan las coordenadas de las esquinas, superior izquierda
+        #     # P0 = x0, y0, y la esquina inferior derecha P1 = x1, y1, para cada
+        #     # uno de los cuadros en los que se perdieron (o sobran) marcadores.
+        #     yrois[:, i, 0, 0] = np.interp(xindex, xends, yends[:, i, 0, 0])
+        #     yrois[:, i, 1, 0] = np.interp(xindex, xends, yends[:, i, 1, 0])
+        #     yrois[:, i, 0, 1] = np.interp(xindex, xends, yends[:, i, 0, 1])
+        #     yrois[:, i, 1, 1] = np.interp(xindex, xends, yends[:, i, 1, 1])
+        #
+        # return[(index, list(rois)) for index, rois in zip(xindex, yrois)]
 
 
 def filling_missing_schema(lost, iregions, missing_frames, schema):
     u""".
+
+    :param lost: Conjunto de cuadros de esquema incompleto.
+    :type lost: list
+    :param iregions: Conjunto de regions interpoladas.
+    :type iregions: numpy.ndarray
     """
     # Se construye un arreglo de cuatro dimensiones(FxSx2), donde F es la
     # cantidad de cuadros de video en los que el esquema no estuvo completo,
@@ -275,7 +312,10 @@ def filling_missing_schema(lost, iregions, missing_frames, schema):
     # se definen en el esquema; y 2 es la cantidad de componentes que tiene
     # cada vector de posición del marcador (x, y).
     schema_centers = np.empty((len(lost), sum(schema['schema']), 2), dtype=int)
-    for i, (centers, (frame_index, rois)) in enumerate(zip(lost, iregions)):
+    for i, (centers, regions) in enumerate(zip(lost, iregions)):
+        # NOTE: MODIFICADO
+        frame_index = int(regions[0])
+        rois = regions[1:].reshape(len(schema['schema']), 2, 2)
         # rep es un índice que se utiliza para indexar el arreglo de centros
         # schema_centers y reemplazar los datos aleatorios con los encontrados
         # en el correspondiente arreglo de lost.
@@ -316,7 +356,7 @@ def filling_missing_schema(lost, iregions, missing_frames, schema):
                 except ValueError:
                     # Si esto sucede entonces no es confiable la extracción de
                     # datos, y debe, por lo tanto descartarse la caminata.
-                    logging.critical("Falla de la implementación ROI")
+                    logging.error("filling_missing_schema: markers-shape")
                     raise Exception
             else:
                 # si no se encontraron los marcadores que se esperan en la
@@ -400,10 +440,10 @@ def interpolate_lost_frames(markers, missing_frames, schema, first_frame_index):
             markers[missing, i, 1] = np.interp(missing, xp, markers[xp, i, 1])
 
 
-def play(filepath, pausetime, dfunction, ends=(), size=(640, 480), **kwargs):
+def play(filepath, pausetime, dfunction, ends=(), size=(1024, 840), **kwargs):
     with open_video(filepath) as video:
 
-        if isinstance(ends, np.ndarray):
+        if ends:
             video.set(cv2.CAP_PROP_POS_FRAMES, ends[0])
 
         ret, frame = video.read()
@@ -443,7 +483,8 @@ def draw_rois(frame, index, regions, schema, **kwargs):
     if not regions:
         markers = contour_centers_array(find_contours(frame))
         if markers.shape[0] == sum(schema['schema']):
-            rois = get_regions(markers, schema)
+            rois = get_regions(0, markers, schema, kwargs['extrapx'])
+            rois = rois[1:].reshape(len(schema['schema']), 2, 2)
             for p0, p1 in rois:
                 cv2.rectangle(frame, tuple(np.int16(p0)),
                               tuple(np.int16(p1)), (0, 0, 255), 3)

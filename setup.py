@@ -20,21 +20,30 @@ import os
 
 APP = os.path.join(os.environ['HOME'], 'masmarcha')
 SESSION = os.path.join(APP, 'session')
+SPLOTS = os.path.join(APP, 'splots')
+CAPTURES = os.path.join(APP, 'captures')
 INI = os.path.join(APP, 'masmarcha.ini')
 SCHEMA = os.path.join(APP, 'schema7.json')
 
 default_config = """
 [engine]
-furierfit = 4
+fourierfit = 4
 extrapixel = 35
 cyclemarker1 = M5
 cyclemarker2 = M6
 phasethreshold = 2.5
+safephase = 10
+markersrate = 0
+pixelscale = 0
+meterdistance = 0.3
 
 [paths]
+configure = {APP}/masmarcha.ini
 database = {APP}/masmarcha.db
 schema = {APP}/schema7.json
 session = {APP}/session
+splots = {APP}/splots
+captures = {APP}/captures
 
 [kinovea]
 separator = \,n
@@ -43,6 +52,12 @@ separator = \,n
 binarythreshold = 250.0
 framewidth = 640
 frameheight = 480
+fpscorrection = 1
+
+[plots]
+width = 6
+height = 4
+dpi = 100
 """
 
 default_schema = """
@@ -65,6 +80,10 @@ def check_paths():
         os.mkdir(APP)
     if not os.path.isdir(SESSION):
         os.mkdir(SESSION)
+    if not os.path.isdir(SPLOTS):
+        os.mkdir(SPLOTS)
+    if not os.path.isdir(CAPTURES):
+        os.mkdir(CAPTURES)
     if not os.path.isfile(INI):
         with open(INI, 'w') as inifile:
             inifile.write(default_config.format(APP=APP))
