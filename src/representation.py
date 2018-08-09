@@ -1,7 +1,14 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # coding: utf-8
 
-"""Docstring."""
+"""Visualización de parámetros de marcha humana (cinemática).
+
+Representaciones es el módulo que se encarga de la construcción de las gráficas
+y tablas. Los dos tipos básicos son ángulos y parámetros espaciotemporales.
+Los gráficos de los ángulos articulares pueden ser individuales o compartir
+archivo de dibujo. Los parámetros espacio temporales se ubican en tablas con
+formato de archivo de dibujo.
+"""
 
 # Copyright (C) 2017  Mariano Ramis
 
@@ -19,140 +26,206 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-from string import capitalize
-from collections import defaultdict
 from os import path
+from collections import defaultdict
 
 import matplotlib.pyplot as plt
 import matplotlib.style as style
 import numpy as np
 
+
 style.use('seaborn')
 
-COLORMAP = plt.cm.get_cmap('tab20').colors
-
-TABASICS = dict(
-    loc='center',
-    cellLoc='left',
-    colLoc='left',
-    colLabels=['Fecha', 'Nombre', 'Lat', 'Prueba', 'Asistencia'],
-    colWidths=[0.125, 0.275, 0.1, 0.25, 0.25])
-
-JOINTLIMITS = dict(
-    cadera=(-30, 50),
-    rodilla=(-30, 90),
-    tobillo=(-40, 30)
-)
+LIMITS = {
+    'Cadera': (-30, 50),
+    'Rodilla': (-20, 85),
+    'Tobillo': (-40, 30)}
 
 
-def joint_plot(joint_name, joint_data, joint_meta, config, sac=None):
-    u"""."""
-
+def joint_plot(joint, angles, cfg, labels):
+    for a in angles:
+        plt.plot(np.arange(a.size), a)
+    plt.legend(labels)
+    plt.savefig('%s.png' % path.join(cfg.get('paths', 'splots'), joint))
     plt.close()
-    # Cada gráfico de articulación tiene como leyenda la metadata de la sesión,
-    # esto es, la fecha, el nombre, si recibió algún tipo de asistencia y/o se
-    # realizó algún tipo de prueba.
-    # Si la cantidad de sesiones excede a 10, entonces se produce un mecanismo
-    # de recursión en el que se generan las gráficas necesarias para que en
-    # cada uno de ellos haya hasta diez sesiones. Este procedimiento se
-    # implementa por una cuestión estética.
-    data_lenght = len(joint_data)
-    nplots = data_lenght / 10 + bool(data_lenght % 10)
-    if nplots > 1:
-        i = 0
-        for j in xrange(nplots):
-            joint_plot('%s_%d' % (joint_name, j+1),
-                       joint_data[i: (j+1)*10],
-                       joint_meta[i: (j+1)*10],
-                       config, sac)
-            i += (j+1)*10
-        return
-
-    # Desde aquí el código de dibujo de curvas.
-
-    figsize = map(int, config.get('drawparams', 'figsize').split(','))
-    dpi = config.getint('drawparams', 'dpi')
-
-    fig = plt.figure(figsize=figsize, dpi=dpi)
-    fig.suptitle(capitalize(joint_name), fontsize=24)
-    fig.subplots_adjust(hspace=0.12*data_lenght)
-
-    # El primero es el axes en el que se dibujan las curvas de la articulación,
-    # el segundo es el de la tabla que contiene la leyenda.
-    main_plot = plt.subplot2grid((3, 1), (0, 0), rowspan=2)
-    meta_plot = plt.subplot2grid((3, 1), (2, 0))
-
-    # Este diccionario se utiliza para la construcción de la tabla de metadata,
-    # durante la construcción de las gráficas se le agregan el tamaño de la
-    # muestra de sesión, y el color de la misma.
-    tabcollection = defaultdict(list)
-
-    if sac:
-        mean, std, nsac = sac
-        # NOTE: Hay que ver si no es mejor que la línea de la media no esté
-        # encima del resto de las curvas.
-        main_plot.plot(mean, color='k', linewidth=1.5)
-        main_plot.fill_between(np.arange(mean.size),
-                               mean-std,
-                               mean+std,
-                               color='k', alpha=.3)
-        # Se agregan a la tabla los datos de la media SAC
-        tabcollection['rowLabels'].append(nsac)
-        tabcollection['rowColours'].append((0., 0., 0.))
-        joint_meta.insert(0, ['-', 'SAC (N=%d)' % nsac, 'izq-der', '-', '-'])
-
-    # Se construyen las curvas de la articulación, la curva va tomando mas
-    # transparencia a medida que pasan las sesiones (alpha).
-    alpha = .6
-    for c, session in enumerate(joint_data):
-        tabcollection['rowLabels'].append(len(session))
-        tabcollection['rowColours'].append(COLORMAP[c])
-        for data in session:
-            main_plot.plot(data[0], data[1], color=COLORMAP[c], alpha=alpha)
-        alpha -= 0.04
-    # Se retocan los axis, y se agrega la línea de la posición neutra.
-    main_plot.axhline(0, color='k', linestyle='--', linewidth=1.0)
-    main_plot.set_ylim(*JOINTLIMITS[joint_name.split('_')[0]])
-    main_plot.set_ylabel(u'Grados de rotación (-extensión, +flexión)')
-    main_plot.set_xlabel(u'[%] Ciclo de marcha')
-    # Se termina de construir el diccionario que se utiliza en la tabla. Se,
-    # agregan los valores de las celdas, y se actualiza con el diccionario que
-    # contiene los valores por defecto.
-    tabcollection['cellText'] = joint_meta
-    tabcollection.update(TABASICS)
-    # Se construye la tabla.
-    meta_plot.axis('off')
-    meta_plot.table(**tabcollection)
-
-    plt.savefig('%s.png' % path.join(config.get('paths', 'plots'), joint_name))
 
 
-def spacetemporal_plot(sptemp_data, config, boxplot=False):
+
+def cycler_plot(walk, cfg):
     u"""."""
+    dpi = cfg.getint('plots', 'dpi')
+    width = cfg.getint('plots', 'width')
+    height = cfg.getint('plots', 'height')
 
-    table_rows = [u'Muestra', u'Duración', u'Apoyo', u'Balanceo',
-                  u'Zancada', u'Cadencia', u'Velocidad']
+    fig = plt.figure(figsize=(width, height), dpi=dpi)
+    fig.suptitle(str(walk), fontsize=24)
 
-    figsize = map(int, config.get('drawparams', 'figsize').split(','))
-    dpi = config.getint('drawparams', 'dpi')
+    fig_description = """Se muestran los resultados del proceso de detectar
+        ciclos dentro de la caminata {id} de {source}. Las líneas M5 y M6 son
+        la velocidad de los marcadores colocados en el pie. La banda de color
+        rojo representa a la fase de apoyo y la banda de color verde a la fase
+        de balanceo.""".format(id=walk.id, source=walk.source)
 
-    fig = plt.figure(figsize=figsize, dpi=dpi)
-    fig.suptitle(u'Parámetros espacio-temporales', fontsize=24)
-    fig.subplots_adjust(hspace=0.12)
+    fig_description = ' '.join(s.strip() for s in fig_description.split())
 
-    table = plt.subplot2grid((2, 6), (0, 0), colspan=6)
-    table.axis('off')
-    table.table(loc='center', cellLoc='center',
-                colLoc='left', rowLabels=table_rows,
-                cellText=sptemp_data.round(2),
-                colColours=COLORMAP[:sptemp_data.shape[1]])
+    ax = plt.subplot2grid((4, 1), (0, 0), rowspan=3)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_ylabel('Velocidad')
+    textbox = plt.subplot2grid((4, 1), (3, 0))
+    textbox.set_axis_off()
 
-    if boxplot:
-        for iparam in range(6):
-            ax = plt.subplot2grid((2, 6), (1, iparam))
-            ax.boxplot(sptemp_data[1:, iparam],
-                       labels=(table_rows[1:][iparam],),
-                       showmeans=True)
+    m5, m6 = walk.diff.transpose()
+    xmov = np.arange(walk.mov.size)[walk.mov]
+    xnomov = np.arange(walk.mov.size)[np.bool8(walk.mov*-1 + 1)]
 
-    plt.tight_layout()
-    plt.show()
+    ax.plot(m5)
+    ax.plot(m6)
+    ax.plot(xmov, np.repeat(-1, xmov.size), 'gs')
+    ax.plot(xnomov, np.repeat(-1, xnomov.size), 'rs')
+    ax.legend(('M5', 'M6'))
+
+    textbox.text(-0.11, 0.35, fig_description, fontsize=8, style='oblique',
+                 ha='left', va='top', wrap=True)
+
+    plt.savefig('%s.png' % path.join(cfg.get('paths', 'splots'), str(walk)))
+
+
+
+class JointPlot(object):
+
+    def __init__(self, fig, label, limits, cfg):
+        self.dirpath = cfg.get('paths', 'splots')
+        self.label = label
+        self.fig = fig
+        self.fig.subplots_adjust(bottom=0.3)
+        self.ax = fig.add_subplot(1, 1, 1)
+        self.ax.set_xlabel(u'% Ciclo')
+        self.ax.set_ylabel(u'° Grados')
+        self.ax.set_ylim(limits)
+        self.sactext = ''
+
+    def add_cycle(self, angles, switch, label=None):
+        self.ax.plot(np.arange(angles.size), angles, label=label, alpha=0.7)
+        self.ax.axvline(switch, c='k', ls='--', lw=0.3, alpha=0.5)
+
+    def draw_text(self):
+        basictext = """Cinemática articular en plano sagital. En negativo
+        valores de extensión, en positivo valores de flexión. En punteado
+        vertical se muestra el momento de cambio de fase de apoyo a fase de
+        balanceo."""
+        text = ' '.join(s.strip() for s in (basictext + self.sactext).split())
+        self.fig.text(0.03, 0.15, text, fontsize=8,style='oblique', ha='left',
+            va='top', wrap=True)
+
+    def save(self, withtext=False):
+        if withtext:
+            self.draw_text()
+        self.ax.axhline(0, color='k', linestyle='--', linewidth=1.0)
+        self.fig.legend(fontsize=8)
+        self.fig.savefig('%s.png' % path.join(self.dirpath, self.label))
+
+
+class STPlot(object):
+
+    def __init__(self, fig, label, limits, cfg, *args, **kwargs):
+        self.dirpath = cfg.get('paths', 'splots')
+        self.label = label
+        self.fig = fig
+        self.fig.subplots_adjust(bottom=0.3)
+        self.ax = fig.add_subplot(1, 1, 1)
+        self.ax.set_xlabel(u'% Ciclo')
+        self.ax.set_ylabel(u'° Grados')
+        self.ax.set_ylim(limits)
+        self.sactext = ''
+
+# # def spacetemporal_plot(sptemp_data, cfg, boxplot=False):
+# #     u"""."""
+# #
+# #     table_rows = [u'Muestra', u'Duración', u'Apoyo', u'Balanceo',
+# #                   u'Zancada', u'Cadencia', u'Velocidad']
+# #
+# #     figsize = map(int, cfg.get('drawparams', 'figsize').split(','))
+# #     dpi = cfg.getint('drawparams', 'dpi')
+# #
+# #     fig = plt.figure(figsize=figsize, dpi=dpi)
+# #     fig.suptitle(u'Parámetros espacio-temporales', fontsize=24)
+# #     fig.subplots_adjust(hspace=0.12)
+# #
+# #     table = plt.subplot2grid((2, 6), (0, 0), colspan=6)
+# #     table.axis('off')
+# #     table.table(loc='center', cellLoc='center',
+# #                 colLoc='left', rowLabels=table_rows,
+# #                 cellText=sptemp_data.round(2),
+# #                 colColours=COLORMAP[:sptemp_data.shape[1]])
+# #
+# #     if boxplot:
+# #         for iparam in range(6):
+# #             ax = plt.subplot2grid((2, 6), (1, iparam))
+# #             ax.boxplot(sptemp_data[1:, iparam],
+# #                        labels=(table_rows[1:][iparam],),
+# #                        showmeans=True)
+# #
+# #     plt.tight_layout()
+# #     plt.show()
+
+
+class Plotter(object):
+
+    plots = defaultdict(dict)
+
+    def __init__(self, cfg):
+        self.cfg = cfg
+
+    def new_figure(self, label):
+        fig = plt.figure()
+        fig.set_dpi(self.cfg.getint('plots', 'dpi'))
+        fig.set_figwidth(self.cfg.getint('plots', 'width'))
+        fig.set_figheight(self.cfg.getint('plots', 'height'))
+        fig.set_label(label)
+        fig.suptitle(label)
+        self.plots[label]['fig'] = fig
+        return(fig)
+
+    def new_joint_plot(self, label):
+        fig = self.new_figure(label)
+        ax = JointPlot(fig, label, LIMITS[label], self.cfg)
+        self.plots[label]['ax'] = ax
+        return(ax)
+
+    def auto(self):
+        self.autobuild_joints()
+        return(self)
+
+    def autobuild_joints(self):
+        for joint in ('Cadera', 'Rodilla', 'Tobillo'):
+            self.new_joint_plot(joint)
+
+    def add_cycle(self, parameters, withlabels=False):
+        label = None
+        for i, joint in enumerate(('Cadera', 'Rodilla', 'Tobillo')):
+            ax = self.plots[joint]['ax']
+            if withlabels:
+                label = parameters[0]
+            ax.add_cycle(parameters[2][i], parameters[1][1], label)
+
+    def saveplots(self, withtext=False):
+        for __, plot in self.plots.items():
+            plot['ax'].save(withtext)
+
+
+#     def add_sac(self, sac):
+#         stext = """En color negro se muestra el valor promedio (N={n}) de las
+#             muestras de personas sin alteración clínica (SAC), en sombreado
+#             gris el desvío estandar."""
+#         if self.joints:
+#             for i, (joint, (__, ax, text)) in enumerate(self.joints.items()):
+#                 mean, std, nsac = sac[i]
+#                 ax.fill_between(np.arange(mean.size), mean-std, mean+std,
+#                     color='k', alpha=.3)
+#                 # El sombreado del desvío estandar se dibuja primero.
+#                 poly = ax.lines.pop()
+#                 ax.lines.insert(0, poly)
+#                 ax.plot(mean, color='k', linewidth=1.5)
+#                 text += stext.format(n=nsac)
+#
