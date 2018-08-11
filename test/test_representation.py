@@ -37,9 +37,8 @@ config.readfp(
     splots = %s
 
     [plots]
-    width = 6
-    height = 4
-    dpi = 80
+    aspect = 0.65
+    dpi = 100
     """ % (path.join(curdir, 'test'))))
 
 
@@ -47,26 +46,36 @@ def test_joint_plot():
     joint = 'Cadera'
     X = np.linspace(-np.pi, np.pi, 101)
     angles = np.array((np.sin(X) * 10, -np.sin(X) * 10, np.tan(X) * 10))
+    spt = np.random.random(6)
 
-    # Graficar tabla espaciotemporal
-    plotter = representation.Plotter(config)
-    table = plotter.table_plot()
-    table.add_cycle(range(6))
-    table.build_table()
-    table.save()
+    # # Graficar tabla espaciotemporal
+    # plotter = representation.Plotter(config)
+    # table = plotter.table_plot()
+    # for __ in range(10):
+    #     table.add_cycle(range(6))
+    # table.build_table()
+    # table.save()
 
-    # Graficar cinemática de una articulacion
+    # # Graficar tabla espaciotemporal con texto
+    # plotter = representation.Plotter(config)
+    # table = plotter.table_plot()
+    # for __ in range(10):
+    #     table.add_cycle(range(6))
+    # table.build_table()
+    # table.save(withtext=True)
+
+    # # Graficar cinemática de una articulacion
     # plotter = representation.Plotter(config)
     # ax = plotter.new_joint_plot(joint)
     # ax.add_cycle(angles[0], 65)
     # ax.save()
 
-    # Agregar texto a un gráfico
+    # # Agregar texto a un gráfico
     # plotter = representation.Plotter(config)
     # ax = plotter.new_joint_plot(joint)
     # ax.save(withtext=True)
 
-    # # Ploteo global
-    # plotter = representation.Plotter(config).auto()
-    # plotter.add_cycle(['idd', [1, 65, 3], angles], withlabels=True)
-    # plotter.saveplots(withtext=True)
+    # Ploteo global
+    plotter = representation.Plotter(config).auto()
+    plotter.add_cycle('idd', spt, angles, withlabels=True)
+    plotter.saveplots(withtext=True)

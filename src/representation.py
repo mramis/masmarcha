@@ -122,6 +122,7 @@ class JointPlot(object):
         if withtext:
             self.draw_text()
         self.ax.axhline(0, color='k', linestyle='--', linewidth=1.0)
+        self.fig.suptitle(self.fig.get_label(), y=0.95)
         self.fig.legend(fontsize=8)
         self.fig.savefig('%s.png' % path.join(self.dirpath, self.label))
 
@@ -134,29 +135,45 @@ class STPlot(object):
         self.fig.subplots_adjust(bottom=0.3)
         self.ax = fig.add_subplot(1, 1, 1)
         self.ax.axis('off')
+        self.maxitem = 14
         self.params = []
         self.sactext = ''
 
-    def add_cycle(self, parameters, label=None):
-        if label:
-            parameters = [label,] + list(parameters)
+    def add_cycle(self, parameters):
         self.params.append(parameters)
 
-    def build_table(self, withlabels=False):
-        rows = [u'Duración', u'Apoyo', u'Balanceo', u'Zancada', u'Cadencia',
-            u'Velocidad']
-        if withlabels:
-            rows.insert(0, u'Etiqueta')
-        self.ax.table(loc='center', cellLoc='center', colLoc='left',
-            rowLabels=rows, cellText=np.array(self.params).transpose())
+    def draw_text(self):
+        basictext = """Resumen de {0} ciclos. En orden de izquierda a derecha
+        duración del ciclo en segundos, porcentaje de fase de apoyo,
+        porcentaje de fase de balanceo, longitud de zancada en metros, cadencia
+        en pasos por minuto y velocidad media en segundos por metro."""
+        basictext = basictext.format(len(self.params))
+        text = ' '.join(s.strip() for s in (basictext + self.sactext).split())
+        self.fig.text(0.03, 0.25, text, fontsize=8,style='oblique', ha='left',
+            va='top', wrap=True)
+
+    def sumarize(self):
+        Y = np.array(self.params)
+        table = (['MAX', ] + Y.max(axis=0).round(2).tolist(),
+                 ['MIN', ] + Y.min(axis=0).round(2).tolist(),
+                 ['PROMEDIO', ] + Y.mean(axis=0).round(2).tolist(),
+                 ['ERROR STD', ] + Y.std(axis=0).round(2).tolist())
+        return(table)
+
+    def build_table(self):
+        cols = [u'', u'D [s]', u'A [%]', u'B [%]',
+                u'Z [m]', u'C [pasos/s]', u'V [m/s]']
+        self.ax.table(loc='center', cellLoc='center', colLoc='center',
+            colLabels=cols, cellText=self.sumarize())
 
     def save(self, withtext=False):
         label = self.fig.get_label()
         if withtext:
             self.draw_text()
-        # self.fig.legend(fontsize=8)
+        self.build_table()
+        self.fig.suptitle(label, y=0.75)
+        self.fig.tight_layout()
         self.fig.savefig('%s.png' % path.join(self.dirpath, label))
-        # NOTE: CONTINUER DESDE AQUI
 
 
 class Plotter(object):
@@ -165,14 +182,12 @@ class Plotter(object):
 
     def __init__(self, cfg):
         self.cfg = cfg
+        self.aspect = cfg.getfloat('plots', 'aspect')
+        self.dpi = cfg.getint('plots', 'dpi')
 
     def new_figure(self, label):
-        fig = plt.figure()
-        fig.set_dpi(self.cfg.getint('plots', 'dpi'))
-        fig.set_figwidth(self.cfg.getint('plots', 'width'))
-        fig.set_figheight(self.cfg.getint('plots', 'height'))
+        fig = plt.figure(figsize=plt.figaspect(self.aspect), dpi=self.dpi)
         fig.set_label(label)
-        fig.suptitle(label)
         self.plots[label]['fig'] = fig
         return(fig)
 
@@ -182,53 +197,37 @@ class Plotter(object):
         self.plots[label]['ax'] = ax
         return(ax)
 
-    def auto(self):
-        self.autobuild_joints()
-        return(self)
-
-    def autobuild_joints(self):
-        for joint in ('Cadera', 'Rodilla', 'Tobillo'):
-            self.new_joint_plot(joint)
-
-    def add_cycle(self, parameters, withlabels=False):
-        label = None
-        for i, joint in enumerate(('Cadera', 'Rodilla', 'Tobillo')):
-            ax = self.plots[joint]['ax']
-            if withlabels:
-                label = parameters[0]
-            ax.add_cycle(parameters[2][i], parameters[1][1], label)
-
-    def saveplots(self, withtext=False):
-        for __, plot in self.plots.items():
-            plot['ax'].save(withtext)
-
-    def table_plot(self):
+    def new_table_plot(self):
         label = u'Parámetros espacio-temporales'
         fig = self.new_figure(label)
         ax = STPlot(fig, self.cfg)
         self.plots[label]['ax'] = ax
         return(ax)
 
-# # def spacetemporal_plot(sptemp_data, cfg, boxplot=False):
-# #     u"""."""
-# #
-# #     table_rows = [u'Muestra', u'Duración', u'Apoyo', u'Balanceo',
-# #                   u'Zancada', u'Cadencia', u'Velocidad']
-# #
-# #     table.table(loc='center', cellLoc='center',
-# #                 colLoc='left', rowLabels=table_rows,
-# #                 cellText=sptemp_data.round(2),
-# #                 colColours=COLORMAP[:sptemp_data.shape[1]])
-# #
-# #     if boxplot:
-# #         for iparam in range(6):
-# #             ax = plt.subplot2grid((2, 6), (1, iparam))
-# #             ax.boxplot(sptemp_data[1:, iparam],
-# #                        labels=(table_rows[1:][iparam],),
-# #                        showmeans=True)
-# #
-# #     plt.tight_layout()
-# #     plt.show()
+    def auto(self):
+        self.autobuild_joints()
+        self.new_table_plot()
+        return(self)
+
+    def autobuild_joints(self):
+        for joint in ('Cadera', 'Rodilla', 'Tobillo'):
+            self.new_joint_plot(joint)
+
+    def add_cycle(self, cid, spacetemporal, angles, withlabels=False):
+        label = None
+        for i, joint in enumerate(('Cadera', 'Rodilla', 'Tobillo')):
+            ax = self.plots[joint]['ax']
+            if withlabels:
+                label = cid
+            ax.add_cycle(angles[i], spacetemporal[1], label)
+        ax = self.plots[u'Parámetros espacio-temporales']['ax']
+        ax.add_cycle(spacetemporal)
+
+    def saveplots(self, withtext=False):
+        for __, plot in self.plots.items():
+            plot['ax'].save(withtext)
+
+
 
 
 #     def add_sac(self, sac):
