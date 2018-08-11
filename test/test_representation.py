@@ -33,6 +33,9 @@ import representation
 config = ConfigParser()
 config.readfp(
     StringIO("""
+    [engine]
+    phasethreshold = 2.5
+
     [paths]
     splots = %s
 
@@ -43,39 +46,51 @@ config.readfp(
 
 
 def test_joint_plot():
+    walk = 'walk0'
+    diff = np.random.random((101, 2))
+    mov = np.bool8(np.arange(101))
+    mov[np.random.randint(0, 101, 50)] = False
+
     joint = 'Cadera'
     X = np.linspace(-np.pi, np.pi, 101)
     angles = np.array((np.sin(X) * 10, -np.sin(X) * 10, np.tan(X) * 10))
     spt = np.random.random(6)
 
-    # # Graficar tabla espaciotemporal
-    # plotter = representation.Plotter(config)
-    # table = plotter.table_plot()
-    # for __ in range(10):
-    #     table.add_cycle(range(6))
-    # table.build_table()
-    # table.save()
+    # Graficar tabla espaciotemporal
+    plotter = representation.Plotter(config)
+    table = plotter.new_table_plot()
+    for __ in range(10):
+        table.add_cycle(range(6))
+    table.build_table()
+    table.save()
 
-    # # Graficar tabla espaciotemporal con texto
-    # plotter = representation.Plotter(config)
-    # table = plotter.table_plot()
-    # for __ in range(10):
-    #     table.add_cycle(range(6))
-    # table.build_table()
-    # table.save(withtext=True)
+    # Graficar tabla espaciotemporal con texto
+    plotter = representation.Plotter(config)
+    table = plotter.new_table_plot()
+    for __ in range(10):
+        table.add_cycle(range(6))
+    table.build_table()
+    table.save(withtext=True)
 
-    # # Graficar cinemática de una articulacion
-    # plotter = representation.Plotter(config)
-    # ax = plotter.new_joint_plot(joint)
-    # ax.add_cycle(angles[0], 65)
-    # ax.save()
+    # Graficar cinemática de una articulacion
+    plotter = representation.Plotter(config)
+    ax = plotter.new_joint_plot(joint)
+    ax.add_cycle(angles[0], 65)
+    ax.save()
 
-    # # Agregar texto a un gráfico
-    # plotter = representation.Plotter(config)
-    # ax = plotter.new_joint_plot(joint)
-    # ax.save(withtext=True)
+    # Agregar texto a un gráfico
+    plotter = representation.Plotter(config)
+    ax = plotter.new_joint_plot(joint)
+    ax.save(withtext=True)
+
+    # Graficar cycler
+    plotter = representation.Plotter(config)
+    ax = plotter.new_cycler_plot('walk0')
+    ax.plot_cycler_out(diff, mov)
+    ax.save()
 
     # Ploteo global
     plotter = representation.Plotter(config).auto()
     plotter.add_cycle('idd', spt, angles, withlabels=True)
+    plotter.add_cycler(walk, diff, mov)
     plotter.saveplots(withtext=True)

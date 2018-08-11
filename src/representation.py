@@ -42,54 +42,44 @@ LIMITS = {
     'Tobillo': (-40, 30)}
 
 
-def joint_plot(joint, angles, cfg, labels):
-    for a in angles:
-        plt.plot(np.arange(a.size), a)
-    plt.legend(labels)
-    plt.savefig('%s.png' % path.join(cfg.get('paths', 'splots'), joint))
-    plt.close()
+class CyclerPlot(object):
+
+    def __init__(self, fig, label, cfg):
+        self.dirpath = cfg.get('paths', 'splots')
+        self.phthres = cfg.getfloat('engine', 'phasethreshold')
+        self.label = label
+        self.fig = fig
+        self.ax = fig.add_subplot(1, 1, 1)
+        self.ax.set_ylabel(u'Velocidad de marcadores')
 
 
+    def plot_cycler_out(self, diff, mov):
+        M5, M6 = diff.transpose()
+        stance = np.arange(mov.size)[np.bool8(mov*-1 + 1)]
+        swing = np.arange(mov.size)[mov]
+        self.ax.plot(M5)
+        self.ax.plot(M6)
+        self.ax.plot(swing, np.repeat(-1, swing.size), 'gs')
+        self.ax.plot(stance, np.repeat(-1, stance.size), 'rs')
+        self.ax.axhline(self.phthres, color='k', linestyle='--', linewidth=1.0)
+        self.ax.legend(('M5', 'M6', 'balanceo', 'apoyo', 'umbral fase'))
 
-def cycler_plot(walk, cfg):
-    u"""."""
-    dpi = cfg.getint('plots', 'dpi')
-    width = cfg.getint('plots', 'width')
-    height = cfg.getint('plots', 'height')
+    def draw_text(self):
+        text = """Se muestran los resultados del proceso de detectar
+        ciclos dentro de la caminata. la amplitud del filtro de
+        cambio de fase ({0}) es la velocidad que se considera como límite
+        de cambio de fase."""
+        text = ' '.join(s.strip() for s in text.split())
+        self.fig.text(0.035, 0.25, text.format(self.phthres), fontsize=8,
+            style='oblique', ha='left', va='top', wrap=True)
 
-    fig = plt.figure(figsize=(width, height), dpi=dpi)
-    fig.suptitle(str(walk), fontsize=24)
-
-    fig_description = """Se muestran los resultados del proceso de detectar
-        ciclos dentro de la caminata {id} de {source}. Las líneas M5 y M6 son
-        la velocidad de los marcadores colocados en el pie. La banda de color
-        rojo representa a la fase de apoyo y la banda de color verde a la fase
-        de balanceo.""".format(id=walk.id, source=walk.source)
-
-    fig_description = ' '.join(s.strip() for s in fig_description.split())
-
-    ax = plt.subplot2grid((4, 1), (0, 0), rowspan=3)
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.set_ylabel('Velocidad')
-    textbox = plt.subplot2grid((4, 1), (3, 0))
-    textbox.set_axis_off()
-
-    m5, m6 = walk.diff.transpose()
-    xmov = np.arange(walk.mov.size)[walk.mov]
-    xnomov = np.arange(walk.mov.size)[np.bool8(walk.mov*-1 + 1)]
-
-    ax.plot(m5)
-    ax.plot(m6)
-    ax.plot(xmov, np.repeat(-1, xmov.size), 'gs')
-    ax.plot(xnomov, np.repeat(-1, xnomov.size), 'rs')
-    ax.legend(('M5', 'M6'))
-
-    textbox.text(-0.11, 0.35, fig_description, fontsize=8, style='oblique',
-                 ha='left', va='top', wrap=True)
-
-    plt.savefig('%s.png' % path.join(cfg.get('paths', 'splots'), str(walk)))
-
+    def save(self, withtext=True):
+        if withtext:
+            self.draw_text()
+        self.ax.set_xticks([])
+        self.fig.suptitle(self.fig.get_label(), y=0.95)
+        self.fig.legend(fontsize=8)
+        self.fig.savefig('%s.png' % path.join(self.dirpath, self.label))
 
 
 class JointPlot(object):
@@ -98,7 +88,6 @@ class JointPlot(object):
         self.dirpath = cfg.get('paths', 'splots')
         self.label = label
         self.fig = fig
-        self.fig.subplots_adjust(bottom=0.3)
         self.ax = fig.add_subplot(1, 1, 1)
         self.ax.set_xlabel(u'% Ciclo')
         self.ax.set_ylabel(u'° Grados')
@@ -132,7 +121,6 @@ class STPlot(object):
     def __init__(self, fig, cfg):
         self.dirpath = cfg.get('paths', 'splots')
         self.fig = fig
-        self.fig.subplots_adjust(bottom=0.3)
         self.ax = fig.add_subplot(1, 1, 1)
         self.ax.axis('off')
         self.maxitem = 14
@@ -146,7 +134,7 @@ class STPlot(object):
         basictext = """Resumen de {0} ciclos. En orden de izquierda a derecha
         duración del ciclo en segundos, porcentaje de fase de apoyo,
         porcentaje de fase de balanceo, longitud de zancada en metros, cadencia
-        en pasos por minuto y velocidad media en segundos por metro."""
+        en pasos por minuto y velocidad media en metros por segundo."""
         basictext = basictext.format(len(self.params))
         text = ' '.join(s.strip() for s in (basictext + self.sactext).split())
         self.fig.text(0.03, 0.25, text, fontsize=8,style='oblique', ha='left',
@@ -162,7 +150,7 @@ class STPlot(object):
 
     def build_table(self):
         cols = [u'', u'D [s]', u'A [%]', u'B [%]',
-                u'Z [m]', u'C [pasos/s]', u'V [m/s]']
+                u'Z [m]', u'C [pasos/min]', u'V [m/s]']
         self.ax.table(loc='center', cellLoc='center', colLoc='center',
             colLabels=cols, cellText=self.sumarize())
 
@@ -188,8 +176,15 @@ class Plotter(object):
     def new_figure(self, label):
         fig = plt.figure(figsize=plt.figaspect(self.aspect), dpi=self.dpi)
         fig.set_label(label)
+        fig.subplots_adjust(bottom=0.3)
         self.plots[label]['fig'] = fig
         return(fig)
+
+    def new_cycler_plot(self, label):
+        fig = self.new_figure(label)
+        ax = CyclerPlot(fig, label, self.cfg)
+        self.plots[label]['ax'] = ax
+        return(ax)
 
     def new_joint_plot(self, label):
         fig = self.new_figure(label)
@@ -222,6 +217,10 @@ class Plotter(object):
             ax.add_cycle(angles[i], spacetemporal[1], label)
         ax = self.plots[u'Parámetros espacio-temporales']['ax']
         ax.add_cycle(spacetemporal)
+
+    def add_cycler(self, wid, diff, mov):
+        ax = self.new_cycler_plot(wid)
+        ax.plot_cycler_out(diff, mov)
 
     def saveplots(self, withtext=False):
         for __, plot in self.plots.items():

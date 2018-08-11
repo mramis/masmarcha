@@ -50,14 +50,18 @@ class Engine(object):
         for walk in self.walks:
             self.cycles += walk.get_cycles(self.schema, self.cfg, dump)
 
-    def plot_session(self, withlabels=False):
+    def plot_session(self, withlabels=False, withtext=False):
         u"""."""
         plotter = Plotter(self.cfg).auto()
+
+        for walk in self.walks:
+            plotter.add_cycler(str(walk), walk.diff, walk.mov)
+
         for cycle in self.cycles:
             params = cycle.calculate_parameters(self.schema, self.cfg)
-            plotter.add_cycle(params, withlabels)
+            plotter.add_cycle(*params, withlabels)
 
-        plotter.saveplots()
+        plotter.saveplots(withtext)
 
     def dump_session(self, instance='both'):
         u"""Serialización de la información.
