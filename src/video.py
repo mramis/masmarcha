@@ -42,6 +42,39 @@ def get_fps(filepath):
         return video.get(cv2.CAP_PROP_FPS)
 
 
+def calibrate_camera(source, dest, chessboard, rate):
+    w, h = chessboard
+    objp = np.zeros((w*h, 3), np.float32)
+    objp[:, :2] = np.mgrid[0:w, 0:h].T.reshape(-1,2)
+
+    objpoints = [] # 3d point in real world space
+    imgpoints = [] # 2d points in image plane.
+
+    with open_video(source) as video:
+        read, frame = video.read()
+        while read:
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            # Find the chess board corners
+            ret, corners = cv2.findChessboardCorners(gray, (w, h), None)
+            # If found, add object points, image points (after refining them)
+            if ret:
+                objpoints.append(objp)
+                imgpoints.append(corners)
+            next = video.get(cv2.CAP_PROP_POS_FRAMES) + rate
+            video.set(cv2.CAP_PROP_POS_FRAMES, next)
+            read, frame = video.read()
+
+    fw, fh = gray.shape[:2]
+    __, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(
+        objpoints, imgpoints, gray.shape[::-1], None, None)
+    newcameramtx, __ = cv2.getOptimalNewCameraMatrix(
+        mtx, dist, (w,h), 0, (w,h))
+
+    np.savez(dest, mtx=mtx, dist=dist, rvecs=rvecs, tvecs=tvecs,
+             newcameramtx=newcameramtx, source=source,
+             chessboard=chessboard, rate=rate)
+
+
 def find_contours(frame, threshold=250.0, dilate=False):
     u"""Encuentra dentro del cuadro los contornos de los marcadores.
     """
@@ -77,9 +110,26 @@ def contour_centers_array(contours):
     return np.array(list_of_contour_centers, dtype=int)[::-1]
 
 
-def find_walks(filepath, schema):
-    u"""Encuentra las caminatas dentro de un video.
-    """
+def get_distance_scale(filepath, realdistance, maxiter=30):
+    u"""Devuelve el factor de conversión entre pixeles y metros."""
+    distance_centers = []
+    count = 0
+    with open_video(filepath) as video:
+        ret, frame = video.read()
+        while ret:
+            cen = contour_centers_array(find_contours(frame))
+            if len(cen) == 2:
+                A, B = cen
+                distance_centers.append(np.linalg.norm(A-B))
+            count += 1
+            if count > maxiter:
+                break
+            ret, frame = video.read()
+    return (realdistance / np.mean(distance_centers))
+
+
+def find_walks(filepath, schema, calb=None):
+    u"""Encuentra las caminatas dentro de un video."""
     # Se establecen parámetros para el control del flujo de datos.
     index_frame, back_frames, first_wframe, walking = 0, 0, 0, False
     N = sum(schema['schema'])
@@ -90,6 +140,9 @@ def find_walks(filepath, schema):
     with open_video(filepath) as video:
         ret, frame = video.read()
         while ret:
+            if calb:
+                frame = cv2.undistort(frame, calb['mtx'], calb['dist'],
+                                      None, calb['newcameramtx'])
             contours = find_contours(frame)
             n = len(contours)
             # Si el número de marcadores es cero, es porque todavia

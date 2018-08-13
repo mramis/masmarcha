@@ -29,39 +29,70 @@ import matplotlib.pyplot as plt
 
 sys.path.insert(0, 'src')
 
-from video import *
+import video
 
 string_config = """
 [paths]
 schema = /home/mariano/masmarcha/schema7.json
+cameracalib = /home/mariano/masmarcha/cameracalib
 """
 
 config = ConfigParser()
 config.read_file(StringIO(string_config))
 
 schema = load(open(config.get('paths', 'schema')))
-path = '/home/mariano/Devel/masmarcha/src/material/VID_20180524_092057941.mp4'
 
 
-def test_getrois():
-    arr = np.ndarray((7, 2))
-    fi = 10
-    assert(get_regions(fi, arr, schema).size == len(schema['schema']*2*2) + 1)
+def test_openvideo():
+    path = "/home/mariano/masmarcha/capturas/calb-dist-tomi.mp4"
+    with video.open_video(path) as vid:
+        assert(isinstance(vid, video.cv2.VideoCapture))
 
 
-def test_interprois():
-    pre = np.hstack((0, np.arange(12)))
-    cur = np.hstack((10, np.arange(12, 24)))
-    dom = np.arange(pre[0] + 1, cur[0])
-    arr = interpolate_lost_regions((pre, cur), schema)
-    assert(arr.shape[0] == dom.size)
+def test_getfps():
+    path = "/home/mariano/masmarcha/capturas/calb-dist-tomi.mp4"
+    assert(isinstance(video.get_fps(path), float))
+
+
+def test_contours():
+    path = "/home/mariano/masmarcha/capturas/calb-dist-tomi.mp4"
+    with video.open_video(path) as vid:
+        __, frame = vid.read()
+        contours = video.find_contours(frame, dilate=True)
+        center =  video.contour_center(contours[0])
+        array_of_centers = video.contour_centers_array(contours)
+
+
+def test_distance():
+    u"""."""
+    path = "/home/mariano/masmarcha/capturas/calb-dist-tomi.mp4"
+    assert(isinstance(video.get_distance_scale(path, 0.3), float))
+
+
+def test_calibrate():
+    path = '/home/mariano/masmarcha/capturas/damero.mp4'
+    video.calibrate_camera(path, os.path.join('./test','MOTOG3'), (8, 4), 10,
+                           config)
+
+def test_walks():
+    pass
+
+
+# def test_getrois():
+#     arr = np.ndarray((7, 2))
+#     fi = 10
+#     assert(get_regions(fi, arr, schema).size == len(schema['schema']*2*2) + 1)
+#
+#
+# def test_interprois():
+#     pre = np.hstack((0, np.arange(12)))
+#     cur = np.hstack((10, np.arange(12, 24)))
+#     dom = np.arange(pre[0] + 1, cur[0])
+#     arr = interpolate_lost_regions((pre, cur), schema)
+#     assert(arr.shape[0] == dom.size)
 
 
 
-
-# def test_openvideo():
-#     with open_video(path) as video:
-#         assert(isinstance(video, cv2.VideoCapture))
 #
 #
 # def test_markers():

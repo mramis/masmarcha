@@ -24,8 +24,9 @@ import logging
 
 import numpy as np
 
-from video import find_walks, explore_walk, open_video, get_fps
 from kinoveaext import read_file, reorder_by_frames
+from video import (find_walks, explore_walk, get_fps, get_distance_scale,
+                   calibrate_camera)
 from kinematics import (gait_cycler, calculate_angles, resize_angles_sample,
                         fourier_fit, calculate_spatiotemporal, get_direction)
 from representation import Plotter
@@ -146,7 +147,8 @@ class VideoEngine(Engine):
 
         extra_px = self.cfg.getint('engine', 'extrapixel')
         source = os.path.basename(filepath)
-        for n, walk in enumerate(find_walks(filepath, self.schema)):
+        calb = self.get_calibration()
+        for n, walk in enumerate(find_walks(filepath, self.schema, calb)):
             ret = explore_walk(walk, self.schema, extra_px)
             if ret is None:
                 logging.error('Búsqueda de caminata: %s-%d' % (source, n))
@@ -157,39 +159,30 @@ class VideoEngine(Engine):
                        regions=rois, rate=fps)
             self.walks.append(w)
 
-    def get_distance_scale(self, filepath, maxiter=30):
+    def set_distance_scale(self, filepath):
         u"""."""
+        real = self.cfg.getfloat('engine', 'meterdistance')
+        scale = get_distance_scale(filepath, real)
+        self.cfg.set('engine', 'pixelscale', str(scale))
+        with open(self.cfg.get('paths','configure'), 'w') as fh:
+            self.cfg.write(fh)
+        logging.info("""Factor de distancia calculado con éxito.""")
 
-        logging.warning("""Video: get_distance_scale modifica la configuracion
-            de usuario.""")
+    def calibrate_camera(self, filepath, camera):
+        u"""."""
+        dest = os.path.join(self.cfg.get('paths', 'calibration'), camera)
+        calibrate_camera(filepath, dest, chessboard=(8, 4), rate=10)
+        self.cfg.set('paths', 'currentcamera', '{}.npz'.format(dest))
+        with open(self.cfg.get('paths','configure'), 'w') as fh:
+            self.cfg.write(fh)
+        logging.info("""Calibración sucedió con exito: {}.""".format(dest))
 
-        distance = self.cfg.getfloat('video', 'meterdistance')
-        distance_centers = []
-        count = 0
-
-        with open_video(filepath) as video:
-            ret, frame = video.read()
-            while ret:
-                cen = [contour_centers_array(c) for c in find_contours(frame)]
-                if len(cen) == 2:
-                    A, B = cen
-                    distance_centers.append(np.linalg.norm(A-B))
-                elif len(cen) > 2:
-                    loggin.error("""Video -  Se encontraron mas de dos
-                        marcadores para establecer el factor de distancia""")
-                    return
-                count += 1
-                if count > maxiter:
-                    break
-
-        mean_pixel_distance = np.mean(distance_centers)
-        scale = distance / mean_pixel_distance
-
-        self.cfg.set('video', 'pixelscale', scale)
-        self.cfg.write(open(cfg.get('paths','configure'), 'w'))
-
-        loggin.info("""Video - factor de distancia calculado con éxito. {0} cm
-            equivalen a {1} pixeles""".format(scale, mean_pixel_distance))
+    def get_calibration(self):
+        calbpath = self.cfg.get('paths', 'currentcamera')
+        if calbpath:
+            return(dict(np.load(calbpath)))
+        else:
+            logging.warning('No se encontró calibración de la cámara')
 
 
 class Walk(object):
