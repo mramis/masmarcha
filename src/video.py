@@ -308,47 +308,15 @@ def get_regions(frame_index, centers, schema, extrapx):
 
 
 def interpolate_lost_regions(regions, schema):
-        u"""."""
-        # NOTE: hay que reformar el codigo para aceptar la nueva disposición.
+    u"""."""
+    pre, cur = regions
+    dom = np.arange(pre[0] + 1, cur[0])
+    empty = np.empty((dom.size, len(schema['schema'])*2*2))
 
-        # prev y cur son las regiones (arreglos) extremas de una sucesión de
-        # regiones sin datos, y son estas regiones las que aportan los datos
-        # para la interpolación.
+    for i in range(pre[1:].size):
+        empty[:, i] = np.interp(dom, (pre[0], cur[0]), (pre[i+1], cur[i+1]))
 
-        pre, cur = regions
-        dom = np.arange(pre[0] + 1, cur[0])
-
-        empty = np.empty((dom.size, len(schema['schema'])*2*2))
-        for i in range(pre[1:].size):
-            empty[:, i] = np.interp(dom, (pre[0], cur[0]), (pre[i+1], cur[i+1]))
-
-        return(np.hstack((dom.reshape(dom.size, 1), empty)))
-
-        # NOTE: OLD
-        # # El primer valor del arreglo de regiones es el índice del cuadro al
-        # # que pertenecen.
-        # (jf, jroi), (kf, kroi) = regions
-        # # arreglo de índices, es el dominio (x) de la función de interpolación,
-        # # cuyo resultado es f(x).
-        # xindex = np.arange(prev[0] + 1, cur[0])
-        # # los valores que tienen los índices en los extremos, es uno de los
-        # # datos conocidos que requiere la función.
-        # xends = (prev[0], cur[0])
-        # # los valores que tienen los puntos en esos índices extremos.
-        # yends = np.array((jroi, kroi))
-        # # El arreglo que tiene la forma que se necesita, y que después va a
-        # # se completada con los valores interpolados.
-        # yrois = np.empty((len(xindex), len(schema['schema']), 2, 2))
-        # for i in range(len(schema['schema'])):
-        #     # Se interpolan las coordenadas de las esquinas, superior izquierda
-        #     # P0 = x0, y0, y la esquina inferior derecha P1 = x1, y1, para cada
-        #     # uno de los cuadros en los que se perdieron (o sobran) marcadores.
-        #     yrois[:, i, 0, 0] = np.interp(xindex, xends, yends[:, i, 0, 0])
-        #     yrois[:, i, 1, 0] = np.interp(xindex, xends, yends[:, i, 1, 0])
-        #     yrois[:, i, 0, 1] = np.interp(xindex, xends, yends[:, i, 0, 1])
-        #     yrois[:, i, 1, 1] = np.interp(xindex, xends, yends[:, i, 1, 1])
-        #
-        # return[(index, list(rois)) for index, rois in zip(xindex, yrois)]
+    return(np.hstack((dom.reshape(dom.size, 1), empty)))
 
 
 def filling_missing_schema(lost, iregions, missing_frames, schema):
