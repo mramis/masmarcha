@@ -94,8 +94,19 @@ class Walk(object):
         pass
 
 
+### NO BORRAR ANTIGUO CODIGO ###
+
+@contextmanager
+def open_video(filepath):
+    video = cv2.VideoCapture(filepath)
+    yield video
+    video.release()
+    cv2.destroyAllWindows()
 
 
+def get_fps(filepath):
+    with open_video(filepath) as video:
+        return video.get(cv2.CAP_PROP_FPS)
 
 
 def calibrate_camera(source, dest, chessboard, rate):
