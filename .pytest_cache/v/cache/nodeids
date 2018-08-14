@@ -1,8 +1,3 @@
 [
-  "test/test_video.py::test_openvideo",
-  "test/test_video.py::test_getfps",
-  "test/test_video.py::test_contours",
-  "test/test_video.py::test_distance",
-  "test/test_video.py::test_calibrate",
-  "test/test_video.py::test_walks"
+  "test/test_video.py::test_interpolate"
 ]
