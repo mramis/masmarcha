@@ -29,17 +29,73 @@ import cv2
 import numpy as np
 
 
-@contextmanager
-def open_video(filepath):
-    video = cv2.VideoCapture(filepath)
-    yield video
-    video.release()
-    cv2.destroyAllWindows()
+
+class Video(cv2.VideoCapture):
 
 
-def get_fps(filepath):
-    with open_video(filepath) as video:
-        return video.get(cv2.CAP_PROP_FPS)
+    def __init__(self, filename, cfg, *args, **kwargs):
+        super(Video, self).__init__(filename, *args, **kwargs)
+        self.source = filename
+        self.cfg = cfg
+
+    def __del__(self):
+        self.release()
+
+    def get_fps(self):
+        return self.get(cv2.CAP_PROP_FPS)
+
+    def read(self):
+        calibrate = self.cfg.get('video', 'calibrate')
+        ret, frame = self.read()
+        if calibrate:
+            # NOTE:  CONTINUAR DESDE ACÁ, COMO IMPLEMENTAR LA CALIBRACION.
+            calibrationpath = self.cfg.get('paths', 'currentcamera')
+            cal = dict(np.load(calibration).items())
+            frame = cv2.undistort(frame, cal['mtx'], cal['dist'], None, cal['newcameramtx'])
+
+
+
+class Frame(object):
+
+    def __init__(self, n, frame, cfg):
+        self.n = n
+        self.frame = frame
+        self.cfg = cfg
+
+    def find_contours(self):
+        u"""Encuentra dentro del cuadro los contornos de los marcadores."""
+        thresh = self.cfg.get('video', 'thresh')
+        dilate = self.cfg.get('video', 'dilate')
+        gray = cv2.cvtColor(self.frame, cv2.COLOR_BGR2GRAY)
+        binary = cv2.threshold(gray, thresh, 255., cv2.THRESH_BINARY)[1]
+        if dilate:
+            kernel = np.ones((5, 5), np.uint8)
+            binary = cv2.dilate(binary, kernel, iterations=3)
+        contours = cv2.findContours(binary, cv2.RETR_EXTERNAL,
+            cv2.CHAIN_APPROX_SIMPLE)[1]
+        self.contours = contours
+        return(contours)
+
+    def contour_centers(self):
+        u"""Obtiene los centros de los contornos como un arreglo de numpy."""
+        def contour_center(contour):
+            u"""Devuelve los centros de los contorno del marcador."""
+            x, y, w, h = cv2.boundingRect(contour)
+            return x + w/2, y + h/2
+        list_of_contour_centers = [contour_center(c) for c in self.contours]
+        markers = np.array(list_of_contour_centers, dtype=np.uint8)[::-1]
+        self.markers = markers
+        return(markers)
+
+
+class Walk(object):
+
+    def __init__(self,):
+        pass
+
+
+
+
 
 
 def calibrate_camera(source, dest, chessboard, rate):
