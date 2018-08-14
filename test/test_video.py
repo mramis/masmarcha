@@ -44,48 +44,52 @@ config.read_file(StringIO(string_config))
 schema = load(open(config.get('paths', 'schema')))
 
 
-def test_interpolate():
-    # Las regiones son arreglos de dos vectores en el plano que apuntan a las
-    # esquinas de un rectángulo, en el que se encuentran los marcadores.
-    v11 = np.array(((1, 1), (3, 3)))
-    v21 = v11.copy()
-    v21[:, 1] += 3
-    v31 = v21.copy()
-    v31[:, 1] += 3
-
-    R1 = np.array((v11, v21, v31))
-    R2 = R1 + np.array((3, 0))
-
-    # Esta es la respuesta a la interpolacion con un punto intermedio.
-    vr = np.array((((2.5, 1), (4.5, 3)),
-    ((2.5, 4), (4.5, 6)),
-    ((2.5, 7), (4.5, 9)))).flatten()
-
-    R = video.interpolate_lost_regions(
-    (np.array((0, *R1.flatten())),
-    np.array((2, *R2.flatten()))),
-    schema)
-
-    assert(all(R[0, 1:] == vr))
-
-    # plt.plot(*v11.T, 'b-')
-    # plt.plot(*v21.T, 'r-')
-    # plt.plot(*v31.T, 'g-')
-
-    # v12, v22, v32 = R2
-    # plt.plot(*v12.T, 'b-')
-    # plt.plot(*v22.T, 'r-')
-    # plt.plot(*v32.T, 'g-')
-
-    # v1, v2, v3 = R[0, 1:].reshape(3, 2, 2)
-    # plt.plot(*v1.T, 'b--')
-    # plt.plot(*v2.T, 'r--')
-    # plt.plot(*v3.T, 'g--')
-
-    # plt.savefig('test/interpolate')
+def test_video():
+    path = '/home/mariano/masmarcha/capturas/belenhidalgo.mp4'
+    vid = video.Video(path, config)
+    
+    vid.set(video.cv2.CAP_PROP_POS_FRAMES, 100)
 
 
-
+# def test_interpolate():
+#     # Las regiones son arreglos de dos vectores en el plano que apuntan a las
+#     # esquinas de un rectángulo, en el que se encuentran los marcadores.
+#     v11 = np.array(((1, 1), (3, 3)))
+#     v21 = v11.copy()
+#     v21[:, 1] += 3
+#     v31 = v21.copy()
+#     v31[:, 1] += 3
+#
+#     R1 = np.array((v11, v21, v31))
+#     R2 = R1 + np.array((3, 0))
+#
+#     # Esta es la respuesta a la interpolacion con un punto intermedio.
+#     vr = np.array((((2.5, 1), (4.5, 3)),
+#     ((2.5, 4), (4.5, 6)),
+#     ((2.5, 7), (4.5, 9)))).flatten()
+#
+#     R = video.interpolate_lost_regions(
+#     (np.array((0, *R1.flatten())),
+#     np.array((2, *R2.flatten()))),
+#     schema)
+#
+#     assert(all(R[0, 1:] == vr))
+#
+#     # plt.plot(*v11.T, 'b-')
+#     # plt.plot(*v21.T, 'r-')
+#     # plt.plot(*v31.T, 'g-')
+#
+#     # v12, v22, v32 = R2
+#     # plt.plot(*v12.T, 'b-')
+#     # plt.plot(*v22.T, 'r-')
+#     # plt.plot(*v32.T, 'g-')
+#
+#     # v1, v2, v3 = R[0, 1:].reshape(3, 2, 2)
+#     # plt.plot(*v1.T, 'b--')
+#     # plt.plot(*v2.T, 'r--')
+#     # plt.plot(*v3.T, 'g--')
+#
+#     # plt.savefig('test/interpolate')
 
 
 # def test_calibrate():
