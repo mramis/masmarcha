@@ -36,6 +36,11 @@ string_config = """
 [paths]
 schema = /home/mariano/masmarcha/schema7.json
 cameracalib = /home/mariano/masmarcha/cameracalib
+currentcamera = /home/mariano/masmarcha/calibration/MOTOG3-Mariano.npz
+
+[video]
+thresh = 250.0
+dilate = False
 """
 
 config = ConfigParser()
@@ -46,10 +51,33 @@ schema = load(open(config.get('paths', 'schema')))
 
 def test_video():
     path = '/home/mariano/masmarcha/capturas/belenhidalgo.mp4'
-    vid = video.Video(path, config)
-    
-    vid.set(video.cv2.CAP_PROP_POS_FRAMES, 100)
+    # Se crea el objeto
+    v = video.Video(path, config)
+    # Se le da posición al cuadro para que haya marcadores en escena.
+    v.vid.set(video.cv2.CAP_PROP_POS_FRAMES, 100)
+    # se hace una lectura del cuadro.
+    frame1 = v.read_frame()
+    assert(v.posframe == 0)
+    assert(isinstance(v.read_frame(), np.ndarray))
+    # se setean los atributos de la camara calibrada.
+    assert(v.calibration is False)
+    v.load_calibration_params()
+    assert(v.calibration is True)
+    # se posiciona 100 nuevamentes.
+    v.vid.set(video.cv2.CAP_PROP_POS_FRAMES, 100)
+    frame2 = v.read_frame()
+    equals = frame1.flatten() == frame2.flatten()
+    assert(any(equals))
+    assert(not all(equals))
+    # Exploración del video.
+    v.explore()
 
+def test_frame():
+    pass
+
+
+def test_walk():
+    pass
 
 # def test_interpolate():
 #     # Las regiones son arreglos de dos vectores en el plano que apuntan a las

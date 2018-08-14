@@ -19,6 +19,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+import os
 from collections import defaultdict
 from contextlib import contextmanager
 import json
@@ -30,29 +31,53 @@ import numpy as np
 
 
 
-class Video(cv2.VideoCapture):
+class Video(object):
 
-
-    def __init__(self, filename, cfg, *args, **kwargs):
-        super(Video, self).__init__(filename, *args, **kwargs)
+    def __init__(self, filename, cfg):
+        self.vid = cv2.VideoCapture(filename)
         self.source = filename
         self.cfg = cfg
+        self.posframe = -1
+        self.canread = True
+        self.calibration = False
 
     def __del__(self):
-        self.release()
+        self.vid.release()
 
     def get_fps(self):
-        return self.get(cv2.CAP_PROP_FPS)
+        return self.vid.get(cv2.CAP_PROP_FPS)
 
-    def read(self):
-        calibrate = self.cfg.get('video', 'calibrate')
-        ret, frame = self.read()
-        if calibrate:
-            # NOTE:  CONTINUAR DESDE ACÁ, COMO IMPLEMENTAR LA CALIBRACION.
-            calibrationpath = self.cfg.get('paths', 'currentcamera')
-            cal = dict(np.load(calibration).items())
-            frame = cv2.undistort(frame, cal['mtx'], cal['dist'], None, cal['newcameramtx'])
+    def read_frame(self):
+        self.canread, frame = self.vid.read()
+        self.posframe += 1
+        if self.calibration:
+            frame = self.undistort_frame(frame)
+        return(frame)
 
+    def calculate_calibration_params(self):
+        return(NotImplemented)
+
+    def load_calibration_params(self):
+        calibrationpath = self.cfg.get('paths', 'currentcamera')
+        if os.path.isfile(calibrationpath):
+            calibration_setup = dict(np.load(calibrationpath).items())
+            self.mtx = calibration_setup['mtx']
+            self.dist = calibration_setup['dist']
+            self.newmtx = calibration_setup['newcameramtx']
+            self.calibration = True
+
+    def undistort_frame(self, frame):
+        return(cv2.undistort(frame, self.mtx, self.dist, None, self.newmtx))
+
+    def explore(self):
+        u"""Encuentra las caminatas dentro de un video."""
+        self.walks = []
+        schema = json.load(open(self.cfg.get('paths', 'schema')))
+        while self.canread:
+            Frame(self.posframe, self.read_frame(), self.cfg)
+            print(Frame)
+            break
+            # NOTE: CONTINUAR
 
 
 class Frame(object):
@@ -71,8 +96,7 @@ class Frame(object):
         if dilate:
             kernel = np.ones((5, 5), np.uint8)
             binary = cv2.dilate(binary, kernel, iterations=3)
-        contours = cv2.findContours(binary, cv2.RETR_EXTERNAL,
-            cv2.CHAIN_APPROX_SIMPLE)[1]
+        contours = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[1]
         self.contours = contours
         return(contours)
 
