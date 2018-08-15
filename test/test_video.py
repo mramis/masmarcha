@@ -49,35 +49,37 @@ config.read_file(StringIO(string_config))
 schema = load(open(config.get('paths', 'schema')))
 
 
-def test_video():
-    path = '/home/mariano/masmarcha/capturas/belenhidalgo.mp4'
-    # Se crea el objeto
-    v = video.Video(path, config)
-    # Se le da posición al cuadro para que haya marcadores en escena.
-    v.vid.set(video.cv2.CAP_PROP_POS_FRAMES, 99)
-    # se hace una lectura del cuadro.
-    pos1, frame1 = v.read_frame()
-    assert(pos1 == 100)
-    assert(isinstance(frame1, np.ndarray))
-    # se setean los atributos de la camara calibrada.
-    assert(v.calibration is False)
-    v.load_calibration_params()
-    assert(v.calibration is True)
-    # se posiciona 100 nuevamentes.
-    v.vid.set(video.cv2.CAP_PROP_POS_FRAMES, 99)
-    pos2, frame2 = v.read_frame()
-    equals = frame1.flatten() == frame2.flatten()
-    assert(any(equals))
-    assert(not all(equals))
-    # Exploración del video.
-    v.explore()
+# def test_video():
+#     path = '/home/mariano/Devel/masmarcha/test/VID_20180814_172232987.mp4'
+#     # Se crea el objeto
+#     v = video.Video(path, config)
+#     # Se le da posición al cuadro para que haya marcadores en escena.
+#     v.vid.set(video.cv2.CAP_PROP_POS_FRAMES, 99)
+#     # se hace una lectura del cuadro.
+#     __, pos1, frame1 = v.read_frame()
+#     assert(pos1 == 100)
+#     assert(isinstance(frame1, np.ndarray))
+#     # se setean los atributos de la camara calibrada.
+#     assert(v.calibration is False)
+#     v.load_calibration_params()
+#     assert(v.calibration is True)
+#     # se posiciona 100 nuevamentes.
+#     v.vid.set(video.cv2.CAP_PROP_POS_FRAMES, 99)
+#     __, pos2, frame2 = v.read_frame()
+#     equals = frame1.flatten() == frame2.flatten()
+#     assert(any(equals))
+#     assert(not all(equals))
+#     # Exploración del video.
+#     v.explore()
+#     # Escribo en disco la caminata para test
+#     v.walks[0].dump('test/')
 
 def test_frame():
     pass
 
 
 def test_walk():
-    pass
+    video.Walk(None, None, None).load()
 
 # def test_interpolate():
 #     # Las regiones son arreglos de dos vectores en el plano que apuntan a las
