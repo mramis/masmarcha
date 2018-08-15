@@ -54,18 +54,18 @@ def test_video():
     # Se crea el objeto
     v = video.Video(path, config)
     # Se le da posición al cuadro para que haya marcadores en escena.
-    v.vid.set(video.cv2.CAP_PROP_POS_FRAMES, 100)
+    v.vid.set(video.cv2.CAP_PROP_POS_FRAMES, 99)
     # se hace una lectura del cuadro.
-    frame1 = v.read_frame()
-    assert(v.posframe == 0)
-    assert(isinstance(v.read_frame(), np.ndarray))
+    pos1, frame1 = v.read_frame()
+    assert(pos1 == 100)
+    assert(isinstance(frame1, np.ndarray))
     # se setean los atributos de la camara calibrada.
     assert(v.calibration is False)
     v.load_calibration_params()
     assert(v.calibration is True)
     # se posiciona 100 nuevamentes.
-    v.vid.set(video.cv2.CAP_PROP_POS_FRAMES, 100)
-    frame2 = v.read_frame()
+    v.vid.set(video.cv2.CAP_PROP_POS_FRAMES, 99)
+    pos2, frame2 = v.read_frame()
     equals = frame1.flatten() == frame2.flatten()
     assert(any(equals))
     assert(not all(equals))

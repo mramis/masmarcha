@@ -37,9 +37,9 @@ class Video(object):
         self.vid = cv2.VideoCapture(filename)
         self.source = filename
         self.cfg = cfg
-        self.posframe = -1
         self.canread = True
         self.calibration = False
+        self.walks = []
 
     def __del__(self):
         self.vid.release()
@@ -49,10 +49,9 @@ class Video(object):
 
     def read_frame(self):
         self.canread, frame = self.vid.read()
-        self.posframe += 1
         if self.calibration:
             frame = self.undistort_frame(frame)
-        return(frame)
+        return(self.vid.get(cv2.CAP_PROP_POS_FRAMES), frame)
 
     def calculate_calibration_params(self):
         return(NotImplemented)
@@ -73,11 +72,20 @@ class Video(object):
         u"""Encuentra las caminatas dentro de un video."""
         self.walks = []
         schema = json.load(open(self.cfg.get('paths', 'schema')))
+        walk = self.new_walk()
         while self.canread:
-            Frame(self.posframe, self.read_frame(), self.cfg)
-            print(Frame)
+            frame = Frame(*self.read_frame(), self.cfg)
             break
             # NOTE: CONTINUAR
+
+    def new_walk(self):
+        n = len(self.walks)
+        return(Walk(n, self.source, self.cfg))
+
+
+    def select_walk(self, frame)
+        frame.find_contours()
+        frame.contour_centers()
 
 
 class Frame(object):
@@ -87,7 +95,7 @@ class Frame(object):
         self.frame = frame
         self.cfg = cfg
 
-    def find_contours(self):
+    def find_contours(self, ret=False):
         u"""Encuentra dentro del cuadro los contornos de los marcadores."""
         thresh = self.cfg.get('video', 'thresh')
         dilate = self.cfg.get('video', 'dilate')
@@ -98,9 +106,10 @@ class Frame(object):
             binary = cv2.dilate(binary, kernel, iterations=3)
         contours = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[1]
         self.contours = contours
-        return(contours)
+        if ret:
+            return(contours)
 
-    def contour_centers(self):
+    def contour_centers(self, ret=False):
         u"""Obtiene los centros de los contornos como un arreglo de numpy."""
         def contour_center(contour):
             u"""Devuelve los centros de los contorno del marcador."""
@@ -109,15 +118,16 @@ class Frame(object):
         list_of_contour_centers = [contour_center(c) for c in self.contours]
         markers = np.array(list_of_contour_centers, dtype=np.uint8)[::-1]
         self.markers = markers
-        return(markers)
+        if ret:
+            return(markers)
 
 
 class Walk(object):
 
-    def __init__(self,):
-        pass
-
-
+    def __init__(self, id, source, cfg):
+        self.id = id
+        self.source = source
+        self.cfg = cfg
 
 
 
