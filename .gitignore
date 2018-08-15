@@ -5,3 +5,4 @@
 .coverage
 *.png
 *.mp4
+*.npz
