@@ -84,7 +84,7 @@ class Video(object):
             ret, pos, frame = self.read_frame()
             if not ret:
                 break
-            frame = Frame(pos, frame, self.cfg)
+            frame = Frame(pos, frame, schema, self.cfg)
             ncontours = frame.find_contours()
             if not walking:
                 if ncontours == n:
@@ -100,11 +100,11 @@ class Video(object):
 
 class Frame(object):
 
-    def __init__(self, pos, frame, cfg):
+    def __init__(self, pos, frame, sch, cfg):
         self.pos = pos
         self.cfg = cfg
+        self.schema = sch
         self.frame = frame
-        self.schema = load(self.cfg.get('paths', 'schema'))
 
     def find_contours(self):
         u"""Encuentra dentro del cuadro los contornos de los marcadores."""
@@ -157,7 +157,6 @@ class Walk(object):
         self.source = source
         self.cfg = cfg
         self.frames = []
-        self.interp = []
 
     def __repr__(self):
         basename = os.path.basename(self.source).split('.')[0]
@@ -171,14 +170,10 @@ class Walk(object):
         n = sum(schema['schema'])
         while True:
             frame = self.frames[-1]
-            if frame.nmarkers < n:
+            if frame.nmarkers != n:
                 self.frames.pop()
             else:
                 break
-
-    def add_data(self, **kwargs):
-        """Agrega información principal de caminata."""
-        self.__dict__.update(kwargs)
 
     def dump(self, dirpath):
         u"""Escribe los datos de caminata en disco.
@@ -186,6 +181,7 @@ class Walk(object):
         :param dirpath: ruta del directorio de escritura:
         :type dirpath: str
         """
+        print(self.__dict__)
         dirpath = os.path.abspath(dirpath)
         np.savez(os.path.join(dirpath, self.__repr__()), **self.__dict__)
 
@@ -193,15 +189,13 @@ class Walk(object):
         pass
 
     def explore(self):
-        interp = []
-        interppos = []
-        regions = []
-        regionspos =[]
+        completed = []
+        uncompleted = []
         for frame in self.frames:
-            ret = frame.is_completed()
-
-
-
+            if frame.is_completed():
+                completed.append(np.array(frame.pos, *frame.regions))
+            else:
+                uncompleted.append(frame.pos)
 
 
 def calibrate_camera(source, dest, chessboard, rate):

@@ -1,6 +1,5 @@
 {
   "test/test_repr.py": true,
   "test/test_video.py::test_explorer": true,
-  "test/test_video.py::test_markers": true,
-  "test/test_video.py::test_walk": true
+  "test/test_video.py::test_markers": true
 }

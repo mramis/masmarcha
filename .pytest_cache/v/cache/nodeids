@@ -1,5 +1,3 @@
 [
-  "test/test_video.py::test_video",
-  "test/test_video.py::test_frame",
-  "test/test_video.py::test_walk"
+  "test/test_video.py::test_video"
 ]
