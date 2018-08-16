@@ -38,9 +38,12 @@ schema = /home/mariano/masmarcha/schema7.json
 cameracalib = /home/mariano/masmarcha/cameracalib
 currentcamera = /home/mariano/masmarcha/calibration/MOTOG3-Mariano.npz
 
+session = test/testdata
+
 [video]
 thresh = 250.0
 dilate = False
+roiextrapixel = 35
 """
 
 config = ConfigParser()
@@ -49,37 +52,43 @@ config.read_file(StringIO(string_config))
 schema = load(open(config.get('paths', 'schema')))
 
 
-def test_video():
-    path = '/home/mariano/Devel/masmarcha/test/VID_20180814_172232987.mp4'
-    # Se crea el objeto
-    v = video.Video(path, config)
-    # Se le da posición al cuadro para que haya marcadores en escena.
-    v.vid.set(video.cv2.CAP_PROP_POS_FRAMES, 99)
-    # se hace una lectura del cuadro.
-    __, pos1, frame1 = v.read_frame()
-    assert(pos1 == 100)
-    assert(isinstance(frame1, np.ndarray))
-    # se setean los atributos de la camara calibrada.
-    assert(v.calibration is False)
-    v.load_calibration_params()
-    assert(v.calibration is True)
-    # se posiciona 100 nuevamentes.
-    v.vid.set(video.cv2.CAP_PROP_POS_FRAMES, 99)
-    __, pos2, frame2 = v.read_frame()
-    equals = frame1.flatten() == frame2.flatten()
-    assert(any(equals))
-    assert(not all(equals))
-    # Exploración del video.
-    v.explore()
-    # Escribo en disco la caminata para test
+# def test_video():
+#     path = '/home/mariano/Devel/masmarcha/test/testdata/VID_20180814_172232987.mp4'
+#     # Se crea el objeto
+#     v = video.Video(path, config)
+#     # Se le da posición al cuadro para que haya marcadores en escena.
+#     v.vid.set(video.cv2.CAP_PROP_POS_FRAMES, 99)
+#     # se hace una lectura del cuadro.
+#     __, pos1, frame1 = v.read_frame()
+#     assert(pos1 == 100)
+#     assert(isinstance(frame1, np.ndarray))
+#     # se setean los atributos de la camara calibrada.
+#     assert(v.calibration is False)
+#     v.load_calibration_params()
+#     assert(v.calibration is True)
+#     # se posiciona 100 nuevamentes.
+#     v.vid.set(video.cv2.CAP_PROP_POS_FRAMES, 99)
+#     __, pos2, frame2 = v.read_frame()
+#     equals = frame1.flatten() == frame2.flatten()
+#     assert(any(equals))
+#     assert(not all(equals))
+#     # Exploración del video.
+#     v.explore()
+#     # Escribo en disco la caminata para test
+#     v.walks[0].dump()
+#
+
+def test_walk():
+    # para cargar una caminata no es necesario introducir id y source.
+    walk = video.Walk(None, 0, config)
+    walk.load('/home/mariano/Devel/masmarcha/test/testdata/walk.0.npz')
+    walk.classify_frames()
 
 #
 # def test_frame():
 #     pass
 #
 #
-# def test_walk():
-#     video.Walk(None, None, None).load()
 
 # def test_interpolate():
 #     # Las regiones son arreglos de dos vectores en el plano que apuntan a las

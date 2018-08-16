@@ -105,6 +105,10 @@ class Frame(object):
         self.cfg = cfg
         self.schema = sch
         self.frame = frame
+        self.contours = None
+
+    def __repr__(self):
+        return 'f.{0}'.format(self.pos)
 
     def find_contours(self):
         u"""Encuentra dentro del cuadro los contornos de los marcadores."""
@@ -149,18 +153,20 @@ class Frame(object):
                           np.max(self.markers[i: j], axis=0) + extra)))
         self.regions = np.array(regions).flatten()
 
+    def get_basics(self):
+        return(self.pos, self.frame)
+
 
 class Walk(object):
 
     def __init__(self, id, source, cfg):
         self.id = id
-        self.source = source
         self.cfg = cfg
+        self.source = source
         self.frames = []
 
     def __repr__(self):
-        basename = os.path.basename(self.source).split('.')[0]
-        return 'walk.{0}.{1}'.format(self.id, basename)
+        return 'walk.{0}'.format(self.id)
 
     def add_frame(self, frame):
         self.frames.append(frame)
@@ -175,27 +181,48 @@ class Walk(object):
             else:
                 break
 
-    def dump(self, dirpath):
-        u"""Escribe los datos de caminata en disco.
+    def compact_frames(self):
+        pos, frames = [], []
+        for frame in self.frames:
+            p, f = frame.get_basics()
+            pos.append(p)
+            frames.append(f)
+        return(np.array(pos, dtype=np.uint8), np.array(frames, dtype=np.uint8))
 
-        :param dirpath: ruta del directorio de escritura:
-        :type dirpath: str
-        """
-        print(self.__dict__)
-        dirpath = os.path.abspath(dirpath)
-        np.savez(os.path.join(dirpath, self.__repr__()), **self.__dict__)
+    def dump(self):
+        walkpath = os.path.join(self.cfg.get('paths', 'session'), str(self))
+        posframes, frames = self.compact_frames()
+        np.savez(walkpath, posframes=posframes, frames=frames,
+                 source=self.source, walkid=self.id)
 
-    def load(self):
-        pass
+    def load(self, walkpath):
+        schema = json.load(open(self.cfg.get('paths', 'schema')))
+        data = dict(np.load(walkpath).items())
+        self.source = data['source']
+        self.id = data['walkid']
+        for pos, frame in zip(data['posframes'], data['frames']):
+            frame = Frame(pos, frame, schema, self.cfg)
+            frame.find_contours()
+            self.frames.append(frame)
 
-    def explore(self):
+    def classify_frames(self):
         completed = []
         uncompleted = []
         for frame in self.frames:
             if frame.is_completed():
-                completed.append(np.array(frame.pos, *frame.regions))
+                completed.append(np.array((frame.pos, *frame.regions)))
             else:
                 uncompleted.append(frame.pos)
+        return(uncompleted, np.array(completed))
+
+    def interpolate_rois(self):
+        # NOTE: CONTINUAR DESDE ACA..
+        # SE TIENE QUE ARMAR UN ARREGLO DEL TAMAÑO DE COLUMNAS DE COLUMNAS DE
+        # COMP, Y DE FILAS DE UCOMP
+        ucomp, comp = self.classify_frames()
+        np.interp(ucomp, comp[:, 0], comp[:, 1])
+
+
 
 
 def calibrate_camera(source, dest, chessboard, rate):
