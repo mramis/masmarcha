@@ -206,22 +206,28 @@ class Walk(object):
             self.frames.append(frame)
 
     def classify_frames(self):
-        completed = []
-        uncompleted = []
+        x, xp, fp = [], [], []
         for frame in self.frames:
-            if frame.is_completed():
-                completed.append(np.array((frame.pos, *frame.regions)))
+            full_schema = frame.is_completed()
+            if full_schema:
+                xp.append(frame.pos)
+                fp.append(frame.regions)
+
             else:
-                uncompleted.append(frame.pos)
-        return(uncompleted, np.array(completed))
+                x.append(frame.pos)
+        return(x, xp, np.array(fp))
 
     def interpolate_rois(self):
-        # NOTE: CONTINUAR DESDE ACA..
-        # SE TIENE QUE ARMAR UN ARREGLO DEL TAMAÑO DE COLUMNAS DE COLUMNAS DE
-        # COMP, Y DE FILAS DE UCOMP
-        ucomp, comp = self.classify_frames()
-        np.interp(ucomp, comp[:, 0], comp[:, 1])
+        x, xp, fp = self.classify_frames()
+        ncols = fp.shape[1]
+        interp = np.empty((len(x), ncols), dtype=np.uint8)
+        for i in range(ncols):
+            interp[:, i] = np.interp(x, xp, fp[:, i])
 
+        first_frame = self.frames[0].pos
+        for i, frame_index in enumerate(x):
+            relative_index = frame_index - first_frame
+            self.frames[relative_index].regions = interp[i]
 
 
 

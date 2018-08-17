@@ -83,8 +83,14 @@ def test_walk():
     walk = video.Walk(None, 0, config)
     walk.load('/home/mariano/Devel/masmarcha/test/testdata/walk.0.npz')
     walk.classify_frames()
+    walk.interpolate_rois()
 
-#
+    for frame in walk.frames:
+        x = frame.regions[2]
+        y = frame.regions[3]
+        plt.plot(x, y, 'bo')
+    plt.show()
+
 # def test_frame():
 #     pass
 #
