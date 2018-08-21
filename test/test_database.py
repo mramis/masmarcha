@@ -28,8 +28,6 @@ syspath.append(path.join(curdir, 'src'))
 
 import database
 
-
-global dbpath
 dbpath = path.join(curdir, 'test', 'DATABASE.db')
 
 
@@ -38,34 +36,30 @@ def test_creating_database():
 
 
 def test_insert_database():
-    kinematics = (('left', 0, 0, 0, 0, 0, 0, np.ndarray((2, 100)),
-                   np.ndarray((2, 100)), np.ndarray((2, 100))),)
-
-    person1 = (u'32391104', u'ramis', u'mariano', u'31', u'sac')
-    person2 = (u'50391104', u'ramis', u'magdalena', u'20', u'sac')
-
-    session1 = (date.today(), None, u'botox',
-                u'Se coloca botox en el sóleo izquierdo')
-    session2 = (date.today(), u'terapista', u'ferula', u'')
-
-    database.insert(dbpath, person1, session1, kinematics)
-    database.insert(dbpath, person1, session1, kinematics)
-    database.insert(dbpath, person2, session2, kinematics)
+    person = ('32391104', 'Ramis', 'Mariano', '32', 'Masculino', '182', 'sac')
+    session = (date.today(), None, None, None)
+    cycles = range(10)
+    param1 = ('L',) + tuple(np.random.random(6).tolist()) + tuple(np.random.random((3, 101)))
+    param2 = ('R',) + tuple(np.random.random(6).tolist()) + tuple(np.random.random((3, 101)))
+    param3 = ('L',) + tuple(np.random.random(6).tolist()) + tuple(np.random.random((3, 101)))
+    param4 = ('R',) + tuple(np.random.random(6).tolist()) + tuple(np.random.random((3, 101)))
+    kinematics = (param1, param2, param3, param4)
+    database.insert(dbpath, person, session, kinematics)
 
 
 def test_search_database():
 
-    fields = dict(name=u'mariano', lastname=u'', age='', dx=u'',
-                  assistance=u'', test=u'')
-    meta, data = database.search(dbpath, **fields)
-    assert len(meta) == 2
-    assert len(data) == 2
-
-    fields = dict(name=u'', lastname=u'', age='20', dx=u'',
+    fields = dict(name=u'', lastname=u'', age='', dx=u'sac',
                   assistance=u'', test=u'')
     meta, data = database.search(dbpath, **fields)
     assert len(meta) == 1
-    assert len(data) == 1
+    assert len(data) == 4
+
+    fields = dict(name=u'', lastname=u'', age='25-35', dx=u'',
+                  assistance=u'', test=u'')
+    meta, data = database.search(dbpath, **fields)
+    assert len(meta) == 1
+    assert len(data) == 4
 
     fields = dict(name=u'', lastname=u'', age='', dx=u'',
                   assistance=u'', test=u'')
