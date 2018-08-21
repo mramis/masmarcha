@@ -26,15 +26,6 @@ import io
 import numpy as np
 
 
-# logging setup
-logger = logging.getLogger(__name__)
-handler = logging.StreamHandler()
-formatter = '[%(name)10s line:%(lineno)d] - %(levelname)-8s - %(message)s'
-handler.setFormatter(logging.Formatter(formatter))
-logger.addHandler(handler)
-logger.setLevel(logging.DEBUG)
-
-
 # Este fragmento es la solución que encontré en stackoverflow para almacenar
 # arreglos numpy en las tablas sqlite.
 # http://stackoverflow.com/a/31312102/190597 (SoulNibbler)
@@ -76,6 +67,8 @@ def create(database):
                         lastname TEXT NOT NULL,
                         name TEXT NOT NULL,
                         age TEXT NOT NULL,
+                        sex TEXT,
+                        height TEXT,
                         dx TEXT NOT NULL)""")
 
         conn.execute("""CREATE TABLE session(
@@ -127,7 +120,7 @@ def insert(database, person, session, parameters):
         return fullparamters
 
     insert_person = """
-    INSERT INTO person VALUES (?,?,?,?,?);
+    INSERT INTO person VALUES (?,?,?,?,?,?,?);
     """
     insert_session = """
     INSERT INTO session(pid, day, assistance, test, notes) VALUES (?,?,?,?,?);
@@ -182,7 +175,7 @@ def search(database, **kwargs):
     # Se construyen las condiciones de la clausula WHERE según los
     # pares "col=value" que se ingresan en kwargs.
     values, search_conditions = [], []
-    for col, val in kwargs.iteritems():
+    for col, val in kwargs.items():
         if not val:
             continue
 
