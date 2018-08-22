@@ -53,7 +53,7 @@ class CyclerPlot(object):
         self.ax.set_ylabel(u'Velocidad de marcadores')
 
 
-    def plot_cycler_out(self, diff, mov):
+    def plot_cycler_outcome(self, diff, mov):
         M5, M6 = diff.transpose()
         stance = np.arange(mov.size)[np.bool8(mov*-1 + 1)]
         swing = np.arange(mov.size)[mov]
@@ -97,6 +97,15 @@ class JointPlot(object):
     def add_cycle(self, angles, switch, label=None):
         self.ax.plot(np.arange(angles.size), angles, label=label, alpha=0.7)
         self.ax.axvline(switch, c='k', ls='--', lw=0.3, alpha=0.5)
+
+    def draw_sac(self, mean, std, switch, n):
+        x = np.arange(mean.size)
+        self.ax.fill_between(x, mean+std, mean-std, c='k', alpha=0.3)
+        self.ax.plot(x, mean, c='k', lw=1.5)
+        self.ax.axvline(switch, c='k', lw=0.5, alpha=0.8)
+        self.sactext = """En negro se dibuja el valor medio de marcha sin
+        alteración clínica (sac), el sombreado gris representa una desviación
+        estándar. N={}.""".format(n)
 
     def draw_text(self):
         basictext = """Cinemática articular en plano sagital. En negativo
@@ -220,7 +229,21 @@ class Plotter(object):
 
     def add_cycler(self, wid, diff, mov):
         ax = self.new_cycler_plot(wid)
-        ax.plot_cycler_out(diff, mov)
+        ax.plot_cycler_outcome(diff, mov)
+
+    def with_sac(self):
+        sacpath = self.cfg.get('paths', 'sac')
+        sac = dict(np.load(sacpath).items())
+        mangles = sac['mean_angles']
+        sangles = sac['std_angles']
+        switch = sac['mean_spacetemporal'][1]
+        for i, joint in enumerate(('Cadera', 'Rodilla', 'Tobillo')):
+            ax = self.plots[joint]['ax']
+            ax.draw_sac(mangles[i], sangles[i], switch, sac['nsample'])
+
+        # ax = self.plots[u'Parámetros espacio-temporales']['ax']
+        # ax.add_cycle(spacetemporal)
+
 
     def saveplots(self, withtext=False):
         for __, plot in self.plots.items():
