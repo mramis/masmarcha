@@ -100,7 +100,7 @@ class JointPlot(object):
 
     def draw_sac(self, mean, std, switch, n):
         x = np.arange(mean.size)
-        self.ax.fill_between(x, mean+std*2, mean-std*2, color='k', alpha=0.1)
+        self.ax.fill_between(x, mean+std*2, mean-std*2, color='k', alpha=0.15)
         self.ax.fill_between(x, mean+std, mean-std, color='k', alpha=0.2)
         self.ax.axvline(switch, color='k', lw=0.5, alpha=0.8)
         self.ax.plot(x, mean, color='k', lw=1.5)
