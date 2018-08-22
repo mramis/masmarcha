@@ -100,12 +100,13 @@ class JointPlot(object):
 
     def draw_sac(self, mean, std, switch, n):
         x = np.arange(mean.size)
-        self.ax.fill_between(x, mean+std, mean-std, color='k', alpha=0.3)
-        self.ax.axvline(switch, color='k', lw=0.5, alpha=0.8)
-        self.ax.plot(x, mean, color='k', lw=1.5)
+        self.ax.fill_between(x, mean+std*2, mean-std*2, c='k', alpha=0.1)
+        self.ax.fill_between(x, mean+std, mean-std, c='k', alpha=0.2)
+        self.ax.plot(x, mean, c='k', lw=1.5)
+        self.ax.axvline(switch, c='k', lw=0.5, alpha=0.8)
         self.sactext = """En negro se dibuja el valor medio de marcha sin
-        alteración clínica (sac), el sombreado gris representa una desviación
-        estándar. N={}.""".format(n)
+        alteración clínica (sac), el sombreado gris representa dos desviaciones
+        estándar (95%). N={}.""".format(n)
 
     def draw_text(self):
         basictext = """Cinemática articular en plano sagital. En negativo
