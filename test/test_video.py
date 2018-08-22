@@ -42,13 +42,14 @@ config = ConfigParser()
 config.read_file(StringIO(string_config))
 
 schema = load(open(config.get('paths', 'schema')))
+markers = dict(np.load('/home/mariano/masmarcha/session/cycle.0.walk03-Primo-Tomasmp4.npz').items())['markers']
 
 
-def test_video():
-    path = '/home/mariano/masmarcha/capturas/belenhidalgo.mp4'
-    vid = video.Video(path, config)
-    
-    vid.set(video.cv2.CAP_PROP_POS_FRAMES, 100)
+# def test_video():
+#     path = '/home/mariano/masmarcha/capturas/belenhidalgo.mp4'
+#     vid = video.Video(path, config)
+#
+#     vid.set(video.cv2.CAP_PROP_POS_FRAMES, 100)
 
 
 # def test_interpolate():
@@ -98,11 +99,15 @@ def test_video():
 #                            config)
 
 
-# def test_distance():
-#     u"""."""
-#     path = "/home/mariano/masmarcha/capturas/calb-dist-tomi.mp4"
-#     assert(isinstance(video.get_distance_scale(path, 0.3), float))
+def test_distance():
+    u"""."""
+    path = "/home/mariano/masmarcha/capturas/"
+    print()
+    print(np.linalg.norm(markers[:, 3] - markers[:, 4], axis=1).mean())
 
+    d = video.get_distance_scale(markers, 0.32)
+    assert(isinstance(d, float))
+    print(d)
 
 # def test_contours():
 #     path = "/home/mariano/masmarcha/capturas/calb-dist-tomi.mp4"

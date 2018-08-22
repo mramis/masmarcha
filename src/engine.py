@@ -156,17 +156,13 @@ class VideoEngine(Engine):
             frames, markers, rois = ret
             w = Walk('video', n)
             w.add_data(source=source, frames=frames, markers=markers,
-                       regions=rois, rate=fps)
+                       regions=rois, rate=fps, pxscale=self.px_scale(markers))
             self.walks.append(w)
 
-    def set_distance_scale(self, filepath):
+    def px_scale(self, markers):
         u"""."""
-        real = self.cfg.getfloat('engine', 'meterdistance')
-        scale = get_distance_scale(filepath, real)
-        self.cfg.set('engine', 'pixelscale', str(scale))
-        with open(self.cfg.get('paths','configure'), 'w') as fh:
-            self.cfg.write(fh)
-        logging.info("""Factor de distancia calculado con éxito.""")
+        sessiondata = json.load(open(self.cfg.get('paths', 'sessiondata')))
+        return(get_distance_scale(markers, sessiondata['legdistance']))
 
     def calibrate_camera(self, filepath, camera):
         u"""."""
@@ -230,7 +226,8 @@ class Walk(object):
         for n, (hs, to, hss) in enumerate(indexes):
             c = Cycle(''.join(self.__repr__().split('.')), n)
             c.add_data(lat=lat, markers=self.markers[hs:hss],
-                indexes=(hs, to, hss), rate=self.rate, dir=direction)
+                indexes=(hs, to, hss), rate=self.rate, dir=direction,
+                pxscale=self.pxscale)
             if dump:
                 c.dump(cfg.get('paths', 'session'))
             else:
@@ -268,8 +265,7 @@ class Cycle(object):
         else:
             angles = resize_angles_sample(angles, 101)
         spacetemp = calculate_spatiotemporal(
-            self.indexes, self.markers, self.rate,
-            cfg.getfloat('engine', 'pixelscale'))
+            self.indexes, self.markers, self.rate, self.pxscale)
 
         return(id, spacetemp, angles)
 

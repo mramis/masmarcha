@@ -1,6 +1,3 @@
 [
-  "test/test_database.py::test_creating_database",
-  "test/test_database.py::test_insert_database",
-  "test/test_database.py::test_search_database",
-  "test/test_database.py::test_remove_database"
+  "test/test_video.py::test_distance"
 ]

@@ -177,22 +177,10 @@ def contour_centers_array(contours):
     return np.array(list_of_contour_centers, dtype=int)[::-1]
 
 
-def get_distance_scale(filepath, realdistance, maxiter=30):
+def get_distance_scale(markers, realdistance):
     u"""Devuelve el factor de conversión entre pixeles y metros."""
-    distance_centers = []
-    count = 0
-    with open_video(filepath) as video:
-        ret, frame = video.read()
-        while ret:
-            cen = contour_centers_array(find_contours(frame))
-            if len(cen) == 2:
-                A, B = cen
-                distance_centers.append(np.linalg.norm(A-B))
-            count += 1
-            if count > maxiter:
-                break
-            ret, frame = video.read()
-    return (realdistance / np.mean(distance_centers))
+    legdistance = np.linalg.norm(markers[:, 3] - markers[:, 4], axis=1).mean()
+    return(realdistance / legdistance)
 
 
 def find_walks(filepath, schema, calb=None):
