@@ -15,4 +15,4 @@ if __name__ == '__main__':
 
     engine = Engine(config, schema)
     engine.load_session()
-    engine.plot_session(withlabels=True, withtext=True)
+    engine.plot_session(withlabels=True, withtext=True, withsac=True)
