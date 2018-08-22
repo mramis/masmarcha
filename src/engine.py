@@ -30,6 +30,7 @@ from video import (find_walks, explore_walk, get_fps, get_distance_scale,
 from kinematics import (gait_cycler, calculate_angles, resize_angles_sample,
                         fourier_fit, calculate_spatiotemporal, get_direction)
 from representation import Plotter
+from database import search
 
 
 class Engine(object):
@@ -98,6 +99,22 @@ class Engine(object):
             if remove:
                 os.remove(filepath)
 
+    def update_sac(self):
+        db = self.cfg.get('paths', 'database')
+        meta, sac = search(db, dx='sac')
+        angles, spacetemporal = [], []
+        for data in sac:
+            spacetemporal.append(data[3:9])
+            angles.append(data[9:])
+        mean_spacetemporal = np.array(spacetemporal).mean(axis=0)
+        std_spacetemporal = np.array(spacetemporal).std(axis=0)
+        mean_angles = np.array(angles).mean(axis=0)
+        std_angles = np.array(angles).std(axis=0)
+        filepath = self.cfg.get('paths', 'sac')
+        np.savez(filepath, mean_angles=mean_angles, std_angles=std_angles,
+                 mean_spacetemporal=mean_spacetemporal,
+                 std_spacetemporal=std_spacetemporal, nsample=len(sac),
+                 npeople=len(meta))
 
 class KinoveaTrayectoriesEngine(Engine):
     u"""Motor de procesamiento de archivos de trayectorias de Kinovea."""
