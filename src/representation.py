@@ -96,12 +96,17 @@ class JointPlot(object):
 
     def add_cycle(self, angles, switch, label=None):
         self.ax.plot(np.arange(angles.size), angles, label=label, alpha=0.7)
-        self.ax.axvline(switch, c='k', ls='--', lw=0.3, alpha=0.5)
+        self.ax.axvline(switch, color='k', ls='--', lw=0.3, alpha=0.5)
 
     def draw_sac(self, mean, std, switch, n):
         x = np.arange(mean.size)
+<<<<<<< HEAD
         self.ax.fill_between(x, mean+std*2, mean-std*2, c='k', alpha=0.1)
         self.ax.fill_between(x, mean+std, mean-std, c='k', alpha=0.2)
+=======
+        self.ax.fill_between(x, mean+std*2, mean-std*2, color='k', alpha=0.1)
+        self.ax.fill_between(x, mean+std, mean-std, color='k', alpha=0.2)
+>>>>>>> representation
         self.ax.plot(x, mean, color='k', lw=1.5)
         self.ax.axvline(switch, color='k', lw=0.5, alpha=0.8)
         self.sactext = """En negro se dibuja el valor medio de marcha sin
@@ -114,7 +119,7 @@ class JointPlot(object):
         vertical se muestra el momento de cambio de fase de apoyo a fase de
         balanceo."""
         text = ' '.join(s.strip() for s in (basictext + self.sactext).split())
-        self.fig.text(0.03, 0.15, text, fontsize=8,style='oblique', ha='left',
+        self.fig.text(0.03, 0.15, text, fontsize=8, style='oblique', ha='left',
             va='top', wrap=True)
 
     def save(self, withtext=False):
