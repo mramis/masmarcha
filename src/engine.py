@@ -51,13 +51,16 @@ class Engine(object):
         for walk in self.walks:
             self.cycles += walk.get_cycles(self.schema, self.cfg, dump)
 
-    def plot_session(self, withlabels=False, withtext=False):
+    def plot_session(self, withlabels=False, withtext=False, withsac=False):
         u"""."""
         plotter = Plotter(self.cfg).auto()
 
         for walk in self.walks:
             plotter.add_cycler(str(walk), walk.diff, walk.mov)
 
+        if withsac:
+            plotter.with_sac()
+            
         for cycle in self.cycles:
             params = cycle.calculate_parameters(self.schema, self.cfg)
             plotter.add_cycle(*params, withlabels)
