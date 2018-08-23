@@ -111,7 +111,11 @@ class Frame(object):
         return 'f.{0}'.format(self.pos)
 
     def find_contours(self):
-        u"""Encuentra dentro del cuadro los contornos de los marcadores."""
+        u"""Encuentra dentro del cuadro los contornos de los marcadores.
+
+        :return: nmarkers, el número de contornos que se encontraron.
+        :rtype: int
+        """
         thresh = self.cfg.getfloat('video', 'thresh')
         dilate = self.cfg.getboolean('video', 'dilate')
         gray = cv2.cvtColor(self.frame, cv2.COLOR_BGR2GRAY)
@@ -125,7 +129,11 @@ class Frame(object):
         return(self.nmarkers)
 
     def contour_centers(self):
-        u"""Obtiene los centros de los contornos como un arreglo de numpy."""
+        u"""Obtiene los centros de los contornos como un arreglo de numpy.
+
+        :return: arreglo de centros de los marcadores que se encontraron.
+        :rtype: np.ndarray
+        """
         def contour_center(contour):
             u"""Devuelve los centros de los contorno del marcador."""
             x, y, w, h = cv2.boundingRect(contour)
@@ -136,6 +144,12 @@ class Frame(object):
         return(markers)
 
     def is_completed(self):
+        """Informa si la el cuadro es de esquema completo.
+
+        :return: True si encontro el cuadro contiene el número de marcadores
+        que establece el esquema en uso.
+        :rtype: bool
+        """
         n = sum(self.schema['schema'])
         markers = self.contour_centers()
         if self.nmarkers == n:
@@ -145,6 +159,11 @@ class Frame(object):
             return(False)
 
     def calculate_regions(self):
+        """Encuentra las regiones de interes del esquema de marcadores.
+
+        Utiliza el parámetro "roiextrapixel" que el usuario puede modificar
+        desde la configuración.
+        """
         regions = []
         extra = self.cfg.getint('video', 'roiextrapixel')
         for i, j in self.schema['slices']:
@@ -154,6 +173,12 @@ class Frame(object):
         self.regions = np.array(regions).flatten()
 
     def get_basics(self):
+        """Devuelve la información básica del cuadro.
+
+        :return: pos (int), la posicion del cuadro dentro del video; frame
+        (np.ndarray) el cuadro de video propiamente dicho.
+        :rtype: tuple
+        """
         return(self.pos, self.frame)
 
 
@@ -169,9 +194,15 @@ class Walk(object):
         return 'walk.{0}'.format(self.id)
 
     def add_frame(self, frame):
+        """Agrega un cuadro a la caminata.
+
+        :param frame: cuadro de video.
+        :type frame: Frame
+        """
         self.frames.append(frame)
 
     def stop_walking(self):
+        """Pone fin al proceso de añadir cuadros a la caminata."""
         schema = json.load(open(self.cfg.get('paths', 'schema')))
         n = sum(schema['schema'])
         while True:
@@ -182,6 +213,12 @@ class Walk(object):
                 break
 
     def compact_frames(self):
+        u"""Devuelve la informacion básica de los cuadros de la caminata.
+
+        :return: pos, arreglo de posiciones (int) de los cuadros; frames,
+        arreglo de los cuadros (np.ndarray) de video.
+        :rtype: tuple
+        """
         pos, frames = [], []
         for frame in self.frames:
             p, f = frame.get_basics()
@@ -190,12 +227,23 @@ class Walk(object):
         return(np.array(pos, dtype=np.uint8), np.array(frames, dtype=np.uint8))
 
     def dump(self):
+        u"""Escribe los datos básicos de la caminata en disco.
+
+        Los datos basicos son: wid, la id de la caminata dentro del video;
+        source, la fuente de la caminata (ruta al video); posframes, los
+        índices de cuadros de video; frames, los cuadros de video (np.ndarray).
+        """
         walkpath = os.path.join(self.cfg.get('paths', 'session'), str(self))
         posframes, frames = self.compact_frames()
         np.savez(walkpath, posframes=posframes, frames=frames,
                  source=self.source, walkid=self.id)
 
     def load(self, walkpath):
+        u"""Carga los datos basicos de la caminata.
+
+        :param walkpath: ruta al archivo de caminata.
+        :type walkpath: str
+        """
         schema = json.load(open(self.cfg.get('paths', 'schema')))
         data = dict(np.load(walkpath).items())
         self.source = data['source']
@@ -206,29 +254,37 @@ class Walk(object):
             self.frames.append(frame)
 
     def classify_frames(self):
+        """Identifica los cuadros completos de la caminata.
+
+        Devuelve las regiones de interes que se calcularon con éxito.
+        :return: x, la lista de índices de cuadros incompletos; xp, la lista de
+        índices de cuadros completos; fp, arreglo de regiones de interés por
+        cuadro de video fp.shape = (xp.size, nregions*2*2).
+        :rtype: tuple.
+        """
         x, xp, fp = [], [], []
         for frame in self.frames:
             full_schema = frame.is_completed()
             if full_schema:
                 xp.append(frame.pos)
                 fp.append(frame.regions)
-
             else:
                 x.append(frame.pos)
         return(x, xp, np.array(fp))
 
-    def interpolate_rois(self):
+    def recovery_rois_frames(self):
+        u"""Construye las regiones de interés en cuadros incompletos."""
         x, xp, fp = self.classify_frames()
         ncols = fp.shape[1]
         interp = np.empty((len(x), ncols), dtype=np.uint8)
         for i in range(ncols):
             interp[:, i] = np.interp(x, xp, fp[:, i])
-
+        # A cada cuadro de la caminata se le agrega su roi interpolada.
         first_frame = self.frames[0].pos
         for i, frame_index in enumerate(x):
             relative_index = frame_index - first_frame
             self.frames[relative_index].regions = interp[i]
-
+        self.uncompleted_frames = x
 
 
 def calibrate_camera(source, dest, chessboard, rate):
@@ -495,16 +551,16 @@ def explore_walk(walk, schema, extrapx):
 #     return np.hstack((frame_index, np.array(regions).flatten()))
 
 
-def interpolate_lost_regions(regions, schema):
-    u"""."""
-    pre, cur = regions
-    dom = np.arange(pre[0] + 1, cur[0])
-    empty = np.empty((dom.size, len(schema['schema'])*2*2))
-
-    for i in range(pre[1:].size):
-        empty[:, i] = np.interp(dom, (pre[0], cur[0]), (pre[i+1], cur[i+1]))
-
-    return(np.hstack((dom.reshape(dom.size, 1), empty)))
+# def interpolate_lost_regions(regions, schema):
+#     u"""."""
+#     pre, cur = regions
+#     dom = np.arange(pre[0] + 1, cur[0])
+#     empty = np.empty((dom.size, len(schema['schema'])*2*2))
+#
+#     for i in range(pre[1:].size):
+#         empty[:, i] = np.interp(dom, (pre[0], cur[0]), (pre[i+1], cur[i+1]))
+#
+#     return(np.hstack((dom.reshape(dom.size, 1), empty)))
 
 
 def filling_missing_schema(lost, iregions, missing_frames, schema):
