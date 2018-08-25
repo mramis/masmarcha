@@ -106,6 +106,8 @@ class Frame(object):
         self.schema = sch
         self.frame = frame
         self.contours = None
+        self.markers = None
+        self.regions = None
 
     def __repr__(self):
         return 'f.{0}'.format(self.pos)
@@ -123,12 +125,10 @@ class Frame(object):
         if dilate:
             kernel = np.ones((5, 5), np.uint8)
             binary = cv2.dilate(binary, kernel, iterations=3)
-        contours = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[1]
-        self.contours = contours
-        self.nmarkers = len(contours)
-        return(self.nmarkers)
+        self.contours = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[1]
+        return(len(self.contours))
 
-    def contour_centers(self):
+    def calculate_center_markers(self):
         u"""Obtiene los centros de los contornos como un arreglo de numpy.
 
         :return: arreglo de centros de los marcadores que se encontraron.
@@ -139,9 +139,8 @@ class Frame(object):
             x, y, w, h = cv2.boundingRect(contour)
             return x + w/2, y + h/2
         list_of_contour_centers = [contour_center(c) for c in self.contours]
-        markers = np.array(list_of_contour_centers, dtype=np.uint8)[::-1]
-        self.markers = markers
-        return(markers)
+        self.markers = np.array(list_of_contour_centers, dtype=np.int16)[::-1]
+        return(self.markers)
 
     def is_completed(self):
         """Informa si la el cuadro es de esquema completo.
@@ -150,13 +149,11 @@ class Frame(object):
         que establece el esquema en uso.
         :rtype: bool
         """
-        n = sum(self.schema['schema'])
-        markers = self.contour_centers()
-        if self.nmarkers == n:
-            self.calculate_regions()
-            return(True)
+        N = sum(self.schema['schema'])
+        if not self.contours:
+            return(self.find_contours() == N)
         else:
-            return(False)
+            return(len(self.contours) == N)
 
     def calculate_regions(self):
         """Encuentra las regiones de interes del esquema de marcadores.
@@ -164,6 +161,8 @@ class Frame(object):
         Utiliza el parámetro "roiextrapixel" que el usuario puede modificar
         desde la configuración.
         """
+        if self.markers is None:
+            self.calculate_center_markers()
         regions = []
         extra = self.cfg.getint('video', 'roiextrapixel')
         for i, j in self.schema['slices']:
@@ -171,6 +170,7 @@ class Frame(object):
                 np.array((np.min(self.markers[i: j], axis=0) - extra,
                           np.max(self.markers[i: j], axis=0) + extra)))
         self.regions = np.array(regions).flatten()
+        return(self.regions)
 
     def get_basics(self):
         """Devuelve la información básica del cuadro.
@@ -181,6 +181,23 @@ class Frame(object):
         """
         return(self.pos, self.frame)
 
+    def fill_markers(self):
+        u"""Identifica a los marcadores por region."""
+        markers_for_region = self.schema['schema']
+        regions = self.regions.reshape(len(markers_for_region), 2, 2)
+        zero_markers = np.zeros((sum(markers_for_region), 2), dtype=np.int16)
+        for i, (r, m) in enumerate(zip(regions, markers_for_region)):
+            xmin, ymin, xmax, ymax = r.flatten()
+            xends = np.logical_and(self.markers[:, 0] > xmin,
+                                   self.markers[:, 0] < xmax)
+            yends = np.logical_and(self.markers[:, 1] > ymin,
+                                   self.markers[:, 1] < ymax)
+            region_markers = np.logical_and(xends, yends)
+            if sum(region_markers) == m:
+                s = self.schema['slices'][i]
+                zero_markers[s[0]:s[1]] = self.markers[region_markers]
+        self.markers = zero_markers
+        return(self.markers)
 
 class Walk(object):
 
@@ -262,29 +279,50 @@ class Walk(object):
         cuadro de video fp.shape = (xp.size, nregions*2*2).
         :rtype: tuple.
         """
+        self.uframes = []
         x, xp, fp = [], [], []
-        for frame in self.frames:
-            full_schema = frame.is_completed()
-            if full_schema:
-                xp.append(frame.pos)
+        for i, frame in enumerate(self.frames):
+            if frame.is_completed():
+                frame.calculate_regions()
+                xp.append(i)
                 fp.append(frame.regions)
             else:
-                x.append(frame.pos)
+                x.append(i)
+                self.uframes.append(frame)
         return(x, xp, np.array(fp))
 
-    def recovery_rois_frames(self):
+    def calculate_uframes_rois(self):
         u"""Construye las regiones de interés en cuadros incompletos."""
         x, xp, fp = self.classify_frames()
         ncols = fp.shape[1]
-        interp = np.empty((len(x), ncols), dtype=np.uint8)
+        interp = np.empty((len(x), ncols), dtype=np.int16)
         for i in range(ncols):
             interp[:, i] = np.interp(x, xp, fp[:, i])
         # A cada cuadro de la caminata se le agrega su roi interpolada.
-        first_frame = self.frames[0].pos
         for i, frame_index in enumerate(x):
-            relative_index = frame_index - first_frame
-            self.frames[relative_index].regions = interp[i]
-        self.uncompleted_frames = x
+            self.frames[frame_index].regions = interp[i]
+
+    def detect_missing_markers(self):
+        u"""Detecta marcadores faltantes."""
+        schema = json.load(open(self.cfg.get('paths', 'schema')))
+        print(self.uframes)
+        # regions = np.array([f.regions for f in self.uframes])
+        # markers = np.array([f.markers for f in self.uframes])
+
+    def display(self, window_name=None, pausetime=0):
+        schema = json.load(open(self.cfg.get('paths', 'schema')))
+        for frame in self.frames:
+            r1, r2, r3 = frame.regions.reshape(len(schema['schema']), 2, 2)
+            cv2.rectangle(frame.frame, tuple(r1[0]), tuple(r1[1]), (0, 0, 255), 3)
+            cv2.rectangle(frame.frame, tuple(r2[0]), tuple(r2[1]), (0, 255, 0), 3)
+            cv2.rectangle(frame.frame, tuple(r3[0]), tuple(r3[1]), (255, 0, 0), 3)
+            # cv2.circle(frame.frame, tuple(frame.markers[3]), 10, (0, 0, 255), -1)
+
+            cv2.imshow(str(self), frame.frame)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+            sleep(float(pausetime))
+
 
 
 def calibrate_camera(source, dest, chessboard, rate):

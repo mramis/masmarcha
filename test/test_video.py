@@ -52,6 +52,36 @@ config.read_file(StringIO(string_config))
 schema = load(open(config.get('paths', 'schema')))
 
 
+def test_frame():
+    schema = load(open(config.get('paths', 'schema')))
+    f = video.Frame(126, np.load('test/testdata/test_frame.npy'), schema, config)
+    print('\nprint ', f)
+
+    assert(f.is_completed())
+    print('\nprint ', u'número de contornos correcto')
+
+    markers = f.calculate_center_markers()
+    print('\nprint', u'calculo de centros de marcadores correcto')
+
+    # plt.imshow(f.frame)
+    # plt.scatter(markers[:, 0], markers[:, 1], color='r')
+    # plt.savefig('test/testdata/test_frame_markers')
+    # print('\nprint', u'se escribio la imagen con los marcadores')
+    # plt.close()
+
+    rois = f.calculate_regions().reshape(len(schema['slices']), 2, 2)
+    # print('\nprint', u'calculo de regiones de interes correcto')
+    # plt.imshow(f.frame)
+    # plt.scatter(rois[0, :, 0], rois[0, :, 1], color='r')
+    # plt.scatter(rois[1, :, 0], rois[1, :, 1], color='g')
+    # plt.scatter(rois[2, :, 0], rois[2, :, 1], color='b')
+    # plt.savefig('test/testdata/test_frame_rois')
+    # print('\nprint', u'se escribio la imagen con las regiones')
+    # plt.close()
+    f.markers = f.markers[4:]
+    print(f.fill_markers())
+
+
 # def test_video():
 #     path = '/home/mariano/Devel/masmarcha/test/testdata/VID_20180814_172232987.mp4'
 #     # Se crea el objeto
@@ -78,92 +108,20 @@ schema = load(open(config.get('paths', 'schema')))
 #     v.walks[0].dump()
 #
 
-def test_walk():
-    # para cargar una caminata no es necesario introducir id y source.
-    walk = video.Walk(None, 0, config)
-    walk.load('/home/mariano/Devel/masmarcha/test/testdata/walk.0.npz')
-    walk.classify_frames()
-    walk.recovery_rois_frames()
-
-    for frame in walk.frames:
-        x = frame.regions[0]
-        y = frame.regions[1]
-        plt.plot(x, y, 'bo')
-    plt.show()
-
-# def test_frame():
-#     pass
+# def test_walk():
+#     # # para cargar una caminata no es necesario introducir id y source.
+#     # walk = video.Walk(None, 0, config)
+#     # walk.load('/home/mariano/Devel/masmarcha/test/testdata/walk.0.npz')
+#     # walk.classify_frames()
+#     # del(walk)
 #
+#     # walk = video.Walk(None, 0, config)
+#     # walk.load('/home/mariano/Devel/masmarcha/test/testdata/walk.0.npz')
+#     # walk.calculate_uframes_rois()
+#     # walk.display(pausetime=.05)
+#     # del(walk)
 #
-
-# def test_interpolate():
-#     # Las regiones son arreglos de dos vectores en el plano que apuntan a las
-#     # esquinas de un rectángulo, en el que se encuentran los marcadores.
-#     v11 = np.array(((1, 1), (3, 3)))
-#     v21 = v11.copy()
-#     v21[:, 1] += 3
-#     v31 = v21.copy()
-#     v31[:, 1] += 3
-#
-#     R1 = np.array((v11, v21, v31))
-#     R2 = R1 + np.array((3, 0))
-#
-#     # Esta es la respuesta a la interpolacion con un punto intermedio.
-#     vr = np.array((((2.5, 1), (4.5, 3)),
-#     ((2.5, 4), (4.5, 6)),
-#     ((2.5, 7), (4.5, 9)))).flatten()
-#
-#     R = video.interpolate_lost_regions(
-#     (np.array((0, *R1.flatten())),
-#     np.array((2, *R2.flatten()))),
-#     schema)
-#
-#     assert(all(R[0, 1:] == vr))
-#
-#     # plt.plot(*v11.T, 'b-')
-#     # plt.plot(*v21.T, 'r-')
-#     # plt.plot(*v31.T, 'g-')
-#
-#     # v12, v22, v32 = R2
-#     # plt.plot(*v12.T, 'b-')
-#     # plt.plot(*v22.T, 'r-')
-#     # plt.plot(*v32.T, 'g-')
-#
-#     # v1, v2, v3 = R[0, 1:].reshape(3, 2, 2)
-#     # plt.plot(*v1.T, 'b--')
-#     # plt.plot(*v2.T, 'r--')
-#     # plt.plot(*v3.T, 'g--')
-#
-#     # plt.savefig('test/interpolate')
-
-
-# def test_calibrate():
-#     path = '/home/mariano/masmarcha/capturas/damero.mp4'
-#     video.calibrate_camera(path, os.path.join('./test','MOTOG3'), (8, 4), 10,
-#                            config)
-
-
-# def test_distance():
-#     u"""."""
-#     path = "/home/mariano/masmarcha/capturas/calb-dist-tomi.mp4"
-#     assert(isinstance(video.get_distance_scale(path, 0.3), float))
-
-
-# def test_contours():
-#     path = "/home/mariano/masmarcha/capturas/calb-dist-tomi.mp4"
-#     with video.open_video(path) as vid:
-#         __, frame = vid.read()
-#         contours = video.find_contours(frame, dilate=True)
-#         center =  video.contour_center(contours[0])
-#         array_of_centers = video.contour_centers_array(contours)
-
-
-# def test_getfps():
-#     path = "/home/mariano/masmarcha/capturas/calb-dist-tomi.mp4"
-#     assert(isinstance(video.get_fps(path), float))
-
-
-# def test_openvideo():
-#     path = "/home/mariano/masmarcha/capturas/calb-dist-tomi.mp4"
-#     with video.open_video(path) as vid:
-#         assert(isinstance(vid, video.cv2.VideoCapture))
+#     walk = video.Walk(None, 0, config)
+#     walk.load('/home/mariano/Devel/masmarcha/test/testdata/walk.0.npz')
+#     walk.calculate_uframes_rois()
+#     walk.detect_missing_markers()
