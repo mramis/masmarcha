@@ -21,6 +21,7 @@
 import os
 import sys
 from json import load
+import time
 
 from configparser import ConfigParser
 from io import StringIO
@@ -52,39 +53,40 @@ config.read_file(StringIO(string_config))
 schema = load(open(config.get('paths', 'schema')))
 
 
-def test_frame():
-    schema = load(open(config.get('paths', 'schema')))
-    f = video.Frame(126, np.load('test/testdata/test_frame.npy'), schema, config)
-    print('\nprint ', f)
+# def test_frame():
+#     schema = load(open(config.get('paths', 'schema')))
+#     f = video.Frame(126, np.load('test/testdata/test_frame.npy'), schema, config)
+#     print('\nprint ', f)
+#
+#     assert(f.is_completed())
+#     print('\nprint ', u'número de contornos correcto')
+#
+#     markers = f.calculate_center_markers()
+#     print('\nprint', u'calculo de centros de marcadores correcto')
+#
+#     # plt.imshow(f.frame)
+#     # plt.scatter(markers[:, 0], markers[:, 1], color='r')
+#     # plt.savefig('test/testdata/test_frame_markers')
+#     # print('\nprint', u'se escribio la imagen con los marcadores')
+#     # plt.close()
+#
+#     rois = f.calculate_regions().reshape(len(schema['slices']), 2, 2)
+#     # print('\nprint', u'calculo de regiones de interes correcto')
+#     # plt.imshow(f.frame)
+#     # plt.scatter(rois[0, :, 0], rois[0, :, 1], color='r')
+#     # plt.scatter(rois[1, :, 0], rois[1, :, 1], color='g')
+#     # plt.scatter(rois[2, :, 0], rois[2, :, 1], color='b')
+#     # plt.savefig('test/testdata/test_frame_rois')
+#     # print('\nprint', u'se escribio la imagen con las regiones')
+#     # plt.close()
+#
+#     f.markers = f.markers[4:]
+#     uregions, filled_markers = f.fill_markers()
+#     assert(uregions == [0, 1])
+#
+#     f.sort_foot()
+#     # assert(all(np.equal(f.markers[-1], filled_markers[-3])))
 
-    assert(f.is_completed())
-    print('\nprint ', u'número de contornos correcto')
-
-    markers = f.calculate_center_markers()
-    print('\nprint', u'calculo de centros de marcadores correcto')
-
-    # plt.imshow(f.frame)
-    # plt.scatter(markers[:, 0], markers[:, 1], color='r')
-    # plt.savefig('test/testdata/test_frame_markers')
-    # print('\nprint', u'se escribio la imagen con los marcadores')
-    # plt.close()
-
-    rois = f.calculate_regions().reshape(len(schema['slices']), 2, 2)
-    # print('\nprint', u'calculo de regiones de interes correcto')
-    # plt.imshow(f.frame)
-    # plt.scatter(rois[0, :, 0], rois[0, :, 1], color='r')
-    # plt.scatter(rois[1, :, 0], rois[1, :, 1], color='g')
-    # plt.scatter(rois[2, :, 0], rois[2, :, 1], color='b')
-    # plt.savefig('test/testdata/test_frame_rois')
-    # print('\nprint', u'se escribio la imagen con las regiones')
-    # plt.close()
-
-    f.markers = f.markers[4:]
-    uregions, filled_markers = f.fill_markers()
-    assert(uregions == [0, 1])
-
-    f.sort_foot()
-    assert(all(np.equal(f.markers[-1], filled_markers[-3])))
 
 # def test_video():
 #     path = '/home/mariano/Devel/masmarcha/test/testdata/VID_20180814_172232987.mp4'
@@ -112,7 +114,7 @@ def test_frame():
 #     v.walks[0].dump()
 #
 
-# def test_walk():
+def test_walk():
 #     # # para cargar una caminata no es necesario introducir id y source.
 #     # walk = video.Walk(None, 0, config)
 #     # walk.load('/home/mariano/Devel/masmarcha/test/testdata/walk.0.npz')
@@ -125,7 +127,14 @@ def test_frame():
 #     # walk.display(pausetime=.05)
 #     # del(walk)
 #
-#     walk = video.Walk(None, 0, config)
-#     walk.load('/home/mariano/Devel/masmarcha/test/testdata/walk.0.npz')
-#     walk.calculate_uframes_rois()
-#     walk.detect_missing_markers()
+    walk = video.Walk(None, 0, config)
+    walk.load('/home/mariano/Devel/masmarcha/test/testdata/walk.0.npz')
+    walk.calculate_uframes_rois()
+    # t0 = time.time()
+    markers = np.array(walk.fix_frames())
+    # print(time.time()-t0, 's')
+
+    plt.plot(markers[:, 4, 0], -markers[:, 4, 1])
+    plt.plot(markers[:, 5, 0], -markers[:, 5, 1])
+    plt.plot(markers[:, 6, 0], -markers[:, 6, 1])
+    plt.show()

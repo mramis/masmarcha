@@ -192,7 +192,8 @@ class Frame(object):
         return(self.schema['schema'])
 
     def fill_markers(self):
-        u"""Identifica a los marcadores por region."""
+        u"""Completa el arreglo de marcadores cuando no cumple con el esquema.
+        """
         uregions = []
         regions = self.get_regions()
         zero_markers = self.get_zeros()
@@ -212,14 +213,25 @@ class Frame(object):
         return(uregions, zero_markers.copy())
 
     def sort_foot(self):
-        u"""ordena los marcadores de pie."""
-        foot_markers_indexes = ((-3, -2, -1), (-2, -1, -3))
+        u"""ordena los marcadores de pie.
+
+        En esta función se supone que el pie siempre se encuentra en el plano
+        sagital.
+        """
+        expected_order = [-3, -2, -1]
         distances = []
-        for i, j in zip(*foot_markers_indexes):
+        for i, j in zip(expected_order, (-2, -1, -3)):
             distij = np.linalg.norm(self.markers[i, :] - self.markers[j, :])
-            distances.append((distij, i))
-        new_order = [k for __, k in sorted(distances)]
-        self.markers[[-3, -2, -1]] = self.markers[new_order]
+            distances.append((distij, set((i, j))))
+
+        alpha, beta, gamma = sorted(distances)
+        ankle = alpha[1].intersection(gamma[1]).pop()
+        foot1 = beta[1].intersection(alpha[1]).pop()
+        foot2 = gamma[1].intersection(beta[1]).pop()
+
+        new_order = [ankle, foot1, foot2]
+        if new_order != expected_order:
+            self.markers[expected_order] = self.markers[new_order]
 
 
 class Walk(object):
@@ -325,12 +337,21 @@ class Walk(object):
         for i, frame_index in enumerate(x):
             self.frames[frame_index].regions = interp[i]
 
-    def detect_missing_markers(self):
-        u"""Detecta marcadores faltantes."""
-        schema = json.load(open(self.cfg.get('paths', 'schema')))
-        print(self.uframes)
-        # regions = np.array([f.regions for f in self.uframes])
-        # markers = np.array([f.markers for f in self.uframes])
+    def fix_frames(self):
+        u"""Arregla los cuadros de video.
+
+        Se reparan aquellos cuadros que no cumplen con el esquema, se ordenan
+        los marcadores del pie, y se interpolan los datos faltantes."""
+        for frame in self.uframes:
+            frame.calculate_center_markers()
+            frame.fill_markers()
+
+        markers = []
+        for frame in self.frames:
+            frame.sort_foot()
+            markers.append(frame.markers)
+
+        return(markers)
 
     def display(self, window_name=None, pausetime=0):
         schema = json.load(open(self.cfg.get('paths', 'schema')))
@@ -696,20 +717,20 @@ def explore_walk(walk, schema, extrapx):
 #     return(list(schema_centers))
 
 
-def sort_foot_markers(markers):
-    u"""Ordena los marcadores del grupo de tobillo.
-    """
-    temp = markers.copy()
-    # Se toma la distancia entre el marcador de tobillo y retro pie.
-    d0 = np.linalg.norm(markers[:, -3, :] - markers[:, -2, :], ord=1, axis=1)
-    # Se toma la distancia entre el marcador de tobillo y ante pie.
-    d1 = np.linalg.norm(markers[:, -3, :] - markers[:, -1, :], ord=1, axis=1)
-    # Si la distancia d0 es mayor que d1, entonces find_markers ordenó los
-    # marcadores de pie de forma distinta a lo que se espera según el esquema.
-    swap_mask = d0 > d1
-    if swap_mask.any():
-        markers[swap_mask, -2, :] = temp[swap_mask, -1, :]
-        markers[swap_mask, -1, :] = temp[swap_mask, -2, :]
+# def sort_foot_markers(markers):
+#     u"""Ordena los marcadores del grupo de tobillo.
+#     """
+#     temp = markers.copy()
+#     # Se toma la distancia entre el marcador de tobillo y retro pie.
+#     d0 = np.linalg.norm(markers[:, -3, :] - markers[:, -2, :], ord=1, axis=1)
+#     # Se toma la distancia entre el marcador de tobillo y ante pie.
+#     d1 = np.linalg.norm(markers[:, -3, :] - markers[:, -1, :], ord=1, axis=1)
+#     # Si la distancia d0 es mayor que d1, entonces find_markers ordenó los
+#     # marcadores de pie de forma distinta a lo que se espera según el esquema.
+#     swap_mask = d0 > d1
+#     if swap_mask.any():
+#         markers[swap_mask, -2, :] = temp[swap_mask, -1, :]
+#         markers[swap_mask, -1, :] = temp[swap_mask, -2, :]
 
 
 def get_ends(missing_frames_list):
