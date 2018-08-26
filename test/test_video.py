@@ -121,20 +121,17 @@ def test_walk():
 #     # walk.classify_frames()
 #     # del(walk)
 #
-#     # walk = video.Walk(None, 0, config)
-#     # walk.load('/home/mariano/Devel/masmarcha/test/testdata/walk.0.npz')
-#     # walk.calculate_uframes_rois()
-#     # walk.display(pausetime=.05)
-#     # del(walk)
-#
+    # walk = video.Walk(None, 0, config)
+    # walk.load('/home/mariano/Devel/masmarcha/test/testdata/walk.0.npz')
+    # walk.calculate_uframes_rois()
+    # walk.display(pausetime=.05)
+    # del(walk)
+
     walk = video.Walk(None, 0, config)
     walk.load('/home/mariano/Devel/masmarcha/test/testdata/walk.0.npz')
     walk.calculate_uframes_rois()
-    # t0 = time.time()
-    markers = np.array(walk.fix_frames())
-    # print(time.time()-t0, 's')
 
-    plt.plot(markers[:, 4, 0], -markers[:, 4, 1])
-    plt.plot(markers[:, 5, 0], -markers[:, 5, 1])
-    plt.plot(markers[:, 6, 0], -markers[:, 6, 1])
+    markers = np.array(walk.fix_frames())
+    for i in range(7):
+        plt.plot(markers[:, i, 0], -markers[:, i, 1])
     plt.show()

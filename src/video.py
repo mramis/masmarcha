@@ -323,7 +323,7 @@ class Walk(object):
                 fp.append(frame.regions)
             else:
                 x.append(i)
-                self.uframes.append(frame)
+                self.uframes.append((i, frame))
         return(x, xp, np.array(fp))
 
     def calculate_uframes_rois(self):
@@ -337,20 +337,42 @@ class Walk(object):
         for i, frame_index in enumerate(x):
             self.frames[frame_index].regions = interp[i]
 
+    def interpolate_markers_positions(self, markers, positions):
+        u"""Interpola la posición de los marcadores"""
+        regions_mrows = {
+            0: (0, 1),
+            1: (2, 3),
+            2: (4, 5, 6)}
+
+        XP = set(np.arange(markers.shape[0]))
+        for r, frame_indexs in positions.items():
+            for row in regions_mrows[r]:
+                xp = list(XP.difference(frame_indexs))
+                xfp = markers[xp, row, 0]
+                yfp = markers[xp, row, 1]
+                markers[frame_indexs, row, 0] = np.interp(frame_indexs, xp, xfp)
+                markers[frame_indexs, row, 1] = np.interp(frame_indexs, xp, yfp)
+
+        return(markers)
+
     def fix_frames(self):
         u"""Arregla los cuadros de video.
 
         Se reparan aquellos cuadros que no cumplen con el esquema, se ordenan
         los marcadores del pie, y se interpolan los datos faltantes."""
-        for frame in self.uframes:
-            frame.calculate_center_markers()
-            frame.fill_markers()
+        regions_markers_positions = defaultdict(list)
+        for pos, uframe in self.uframes:
+            uframe.calculate_center_markers()
+            regions, __ = uframe.fill_markers()
+            for r in regions:
+                regions_markers_positions[r].append(pos)
 
         markers = []
         for frame in self.frames:
             frame.sort_foot()
             markers.append(frame.markers)
 
+        markers = self.interpolate_markers_positions(np.array(markers), regions_markers_positions)
         return(markers)
 
     def display(self, window_name=None, pausetime=0):
