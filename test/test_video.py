@@ -78,9 +78,13 @@ def test_frame():
     # plt.savefig('test/testdata/test_frame_rois')
     # print('\nprint', u'se escribio la imagen con las regiones')
     # plt.close()
-    f.markers = f.markers[4:]
-    print(f.fill_markers())
 
+    f.markers = f.markers[4:]
+    uregions, filled_markers = f.fill_markers()
+    assert(uregions == [0, 1])
+
+    f.sort_foot()
+    assert(all(np.equal(f.markers[-1], filled_markers[-3])))
 
 # def test_video():
 #     path = '/home/mariano/Devel/masmarcha/test/testdata/VID_20180814_172232987.mp4'

@@ -108,6 +108,7 @@ class Frame(object):
         self.contours = None
         self.markers = None
         self.regions = None
+        self.sort = False
 
     def __repr__(self):
         return 'f.{0}'.format(self.pos)
@@ -181,12 +182,21 @@ class Frame(object):
         """
         return(self.pos, self.frame)
 
+    def get_regions(self):
+        return(self.regions.reshape(len(self.schema['schema']), 2, 2))
+
+    def get_zeros(self):
+        return(np.zeros((sum(self.schema['schema']), 2), dtype=np.int16))
+
+    def markers_for_regions(self):
+        return(self.schema['schema'])
+
     def fill_markers(self):
         u"""Identifica a los marcadores por region."""
-        markers_for_region = self.schema['schema']
-        regions = self.regions.reshape(len(markers_for_region), 2, 2)
-        zero_markers = np.zeros((sum(markers_for_region), 2), dtype=np.int16)
-        for i, (r, m) in enumerate(zip(regions, markers_for_region)):
+        uregions = []
+        regions = self.get_regions()
+        zero_markers = self.get_zeros()
+        for i, (r, m) in enumerate(zip(regions, self.markers_for_regions())):
             xmin, ymin, xmax, ymax = r.flatten()
             xends = np.logical_and(self.markers[:, 0] > xmin,
                                    self.markers[:, 0] < xmax)
@@ -196,8 +206,21 @@ class Frame(object):
             if sum(region_markers) == m:
                 s = self.schema['slices'][i]
                 zero_markers[s[0]:s[1]] = self.markers[region_markers]
+            else:
+                uregions.append(i)
         self.markers = zero_markers
-        return(self.markers)
+        return(uregions, zero_markers.copy())
+
+    def sort_foot(self):
+        u"""ordena los marcadores de pie."""
+        foot_markers_indexes = ((-3, -2, -1), (-2, -1, -3))
+        distances = []
+        for i, j in zip(*foot_markers_indexes):
+            distij = np.linalg.norm(self.markers[i, :] - self.markers[j, :])
+            distances.append((distij, i))
+        new_order = [k for __, k in sorted(distances)]
+        self.markers[[-3, -2, -1]] = self.markers[new_order]
+
 
 class Walk(object):
 
@@ -565,7 +588,7 @@ def explore_walk(walk, schema, extrapx):
         interpolate_lost_frames(markers, missing_frames, schema, walk[0][0])
         return(np.arange(*walk[0]), markers, regions)
 
-#
+
 # def get_regions(frame_index, centers, schema, extrapx):
 #     u"""Arreglos de vértices coordenados de una regione en la imagen.
 #
@@ -601,76 +624,76 @@ def explore_walk(walk, schema, extrapx):
 #     return(np.hstack((dom.reshape(dom.size, 1), empty)))
 
 
-def filling_missing_schema(lost, iregions, missing_frames, schema):
-    u""".
-
-    :param lost: Conjunto de cuadros de esquema incompleto.
-    :type lost: list
-    :param iregions: Conjunto de regions interpoladas.
-    :type iregions: numpy.ndarray
-    """
-    # Se construye un arreglo de cuatro dimensiones(FxSx2), donde F es la
-    # cantidad de cuadros de video en los que el esquema no estuvo completo,
-    # son los cuadros de la lista "lost"; S es la cantidad de marcadores que
-    # se definen en el esquema; y 2 es la cantidad de componentes que tiene
-    # cada vector de posición del marcador (x, y).
-    schema_centers = np.empty((len(lost), sum(schema['schema']), 2), dtype=int)
-    for i, (centers, regions) in enumerate(zip(lost, iregions)):
-        # NOTE: MODIFICADO
-        frame_index = int(regions[0])
-        rois = regions[1:].reshape(len(schema['schema']), 2, 2)
-        # rep es un índice que se utiliza para indexar el arreglo de centros
-        # schema_centers y reemplazar los datos aleatorios con los encontrados
-        # en el correspondiente arreglo de lost.
-        # org tiene el mismo fin pero se utiliza en el arreglo de centros
-        # originales lost[i] = centers, estos dos índices no cambian de la
-        # misma forma.
-        rep, org = 0, 0
-        # a continuación se buscan los marcadores por cada región en cada uno
-        # de los cuadros.
-        for reg, s in enumerate(schema['schema']):
-            # rois tiene un arreglo por cada region, y cada arreglo tiene por
-            # fila las esquinas opuestas de una region de interés. En esta
-            # roi se buscan los maracadores. P0 es la esquina superior-
-            # izquierda P1 la inferior-derecha.
-            p0, p1 = rois[reg]
-            xlower_bound = centers[:, 0] > p0[0]
-            yupper_bound = centers[:, 1] > p0[1]
-            xupper_bound = centers[:, 0] < p1[0]
-            ylower_bound = centers[:, 1] < p1[1]
-            x_ends = np.logical_and(xlower_bound, xupper_bound)
-            y_ends = np.logical_and(yupper_bound, ylower_bound)
-            # rmark es el arreglo que cumplen con las condiciones de region,
-            # por lo tanto se hace la suposición de que son los marcadores
-            # que se buscan.
-            rmark = centers[np.logical_and(x_ends, y_ends)]
-            if rmark.shape[0] == s:
-                # Si conincide el número de marcadores de rmark con el esperado
-                # por el esquema, entonces se asume que son los marcadores
-                # correctos. Pero, puede suceder que haya habido un problema
-                # con la generación de rois, a causa de contaminación por los
-                # marcadores activos, o por superficies reflectivas en la
-                # escena. entonces la sección de reemplazo se enmarca en una
-                # sentencia try-except.
-                try:
-                    schema_centers[i,  rep: rep+s] = centers[org: org+s]
-                # si el except se lanza dentro de este bucle, entonces es
-                # porque hubo un problema con los rois.
-                except ValueError:
-                    # Si esto sucede entonces no es confiable la extracción de
-                    # datos, y debe, por lo tanto descartarse la caminata.
-                    logging.error("filling_missing_schema: markers-shape")
-                    raise Exception
-            else:
-                # si no se encontraron los marcadores que se esperan en la
-                # región entonces se hace la suposición de que no existen y
-                # tienen que ser interpolados.
-                missing_frames[reg].append(frame_index)
-            # se modifican los índices que se utilizan en la indexación de los
-            #  arreglos.
-            rep += s
-            org += rmark.shape[0]
-    return(list(schema_centers))
+# def filling_missing_schema(lost, iregions, missing_frames, schema):
+#     u""".
+#
+#     :param lost: Conjunto de cuadros de esquema incompleto.
+#     :type lost: list
+#     :param iregions: Conjunto de regions interpoladas.
+#     :type iregions: numpy.ndarray
+#     """
+#     # Se construye un arreglo de cuatro dimensiones(FxSx2), donde F es la
+#     # cantidad de cuadros de video en los que el esquema no estuvo completo,
+#     # son los cuadros de la lista "lost"; S es la cantidad de marcadores que
+#     # se definen en el esquema; y 2 es la cantidad de componentes que tiene
+#     # cada vector de posición del marcador (x, y).
+#     schema_centers = np.empty((len(lost), sum(schema['schema']), 2), dtype=int)
+#     for i, (centers, regions) in enumerate(zip(lost, iregions)):
+#         # NOTE: MODIFICADO
+#         frame_index = int(regions[0])
+#         rois = regions[1:].reshape(len(schema['schema']), 2, 2)
+#         # rep es un índice que se utiliza para indexar el arreglo de centros
+#         # schema_centers y reemplazar los datos aleatorios con los encontrados
+#         # en el correspondiente arreglo de lost.
+#         # org tiene el mismo fin pero se utiliza en el arreglo de centros
+#         # originales lost[i] = centers, estos dos índices no cambian de la
+#         # misma forma.
+#         rep, org = 0, 0
+#         # a continuación se buscan los marcadores por cada región en cada uno
+#         # de los cuadros.
+#         for reg, s in enumerate(schema['schema']):
+#             # rois tiene un arreglo por cada region, y cada arreglo tiene por
+#             # fila las esquinas opuestas de una region de interés. En esta
+#             # roi se buscan los maracadores. P0 es la esquina superior-
+#             # izquierda P1 la inferior-derecha.
+#             p0, p1 = rois[reg]
+#             xlower_bound = centers[:, 0] > p0[0]
+#             yupper_bound = centers[:, 1] > p0[1]
+#             xupper_bound = centers[:, 0] < p1[0]
+#             ylower_bound = centers[:, 1] < p1[1]
+#             x_ends = np.logical_and(xlower_bound, xupper_bound)
+#             y_ends = np.logical_and(yupper_bound, ylower_bound)
+#             # rmark es el arreglo que cumplen con las condiciones de region,
+#             # por lo tanto se hace la suposición de que son los marcadores
+#             # que se buscan.
+#             rmark = centers[np.logical_and(x_ends, y_ends)]
+#             if rmark.shape[0] == s:
+#                 # Si conincide el número de marcadores de rmark con el esperado
+#                 # por el esquema, entonces se asume que son los marcadores
+#                 # correctos. Pero, puede suceder que haya habido un problema
+#                 # con la generación de rois, a causa de contaminación por los
+#                 # marcadores activos, o por superficies reflectivas en la
+#                 # escena. entonces la sección de reemplazo se enmarca en una
+#                 # sentencia try-except.
+#                 try:
+#                     schema_centers[i,  rep: rep+s] = centers[org: org+s]
+#                 # si el except se lanza dentro de este bucle, entonces es
+#                 # porque hubo un problema con los rois.
+#                 except ValueError:
+#                     # Si esto sucede entonces no es confiable la extracción de
+#                     # datos, y debe, por lo tanto descartarse la caminata.
+#                     logging.error("filling_missing_schema: markers-shape")
+#                     raise Exception
+#             else:
+#                 # si no se encontraron los marcadores que se esperan en la
+#                 # región entonces se hace la suposición de que no existen y
+#                 # tienen que ser interpolados.
+#                 missing_frames[reg].append(frame_index)
+#             # se modifican los índices que se utilizan en la indexación de los
+#             #  arreglos.
+#             rep += s
+#             org += rmark.shape[0]
+#     return(list(schema_centers))
 
 
 def sort_foot_markers(markers):
