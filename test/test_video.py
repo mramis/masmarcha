@@ -45,6 +45,7 @@ session = test/testdata
 thresh = 250.0
 dilate = False
 roiextrapixel = 35
+fpscorrection = 4
 """
 
 config = ConfigParser()
@@ -87,7 +88,7 @@ schema = load(open(config.get('paths', 'schema')))
 #     f.sort_foot()
 #     # assert(all(np.equal(f.markers[-1], filled_markers[-3])))
 
-
+#
 # def test_video():
 #     path = '/home/mariano/Devel/masmarcha/test/testdata/VID_20180814_172232987.mp4'
 #     # Se crea el objeto
@@ -112,26 +113,33 @@ schema = load(open(config.get('paths', 'schema')))
 #     v.explore()
 #     # Escribo en disco la caminata para test
 #     v.walks[0].dump()
-#
+
 
 def test_walk():
-#     # # para cargar una caminata no es necesario introducir id y source.
-#     # walk = video.Walk(None, 0, config)
-#     # walk.load('/home/mariano/Devel/masmarcha/test/testdata/walk.0.npz')
-#     # walk.classify_frames()
-#     # del(walk)
-#
+    # para cargar una caminata no es necesario introducir id y source.
+    walk = video.Walk(None, 0, None, config)
+    walk.load('/home/mariano/Devel/masmarcha/test/testdata/W0')
+    # walk.classify_markers()
+    # walk.interp_uncompleted_regions()
+    # walk.fill_umarkers()
+    # walk.sort_foot_markers()
+    # walk.interp_markers_positions()
+    # for i in range(7):
+    #     plt.plot(walk.markers[:, i, 0], -walk.markers[:, i, 1])
+    # plt.show()
+    print(walk.get_markers())
+
     # walk = video.Walk(None, 0, config)
     # walk.load('/home/mariano/Devel/masmarcha/test/testdata/walk.0.npz')
     # walk.calculate_uframes_rois()
     # walk.display(pausetime=.05)
     # del(walk)
-
-    walk = video.Walk(None, 0, config)
-    walk.load('/home/mariano/Devel/masmarcha/test/testdata/walk.0.npz')
-    walk.calculate_uframes_rois()
-
-    markers = np.array(walk.fix_frames())
-    for i in range(7):
-        plt.plot(markers[:, i, 0], -markers[:, i, 1])
-    plt.show()
+    #
+    # walk = video.Walk(None, 0, config)
+    # walk.load('/home/mariano/Devel/masmarcha/test/testdata/walk.0.npz')
+    # walk.calculate_uframes_rois()
+    #
+    # markers = np.array(walk.fix_frames())
+    # for i in range(7):
+    #     plt.plot(markers[:, i, 0], -markers[:, i, 1])
+    # plt.show()
