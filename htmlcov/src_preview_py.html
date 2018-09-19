@@ -96,16 +96,16 @@
 <p id="t6" class="stm mis"><span class="key">from</span> <span class="nam">video</span> <span class="key">import</span> <span class="nam">play</span><span class="op">,</span> <span class="nam">draw_markers</span><span class="op">,</span> <span class="nam">draw_rois</span><span class="strut">&nbsp;</span></p>
 <p id="t7" class="stm mis"><span class="key">from</span> <span class="nam">engine</span> <span class="key">import</span> <span class="nam">VideoEngine</span><span class="strut">&nbsp;</span></p>
 <p id="t8" class="pln"><span class="strut">&nbsp;</span></p>
-<p id="t9" class="stm mis"><span class="nam">path</span> <span class="op">=</span> <span class="str">"/home/mariano/Descargas/VID_20180810_190133595.mp4"</span><span class="strut">&nbsp;</span></p>
+<p id="t9" class="stm mis"><span class="nam">path</span> <span class="op">=</span> <span class="str">"/home/mariano/Descargas/VID_20180813_182041747.mp4"</span><span class="strut">&nbsp;</span></p>
 <p id="t10" class="pln"><span class="strut">&nbsp;</span></p>
 <p id="t11" class="stm mis"><span class="key">if</span> <span class="nam">__name__</span> <span class="op">==</span> <span class="str">'__main__'</span><span class="op">:</span><span class="strut">&nbsp;</span></p>
 <p id="t12" class="stm mis">    <span class="nam">config</span> <span class="op">=</span> <span class="nam">ConfigParser</span><span class="op">(</span><span class="op">)</span><span class="strut">&nbsp;</span></p>
 <p id="t13" class="stm mis">    <span class="nam">config</span><span class="op">.</span><span class="nam">read</span><span class="op">(</span><span class="str">'/home/mariano/masmarcha/masmarcha.ini'</span><span class="op">)</span><span class="strut">&nbsp;</span></p>
 <p id="t14" class="stm mis">    <span class="nam">schema</span> <span class="op">=</span> <span class="nam">load</span><span class="op">(</span><span class="nam">open</span><span class="op">(</span><span class="nam">config</span><span class="op">.</span><span class="nam">get</span><span class="op">(</span><span class="str">'paths'</span><span class="op">,</span> <span class="str">'schema'</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="strut">&nbsp;</span></p>
 <p id="t15" class="stm mis">    <span class="nam">extrapx</span> <span class="op">=</span> <span class="nam">config</span><span class="op">.</span><span class="nam">getint</span><span class="op">(</span><span class="str">'engine'</span><span class="op">,</span> <span class="str">'extrapixel'</span><span class="op">)</span><span class="strut">&nbsp;</span></p>
-<p id="t16" class="stm mis">    <span class="nam">play</span><span class="op">(</span><span class="nam">path</span><span class="op">,</span> <span class="num">0.05</span><span class="op">,</span> <span class="nam">draw_markers</span><span class="op">,</span> <span class="nam">markers</span><span class="op">=</span><span class="key">None</span><span class="op">,</span> <span class="nam">wichone</span><span class="op">=</span><span class="key">None</span><span class="op">)</span><span class="strut">&nbsp;</span></p>
+<p id="t16" class="stm mis">    <span class="nam">play</span><span class="op">(</span><span class="nam">path</span><span class="op">,</span> <span class="num">0.0</span><span class="op">,</span> <span class="nam">draw_markers</span><span class="op">,</span> <span class="nam">markers</span><span class="op">=</span><span class="key">None</span><span class="op">,</span> <span class="nam">wichone</span><span class="op">=</span><span class="key">None</span><span class="op">)</span><span class="strut">&nbsp;</span></p>
 <p id="t17" class="pln"><span class="strut">&nbsp;</span></p>
-<p id="t18" class="pln">    <span class="com"># play(path, 0.05, draw_rois, regions=None, schema=schema, extrapx=extrapx)</span><span class="strut">&nbsp;</span></p>
+<p id="t18" class="pln">    <span class="com"># play(path, 0.005, draw_rois, regions=None, schema=schema, extrapx=extrapx)</span><span class="strut">&nbsp;</span></p>
 
             </td>
         </tr>
@@ -116,7 +116,7 @@
     <div class="content">
         <p>
             <a class="nav" href="index.html">&#xab; index</a> &nbsp; &nbsp; <a class="nav" href="https://coverage.readthedocs.io">coverage.py v4.5.1</a>,
-            created at 2018-08-11 12:00
+            created at 2018-09-17 21:54
         </p>
     </div>
 </div>

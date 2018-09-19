@@ -25,11 +25,40 @@ from contextlib import contextmanager
 import json
 import logging
 from time import sleep
-import pickle
 
 import numpy as np
 import cv2
 
+
+def calculate_calibration_params(source, dest, chessboard, rate):
+    w, h = chessboard
+    objp = np.zeros((w*h, 3), np.float32)
+    objp[:, :2] = np.mgrid[0:w, 0:h].T.reshape(-1,2)
+
+    objpoints = [] # 3d point in real world space
+    imgpoints = [] # 2d points in image plane.
+
+    with open_video(source) as video:
+        read, frame = video.read()
+        while read:
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            ret, corners = cv2.findChessboardCorners(gray, (w, h), None)
+            if ret:
+                objpoints.append(objp)
+                imgpoints.append(corners)
+            next = video.get(cv2.CAP_PROP_POS_FRAMES) + int(rate)
+            video.set(cv2.CAP_PROP_POS_FRAMES, next)
+            read, frame = video.read()
+
+    fw, fh = gray.shape[:2]
+    __, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(
+        objpoints, imgpoints, gray.shape[::-1], None, None)
+    newcameramtx, __ = cv2.getOptimalNewCameraMatrix(
+        mtx, dist, (w,h), 0, (w,h))
+
+    np.savez(dest, mtx=mtx, dist=dist, rvecs=rvecs, tvecs=tvecs,
+             newcameramtx=newcameramtx, source=source,
+             chessboard=chessboard, rate=rate)
 
 
 class Video(object):
@@ -58,10 +87,8 @@ class Video(object):
         currpos = self.vid.get(cv2.CAP_PROP_POS_FRAMES)
         self.vid.set(cv2.CAP_PROP_POS_FRAMES, currpos + self.get_fps())
 
-    def calculate_calibration_params(self):
-        return(NotImplemented)
-
     def load_calibration_params(self):
+        """Carga los datos de calibración de la cámara."""
         calibrationpath = self.cfg.get('paths', 'currentcamera')
         if os.path.isfile(calibrationpath):
             calibration_setup = dict(np.load(calibrationpath).items())
@@ -95,7 +122,20 @@ class Video(object):
             cv2.CHAIN_APPROX_SIMPLE)[1]
         return(len(contours), contours)
 
-    def explore(self):
+    def calculate_center_markers(self, contours):
+        u"""Obtiene los centros de los contornos como un arreglo de numpy.
+
+        :return: arreglo de centros de los marcadores que se encontraron.
+        :rtype: np.ndarray
+        """
+        def contour_center(contour):
+            u"""Devuelve los centros de los contorno del marcador."""
+            x, y, w, h = cv2.boundingRect(contour)
+            return x + w/2, y + h/2
+        list_of_contour_centers = [contour_center(c) for c in contours]
+        return(np.array(list_of_contour_centers, dtype=np.int16)[::-1])
+
+    def find_walks(self):
         u"""Encuentra las caminatas dentro de un video."""
         self.walks = []
         schema = json.load(open(self.cfg.get('paths', 'schema')))
@@ -121,15 +161,37 @@ class Video(object):
                     walk.stop_walking(pos)
                     walking = False
 
+    def preview(self, delay):
+        width = self.cfg.getint('video', 'framewidth')
+        height = self.cfg.getint('video', 'frameheight')
+        windowname = 'Preview: {}'.format(self.source)
+
+        cv2.namedWindow(windowname, cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(windowname, width, height)
+
+        ret = True
+        while ret:
+            ret, pos, frame = self.read_frame()
+            contours = self.find_markers(frame)[1]
+            markers = self.calculate_center_markers(contours)
+            for m in markers:
+                cv2.circle(frame, tuple(m), 15, (0,0,255), -1)
+
+            cv2.imshow(windowname, frame)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+
+            sleep(delay)
+
 
 class Walk(object):
 
     def __init__(self, id, startposition, source, cfg):
         self.id = id
         self.cfg = cfg
-        self.src = source
-        self.spos = startposition
-        self.lpos = None
+        self.source = source
+        self.startpos = startposition
+        self.endpos = None
         self.videodata = []
 
     def __repr__(self):
@@ -153,26 +215,6 @@ class Walk(object):
             else:
                 self.lpos = lastposition
                 break
-
-    def dump(self):
-        u"""Escribe los datos básicos de la caminata en disco.
-
-        Los datos basicos son: wid, la id de la caminata dentro del video;
-        source, la fuente de la caminata (ruta al video); posframes, los
-        índices de cuadros de video; frames, los cuadros de video (np.ndarray).
-        """
-        walkpath = os.path.join(self.cfg.get('paths', 'session'), str(self))
-        with open(walkpath, 'wb') as fh:
-            pickle.dump(self.__dict__, fh, protocol=pickle.HIGHEST_PROTOCOL)
-
-    def load(self, walkpath):
-        u"""Carga los datos basicos de la caminata."""
-        with open(walkpath, 'rb') as fh:
-            walkdata = pickle.load(fh)
-        for key in walkdata.keys():
-            if key not in ['id', 'src', 'cfg', 'spos', 'lpos', 'videodata']:
-                raise Exception('No se encontro: {}'.format(key))
-        self.__dict__.update(walkdata)
 
     def calculate_center_markers(self, contours):
         u"""Obtiene los centros de los contornos como un arreglo de numpy.
@@ -301,50 +343,3 @@ class Walk(object):
         self.sort_foot_markers()
         self.interp_markers_positions()
         return self.markers
-
-    # def display(self, window_name=None, pausetime=0):
-    #     schema = json.load(open(self.cfg.get('paths', 'schema')))
-    #     for frame in self.frames:
-    #         r1, r2, r3 = frame.regions.reshape(len(schema['schema']), 2, 2)
-    #         cv2.rectangle(frame.frame, tuple(r1[0]), tuple(r1[1]), (0, 0, 255), 3)
-    #         cv2.rectangle(frame.frame, tuple(r2[0]), tuple(r2[1]), (0, 255, 0), 3)
-    #         cv2.rectangle(frame.frame, tuple(r3[0]), tuple(r3[1]), (255, 0, 0), 3)
-    #
-    #         cv2.imshow(str(self), frame.frame)
-    #         if cv2.waitKey(1) & 0xFF == ord('q'):
-    #             break
-    #         sleep(float(pausetime))
-
-
-
-def calibrate_camera(source, dest, chessboard, rate):
-    w, h = chessboard
-    objp = np.zeros((w*h, 3), np.float32)
-    objp[:, :2] = np.mgrid[0:w, 0:h].T.reshape(-1,2)
-
-    objpoints = [] # 3d point in real world space
-    imgpoints = [] # 2d points in image plane.
-
-    with open_video(source) as video:
-        read, frame = video.read()
-        while read:
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            # Find the chess board corners
-            ret, corners = cv2.findChessboardCorners(gray, (w, h), None)
-            # If found, add object points, image points (after refining them)
-            if ret:
-                objpoints.append(objp)
-                imgpoints.append(corners)
-            next = video.get(cv2.CAP_PROP_POS_FRAMES) + rate
-            video.set(cv2.CAP_PROP_POS_FRAMES, next)
-            read, frame = video.read()
-
-    fw, fh = gray.shape[:2]
-    __, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(
-        objpoints, imgpoints, gray.shape[::-1], None, None)
-    newcameramtx, __ = cv2.getOptimalNewCameraMatrix(
-        mtx, dist, (w,h), 0, (w,h))
-
-    np.savez(dest, mtx=mtx, dist=dist, rvecs=rvecs, tvecs=tvecs,
-             newcameramtx=newcameramtx, source=source,
-             chessboard=chessboard, rate=rate)

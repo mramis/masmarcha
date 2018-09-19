@@ -22,7 +22,7 @@ import os
 import sys
 from json import load
 import time
-
+import pickle
 from configparser import ConfigParser
 from io import StringIO
 
@@ -43,103 +43,118 @@ session = test/testdata
 
 [video]
 thresh = 250.0
-dilate = False
+dilate = True
 roiextrapixel = 35
 fpscorrection = 4
+framewidth = 640
+frameheight = 480
 """
 
 config = ConfigParser()
 config.read_file(StringIO(string_config))
 
-schema = load(open(config.get('paths', 'schema')))
+
+schema = {
+    "nmarkers": 7,
+    "mxroi": [2, 2, 3],
+    "slices": [[0, 2], [2, 4], [4, 7]],
+    "mlabels": ["M0", "M1", "M2", "M3", "M4", "M5", "M6"],
+    "segments": {"tight": ["M1", "M2"], "leg": ["M3", "M4"], "foot": ["M5", "M6"]},
+    "joints": ["hip", "knee", "ankle"]}
 
 
-# def test_frame():
-#     schema = load(open(config.get('paths', 'schema')))
-#     f = video.Frame(126, np.load('test/testdata/test_frame.npy'), schema, config)
-#     print('\nprint ', f)
-#
-#     assert(f.is_completed())
-#     print('\nprint ', u'número de contornos correcto')
-#
-#     markers = f.calculate_center_markers()
-#     print('\nprint', u'calculo de centros de marcadores correcto')
-#
-#     # plt.imshow(f.frame)
-#     # plt.scatter(markers[:, 0], markers[:, 1], color='r')
-#     # plt.savefig('test/testdata/test_frame_markers')
-#     # print('\nprint', u'se escribio la imagen con los marcadores')
-#     # plt.close()
-#
-#     rois = f.calculate_regions().reshape(len(schema['slices']), 2, 2)
-#     # print('\nprint', u'calculo de regiones de interes correcto')
-#     # plt.imshow(f.frame)
-#     # plt.scatter(rois[0, :, 0], rois[0, :, 1], color='r')
-#     # plt.scatter(rois[1, :, 0], rois[1, :, 1], color='g')
-#     # plt.scatter(rois[2, :, 0], rois[2, :, 1], color='b')
-#     # plt.savefig('test/testdata/test_frame_rois')
-#     # print('\nprint', u'se escribio la imagen con las regiones')
-#     # plt.close()
-#
-#     f.markers = f.markers[4:]
-#     uregions, filled_markers = f.fill_markers()
-#     assert(uregions == [0, 1])
-#
-#     f.sort_foot()
-#     # assert(all(np.equal(f.markers[-1], filled_markers[-3])))
+path = '/home/mariano/Devel/masmarcha/test/testdata/VID_20180814_172232987.mp4'
 
-#
-# def test_video():
-#     path = '/home/mariano/Devel/masmarcha/test/testdata/VID_20180814_172232987.mp4'
-#     # Se crea el objeto
-#     v = video.Video(path, config)
-#     # Se le da posición al cuadro para que haya marcadores en escena.
-#     v.vid.set(video.cv2.CAP_PROP_POS_FRAMES, 99)
-#     # se hace una lectura del cuadro.
-#     __, pos1, frame1 = v.read_frame()
-#     assert(pos1 == 100)
-#     assert(isinstance(frame1, np.ndarray))
-#     # se setean los atributos de la camara calibrada.
-#     assert(v.calibration is False)
-#     v.load_calibration_params()
-#     assert(v.calibration is True)
-#     # se posiciona 100 nuevamentes.
-#     v.vid.set(video.cv2.CAP_PROP_POS_FRAMES, 99)
-#     __, pos2, frame2 = v.read_frame()
-#     equals = frame1.flatten() == frame2.flatten()
-#     assert(any(equals))
-#     assert(not all(equals))
-#     # Exploración del video.
-#     v.explore()
-#     # Escribo en disco la caminata para test
-#     v.walks[0].dump()
+def test_video():
+    # Creación del objeto Video
+    vidobj = video.Video(path, config)
+    # El objeto cv2 de video.
+    vid = vidobj.vid
+    del(vidobj)
+    # Se comprueba que se haya cerrado el objeto de video cv2
+    assert(vid.isOpened() is False)
+
+    # Comenzamos nuevamente con la creación del objeto y ahora probamos
+    # los métodos relacionados con preview
+    vidobj = video.Video(path, config)
+    # Se hace la lectura de un frame.
+    ret, pos, frame = vidobj.read_frame()
+    assert(ret)
+    n, contours = vidobj.find_markers(frame)
+    assert(n == 0)
+
+    # Se salta un segundo en el video.
+    vidobj.jump_foward()
+    ret, pos, frame = vidobj.read_frame()
+    assert(ret)
+    n, contours = vidobj.find_markers(frame)
+    assert(n != 0)
+
+    markers = vidobj.calculate_center_markers(contours)
+    assert(isinstance(markers, np.ndarray))
+
+    # Se prueba el metodo de visualizar el adelanto.
+    vidobj.preview(0.3)
+    del(vidobj)
+
+    # Ahora probamos todo el proceso completo de extracción de marcadores en
+    # el video.
+    vidobj = video.Video(path, config)
+    # Se calibra la cámara si hay archivo previo de calibración.
+    assert(vidobj.calibration is False)
+    vidobj.load_calibration_params()
+    assert(vidobj.calibration)
+
+    # Se buscan las caminatas dentro del video.
+    vidobj.find_walks()
+
+    # se guarda una de las caminatas para el test.
+    walk = vidobj.walks[1]
+    walkpath = os.path.join(config.get('paths', 'session'), str(walk))
+    with open(walkpath, 'wb') as fh:
+        pickle.dump(walk.__dict__, fh, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 def test_walk():
-    # para cargar una caminata no es necesario introducir id y source.
-    walk = video.Walk(None, 0, None, config)
-    walk.load('/home/mariano/Devel/masmarcha/test/testdata/W0')
-    # walk.classify_markers()
-    # walk.interp_uncompleted_regions()
-    # walk.fill_umarkers()
-    # walk.sort_foot_markers()
-    # walk.interp_markers_positions()
-    # for i in range(7):
-    #     plt.plot(walk.markers[:, i, 0], -walk.markers[:, i, 1])
-    # plt.show()
-    print(walk.get_markers())
 
-    # walk = video.Walk(None, 0, config)
-    # walk.load('/home/mariano/Devel/masmarcha/test/testdata/walk.0.npz')
-    # walk.calculate_uframes_rois()
-    # walk.display(pausetime=.05)
-    # del(walk)
-    #
-    # walk = video.Walk(None, 0, config)
-    # walk.load('/home/mariano/Devel/masmarcha/test/testdata/walk.0.npz')
-    # walk.calculate_uframes_rois()
-    #
-    # markers = np.array(walk.fix_frames())
-    # for i in range(7):
-    #     plt.plot(markers[:, i, 0], -markers[:, i, 1])
-    # plt.show()
+    def load():
+        """Función para cargar los datos de caminata de disco."""
+        walk = video.Walk(*range(4))
+
+        walkpath = os.path.join(config.get('paths', 'session'), 'W0')
+        with open(walkpath, 'rb') as fh:
+            walkdata = pickle.load(fh)
+        for key in walkdata.keys():
+            walk.__dict__.update(walkdata)
+        return(walk)
+
+
+    # Se inicializa el objeto caminata con datos arbitrarios, porque se van a
+    # cargar desde disco los valores verdaderos resultado de la exploración de
+    # video.
+    walk = load()
+    assert(walk.source == path)
+
+    # Se clasifican los marcadores en esquema completo o incompleto.
+    walk.classify_markers()
+    # En los cuadros en los que los marcadores no presentan esquema completo
+    # se calculan regiones de interés para poder encontrar los marcadores
+    # faltantes y reducir la pérdidad de datos.
+    walk.interp_uncompleted_regions()
+    # Una ves que se identificaron los marcadores en los cuadros de esquema
+    # incumpleto, se agregan al arreglo de marcadores.
+    walk.fill_umarkers()
+    # Se ordenan los marcadores del pie.
+    walk.sort_foot_markers()
+    # Se interpolan los datos de marcadores famtantes por región.
+    walk.interp_markers_positions()
+    M0 = walk.markers
+
+    # Finalmente este proceso de arreglar los marcadores se puede resumir en
+    # uno:
+    del(walk)
+    walk = load()
+    M1 = walk.get_markers()
+    element = np.random.randint(0, M0.size)
+
+    assert(M0.flatten()[element] == M1.flatten()[element])

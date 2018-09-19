@@ -1,3 +1,4 @@
 [
+  "test/test_video.py::test_video",
   "test/test_video.py::test_walk"
 ]
