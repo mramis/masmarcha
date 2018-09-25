@@ -18,6 +18,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+# TODO:
+# [] Revisar HARDCORE
+# [x] Documentar
+# [] implementar Logging
+# [] Optimizar código
 
 import os
 from collections import defaultdict
@@ -74,21 +79,46 @@ class Video(object):
         self.vid.release()
 
     def get_fps(self):
+        u"""Devuelve el número de cuadros por segundos.
+
+        Esta función utiliza un valor de corrección "fpscorrection"que, por
+        defecto tiene valor unitario. Este valor puede ser accedido a través de
+        la configuración para ser modificado. Esta variable, existe porque en
+        algunos videos el dato de fps no es el correcto.
+        :return: cuadros por segundo.
+        :rtype: int
+        """
         correction = self.cfg.getfloat('video', 'fpscorrection')
         return self.vid.get(cv2.CAP_PROP_FPS) * correction
 
     def read_frame(self):
+        u"""Lectura de cuadro de video.
+
+        Este método tiene la posibilidad de modificar la distorsión de la
+        imagen o cuadro de video si han sido cargados los parámetros de
+        calibración.
+        :return: Un vector de tres componentes, el primer valor es un boleano
+        que dice que la lectura se ha realizado con éxito, el segundo es la
+        posición del cuadro relativo al video, y el tercer es la imagen o
+        cuadro de video.
+        :rtype: tuple
+        """
         ret, frame = self.vid.read()
         if self.calibration and ret:
             frame = self.undistort_frame(frame)
         return(ret, self.vid.get(cv2.CAP_PROP_POS_FRAMES), frame)
 
     def jump_foward(self):
+        u"""Se produce un salto en el cuadro de video actual.
+
+        El video se adelanta tantos cuadros como lo indique el método
+        Video.get_fps.
+        """
         currpos = self.vid.get(cv2.CAP_PROP_POS_FRAMES)
         self.vid.set(cv2.CAP_PROP_POS_FRAMES, currpos + self.get_fps())
 
     def load_calibration_params(self):
-        """Carga los datos de calibración de la cámara."""
+        u"""Carga los datos de calibración de la cámara."""
         calibrationpath = self.cfg.get('paths', 'currentcamera')
         if os.path.isfile(calibrationpath):
             calibration_setup = dict(np.load(calibrationpath).items())
@@ -98,9 +128,23 @@ class Video(object):
             self.calibration = True
 
     def undistort_frame(self, frame):
+        u"""Corrige los valores de distorsión de la cámara.
+
+        :param frame: arreglo de cuadro de video.
+        :type frame: numpy.ndarray
+        :return: cuadro de video.
+        :rtype: numpy.ndarray
+        """
         return(cv2.undistort(frame, self.mtx, self.dist, None, self.newmtx))
 
     def new_walk(self, startposition):
+        u"""El método inicia una nueva caminata.
+
+        :param startposition: posición inicial relativa al cuadro de video.
+        :type startposition: int
+        :return: Caminata.
+        :rtype: Walk
+        """
         walk = Walk(len(self.walks), startposition, self.source, self.cfg)
         self.walks.append(walk)
         return(walk)
@@ -108,8 +152,11 @@ class Video(object):
     def find_markers(self, frame):
         u"""Encuentra dentro del cuadro los contornos de los marcadores.
 
-        :return: nmarkers, el número de contornos que se encontraron.
-        :rtype: int
+        :param frame: arreglo de cuadro de video.
+        :type frame: numpy.ndarray
+        :return: un vector que contiene, 1) nmarkers, el número de contornos
+        que se encontraron; 2) una lista con los contornos propiamente dichos.
+        :rtype: tuple
         """
         thresh = self.cfg.getfloat('video', 'thresh')
         dilate = self.cfg.getboolean('video', 'dilate')
@@ -125,6 +172,9 @@ class Video(object):
     def calculate_center_markers(self, contours):
         u"""Obtiene los centros de los contornos como un arreglo de numpy.
 
+        :param contours: contornos de los objetos detectados en el cuadro de
+        video.
+        :param contours: list
         :return: arreglo de centros de los marcadores que se encontraron.
         :rtype: np.ndarray
         """
@@ -138,6 +188,8 @@ class Video(object):
     def find_walks(self):
         u"""Encuentra las caminatas dentro de un video."""
         self.walks = []
+
+        # NOTE: MODIFICAR LA LECTURA DE ESQUEMA.
         schema = json.load(open(self.cfg.get('paths', 'schema')))
         n = sum(schema['schema'])
         walking = False
@@ -162,6 +214,11 @@ class Video(object):
                     walking = False
 
     def preview(self, delay):
+        u"""Se muestran los objetos detectados en el video.
+
+        :param delay: valor de retraso de imagen en segundos.
+        :type delay: float
+        """
         width = self.cfg.getint('video', 'framewidth')
         height = self.cfg.getint('video', 'frameheight')
         windowname = 'Preview: {}'.format(self.source)
@@ -198,7 +255,13 @@ class Walk(object):
         return 'W{0}'.format(self.id)
 
     def add_framedata(self, framedata):
-        """Agrega un cuadro a la caminata."""
+        u"""Agrega información del cuadro de video.
+
+        :param framedata: es un vector que contine: 1) valor boleano que indica
+        si el cuadro tiene esquema completo de marcadores; 2) la lista de
+        contornos de los marcadores, el arreglo del cuadro de video.
+        :type framedata: tuple
+        """
         fullschema, markers_contours, frame = framedata
         data = {'fullschema': fullschema,
                 'contours': markers_contours,
@@ -206,7 +269,12 @@ class Walk(object):
         self.videodata.append(data)
 
     def stop_walking(self, lastposition):
-        """Pone fin al proceso de añadir cuadros a la caminata."""
+        u"""Pone fin al proceso de añadir información de cuadros a la caminata.
+
+        :param lastposition: valor de posción del último cuadro relativo al
+        video.
+        :type lastposition: int
+        """
         while True:
             frame = self.videodata[-1]
             if not frame['fullschema']:
@@ -219,6 +287,9 @@ class Walk(object):
     def calculate_center_markers(self, contours):
         u"""Obtiene los centros de los contornos como un arreglo de numpy.
 
+        :param contours: contornos de los objetos detectados en el cuadro de
+        video.
+        :param contours: list
         :return: arreglo de centros de los marcadores que se encontraron.
         :rtype: np.ndarray
         """
@@ -230,10 +301,15 @@ class Walk(object):
         return(np.array(list_of_contour_centers, dtype=np.int16)[::-1])
 
     def calculate_frame_regions(self, markers):
-        """Encuentra las regiones de interes del esquema de marcadores.
+        u"""Encuentra las regiones de interes del esquema de marcadores.
 
         Utiliza el parámetro "roiextrapixel" que el usuario puede modificar
         desde la configuración.
+        :param markers: arreglo de marcadores.
+        :type markers: numpy.ndarray
+        :return: arreglo con los extremos superior izquierdo, e inferior
+        derecho de las regions de interés definidas en el esquema.
+        :rtype: numpy.ndarray
         """
         # NOTE: MODIFICAR ESQUEMA
         schema = json.load(open(self.cfg.get('paths', 'schema')))
@@ -247,10 +323,19 @@ class Walk(object):
         return(np.array(regions).flatten())
 
     def classify_markers(self):
-        """Identifica los cuadros completos de la caminata"""
-        self.markers = np.ndarray((len(self.videodata), 7, 2), dtype=np.int16)  # FIXME: HARDCORE
+        u"""Realiza la indentificación de los marcadores según el esquema.
+
+        Se crean contenedores para almacenar los datos de los marcadores.
+        """
+        # Arreglo de marcadores definitivo.
+        # FIXME: HARDCORE
+        self.markers = np.ndarray((len(self.videodata), 7, 2), dtype=np.int16)
+        # Lista de marcadores de esquema incompleto, y lista de índices de
+        # estos respectivos marcadores.
         self.umarkers = []
         self.umarkersix = []
+        # Lista de índices de marcadores de esquema completo, y lista (después
+        # arreglo), de regiones de interés de estos respectivos marcadores.
         self.fullmarkersix = []
         fullmarkersframerois = []
 
@@ -268,6 +353,11 @@ class Walk(object):
         self.fullmarkersframerois =  np.array(fullmarkersframerois)
 
     def interp_uncompleted_regions(self):
+        u"""Interpola valores de regiones de interés.
+
+        Se obtienen los datos de los vectores que determinan las regiones de
+        interés dentro del cuadro de video, que corresponden a los índices de
+        los marcadores de esquema incompleto."""
         # Ahora se completan las regiones de interés
         ncols = self.fullmarkersframerois.shape[1]
         self.uregions = np.empty((len(self.umarkersix), ncols), dtype=np.int16)
@@ -276,6 +366,10 @@ class Walk(object):
                 self.fullmarkersix, self.fullmarkersframerois[:, i])
 
     def fill_umarkers(self):
+        u"""Identifica la posición de marcadores de esquema incompleto.
+
+        La función utiliza las regiones de interés obtenidas previamente para
+        disminuir la pérdida de datos."""
         # NOTE: MODIFICAR ESQUEMA
         schema = json.load(open(self.cfg.get('paths', 'schema')))
 
@@ -321,7 +415,11 @@ class Walk(object):
                 self.markers[i, expected_order] = self.markers[i, new_order]
 
     def interp_markers_positions(self):
-        u"""Interpola la posición de los marcadores"""
+        u"""Interpola la posición de los marcadores de esquema incompleto.
+
+        Las posiciones que se identificaron como ausentes en el grupo de
+        marcadores de esquema incompleto se interpolan en esta función.
+        """
         regions_mrows = {
             0: (0, 1),
             1: (2, 3),
@@ -343,3 +441,10 @@ class Walk(object):
         self.sort_foot_markers()
         self.interp_markers_positions()
         return self.markers
+
+    def save_markers(self):
+        u"""Se escribe en disco el arreglo de marcadores."""
+        sessionpath = self.cfg.get('paths', 'session')
+        walkpath = os.path.join(sessionpath, '{}.npy'.format(str(self)))
+        with open(walkpath, 'wb') as fh:
+            np.save(fh, self.markers)

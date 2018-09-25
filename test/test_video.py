@@ -20,13 +20,10 @@
 
 import os
 import sys
-from json import load
-import time
 import pickle
 from configparser import ConfigParser
 from io import StringIO
 
-import matplotlib.pyplot as plt
 import numpy as np
 
 sys.path.insert(0, 'src')
@@ -109,32 +106,29 @@ def test_video():
     vidobj.find_walks()
 
     # se guarda una de las caminatas para el test.
-    walk = vidobj.walks[1]
-    walkpath = os.path.join(config.get('paths', 'session'), str(walk))
+    walk = vidobj.walks[0]
+    session = config.get('paths', 'session')
+    walkpath = os.path.join(session, '{}.pickle'.format(str(walk)))
     with open(walkpath, 'wb') as fh:
         pickle.dump(walk.__dict__, fh, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 def test_walk():
-
+    """Se prueba la funcionalidad de la clase walk"""
     def load():
         """Función para cargar los datos de caminata de disco."""
         walk = video.Walk(*range(4))
-
-        walkpath = os.path.join(config.get('paths', 'session'), 'W0')
+        walkpath = os.path.join(config.get('paths', 'session'), 'W0.pickle')
         with open(walkpath, 'rb') as fh:
             walkdata = pickle.load(fh)
         for key in walkdata.keys():
             walk.__dict__.update(walkdata)
         return(walk)
-
-
     # Se inicializa el objeto caminata con datos arbitrarios, porque se van a
     # cargar desde disco los valores verdaderos resultado de la exploración de
     # video.
     walk = load()
     assert(walk.source == path)
-
     # Se clasifican los marcadores en esquema completo o incompleto.
     walk.classify_markers()
     # En los cuadros en los que los marcadores no presentan esquema completo
@@ -149,12 +143,14 @@ def test_walk():
     # Se interpolan los datos de marcadores famtantes por región.
     walk.interp_markers_positions()
     M0 = walk.markers
-
     # Finalmente este proceso de arreglar los marcadores se puede resumir en
     # uno:
     del(walk)
     walk = load()
     M1 = walk.get_markers()
     element = np.random.randint(0, M0.size)
-
     assert(M0.flatten()[element] == M1.flatten()[element])
+    # Se almacenan el arreglo de marcadores que es el producto final de la
+    # clase walk, y el fin de la exploración de video. Los cálculos de
+    # cinemática suceden en su respectivo modulo, posteriormente
+    walk.save_markers()
