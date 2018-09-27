@@ -19,10 +19,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # TODO:
-# [] Revisar HARDCORE
-# [x] Documentar
 # [] implementar Logging
-# [] Optimizar código
 
 import os
 from collections import defaultdict
@@ -65,18 +62,20 @@ def calculate_calibration_params(source, dest, chessboard, rate):
              newcameramtx=newcameramtx, source=source,
              chessboard=chessboard, rate=rate)
 
-
 class Video(object):
 
-    def __init__(self, filename, cfg):
-        self.vid = cv2.VideoCapture(filename)
-        self.source = filename
-        self.cfg = cfg
+    def __init__(self, config):
+        self.cfg = config
+        self.vid = None
         self.calibration = False
-        self.walks = []
 
     def __del__(self):
-        self.vid.release()
+        if self.vid:
+            self.vid.release()
+
+    def open_video(self, source):
+        self.source = source
+        self.vid = cv2.VideoCapture(source)
 
     def get_fps(self):
         u"""Devuelve el número de cuadros por segundos.
@@ -106,16 +105,7 @@ class Video(object):
         ret, frame = self.vid.read()
         if self.calibration and ret:
             frame = self.undistort_frame(frame)
-        return(ret, self.vid.get(cv2.CAP_PROP_POS_FRAMES), frame)
-
-    def jump_foward(self):
-        u"""Se produce un salto en el cuadro de video actual.
-
-        El video se adelanta tantos cuadros como lo indique el método
-        Video.get_fps.
-        """
-        currpos = self.vid.get(cv2.CAP_PROP_POS_FRAMES)
-        self.vid.set(cv2.CAP_PROP_POS_FRAMES, currpos + self.get_fps())
+        return(ret, int(self.vid.get(cv2.CAP_PROP_POS_FRAMES)), frame)
 
     def load_calibration_params(self):
         u"""Carga los datos de calibración de la cámara."""
@@ -136,18 +126,6 @@ class Video(object):
         :rtype: numpy.ndarray
         """
         return(cv2.undistort(frame, self.mtx, self.dist, None, self.newmtx))
-
-    def new_walk(self, startposition):
-        u"""El método inicia una nueva caminata.
-
-        :param startposition: posición inicial relativa al cuadro de video.
-        :type startposition: int
-        :return: Caminata.
-        :rtype: Walk
-        """
-        walk = Walk(len(self.walks), startposition, self.source, self.cfg)
-        self.walks.append(walk)
-        return(walk)
 
     def find_markers(self, frame):
         u"""Encuentra dentro del cuadro los contornos de los marcadores.
@@ -185,35 +163,65 @@ class Video(object):
         list_of_contour_centers = [contour_center(c) for c in contours]
         return(np.array(list_of_contour_centers, dtype=np.int16)[::-1])
 
+    def set_position(self, pos=0):
+        """Modifica la posición de lectura (cuadro) dentro del video."""
+        self.vid.set(cv2.CAP_PROP_POS_FRAMES, pos)
+
+
+class Explorer(Video):
+
+    def __init__(self, filename, schema, config):
+        super(Explorer, self).__init__(config)
+        self.sch = schema
+        self.walks = []
+        self.open_video(filename)
+
+    def jump_foward(self):
+        u"""Se produce un salto en el cuadro de video actual.
+
+        El video se adelanta tantos cuadros como lo indique el método
+        Video.get_fps.
+        """
+        currpos = self.vid.get(cv2.CAP_PROP_POS_FRAMES)
+        self.set_position(currpos + self.get_fps())
+
+    def new_walk(self, startpos):
+        u"""El método inicia una nueva caminata.
+
+        :param startpos: posición inicial relativa al cuadro de video.
+        :type startpos: int
+        :return: Caminata.
+        :rtype: Walk
+        """
+        walk = Walk(len(self.walks), startpos, self.source, self.sch, self.cfg)
+        self.walks.append(walk)
+        return(walk)
+
     def find_walks(self):
         u"""Encuentra las caminatas dentro de un video."""
-        self.walks = []
 
-        # NOTE: MODIFICAR LA LECTURA DE ESQUEMA.
-        schema = json.load(open(self.cfg.get('paths', 'schema')))
-        n = sum(schema['schema'])
         walking = False
         while True:
             ret, pos, frame = self.read_frame()
             if not ret:
                 break
-            nmarkers, markers_contours = self.find_markers(frame)
-            fullschema = (nmarkers == n)
+            n, contours = self.find_markers(frame)
+            fullschema = (n == self.sch['n'])
             if not walking:
                 if fullschema:
                     walk = self.new_walk(pos)
-                    walk.add_framedata((fullschema, markers_contours, frame))
+                    walk.add_framedata((fullschema, contours))
                     walking = True
                 else:
                     self.jump_foward()
 
             else:
-                walk.add_framedata((fullschema, markers_contours, frame))
-                if nmarkers == 0:
+                walk.add_framedata((fullschema, contours))
+                if n == 0:
                     walk.stop_walking(pos)
                     walking = False
 
-    def preview(self, delay):
+    def preview(self, delay, pos=0):
         u"""Se muestran los objetos detectados en el video.
 
         :param delay: valor de retraso de imagen en segundos.
@@ -226,29 +234,32 @@ class Video(object):
         cv2.namedWindow(windowname, cv2.WINDOW_NORMAL)
         cv2.resizeWindow(windowname, width, height)
 
-        ret = True
+        self.set_position(pos)
+        ret, __, frame = self.read_frame()
         while ret:
-            ret, pos, frame = self.read_frame()
             contours = self.find_markers(frame)[1]
             markers = self.calculate_center_markers(contours)
             for m in markers:
-                cv2.circle(frame, tuple(m), 15, (0,0,255), -1)
+                cv2.circle(frame, tuple(m), 10, (0,0,255), -1)
 
             cv2.imshow(windowname, frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
             sleep(delay)
+            ret, __, frame = self.read_frame()
+
+        cv2.destroyAllWindows()
 
 
-class Walk(object):
+class Walk(Video):
 
-    def __init__(self, id, startposition, source, cfg):
+    def __init__(self, id, startpos, source, schema, config):
+        super(Walk, self).__init__(config)
         self.id = id
-        self.cfg = cfg
+        self.sch = schema
         self.source = source
-        self.startpos = startposition
-        self.endpos = None
+        self.startpos = startpos
         self.videodata = []
 
     def __repr__(self):
@@ -262,43 +273,26 @@ class Walk(object):
         contornos de los marcadores, el arreglo del cuadro de video.
         :type framedata: tuple
         """
-        fullschema, markers_contours, frame = framedata
+        fullschema, contours = framedata
         data = {'fullschema': fullschema,
-                'contours': markers_contours,
-                'frame': frame}
+                'contours': contours}
         self.videodata.append(data)
 
-    def stop_walking(self, lastposition):
+    def stop_walking(self, lastpos):
         u"""Pone fin al proceso de añadir información de cuadros a la caminata.
 
-        :param lastposition: valor de posción del último cuadro relativo al
+        :param lastpos: valor de posción del último cuadro relativo al
         video.
-        :type lastposition: int
+        :type lastpos: int
         """
         while True:
-            frame = self.videodata[-1]
-            if not frame['fullschema']:
+            data = self.videodata[-1]
+            if not data['fullschema']:
                 self.videodata.pop()
-                lastposition += -1
+                lastpos += -1
             else:
-                self.lpos = lastposition
+                self.lastpos = lastpos
                 break
-
-    def calculate_center_markers(self, contours):
-        u"""Obtiene los centros de los contornos como un arreglo de numpy.
-
-        :param contours: contornos de los objetos detectados en el cuadro de
-        video.
-        :param contours: list
-        :return: arreglo de centros de los marcadores que se encontraron.
-        :rtype: np.ndarray
-        """
-        def contour_center(contour):
-            u"""Devuelve los centros de los contorno del marcador."""
-            x, y, w, h = cv2.boundingRect(contour)
-            return x + w/2, y + h/2
-        list_of_contour_centers = [contour_center(c) for c in contours]
-        return(np.array(list_of_contour_centers, dtype=np.int16)[::-1])
 
     def calculate_frame_regions(self, markers):
         u"""Encuentra las regiones de interes del esquema de marcadores.
@@ -308,19 +302,19 @@ class Walk(object):
         :param markers: arreglo de marcadores.
         :type markers: numpy.ndarray
         :return: arreglo con los extremos superior izquierdo, e inferior
-        derecho de las regions de interés definidas en el esquema.
+        derecho de las rois de interés definidas en el esquema.
         :rtype: numpy.ndarray
         """
-        # NOTE: MODIFICAR ESQUEMA
-        schema = json.load(open(self.cfg.get('paths', 'schema')))
 
         extra = self.cfg.getint('video', 'roiextrapixel')
-        regions = []
-        for i, j in schema['slices']:
-            regions.append(
-                np.array((np.min(markers[i: j], axis=0) - extra,
-                          np.max(markers[i: j], axis=0) + extra)))
-        return(np.array(regions).flatten())
+        nrois = len(self.sch['markersxroi'].keys())
+        regions = np.ndarray((nrois, 2, 2), dtype=np.int16)
+        for r in sorted(self.sch['markersxroi']):
+            bounds = self.sch['markersxroi'][r]
+            roimin = np.min(markers[bounds[0]: bounds[-1]+1], axis=0) - extra
+            roimax = np.max(markers[bounds[0]: bounds[-1]+1], axis=0) + extra
+            regions[r] = np.array((roimin, roimax))
+        return regions.flatten()
 
     def classify_markers(self):
         u"""Realiza la indentificación de los marcadores según el esquema.
@@ -328,12 +322,14 @@ class Walk(object):
         Se crean contenedores para almacenar los datos de los marcadores.
         """
         # Arreglo de marcadores definitivo.
-        # FIXME: HARDCORE
-        self.markers = np.ndarray((len(self.videodata), 7, 2), dtype=np.int16)
+        nframes = len(self.videodata)
+        mrows = self.sch['n']
+        mcols = 2
+        self.markers = np.ndarray((nframes, mrows, mcols), dtype=np.int16)
         # Lista de marcadores de esquema incompleto, y lista de índices de
         # estos respectivos marcadores.
         self.umarkers = []
-        self.umarkersix = []
+        self.umindex = []
         # Lista de índices de marcadores de esquema completo, y lista (después
         # arreglo), de regiones de interés de estos respectivos marcadores.
         self.fullmarkersix = []
@@ -347,8 +343,8 @@ class Walk(object):
                 fullmarkersframerois.append(
                     self.calculate_frame_regions(markers))
             else:
-                self.markers[i] = np.zeros((7, 2), dtype=np.int16)
-                self.umarkersix.append(i)
+                self.markers[i] = np.zeros((mrows, mcols), dtype=np.int16)
+                self.umindex.append(i)
                 self.umarkers.append(markers)
         self.fullmarkersframerois =  np.array(fullmarkersframerois)
 
@@ -360,9 +356,9 @@ class Walk(object):
         los marcadores de esquema incompleto."""
         # Ahora se completan las regiones de interés
         ncols = self.fullmarkersframerois.shape[1]
-        self.uregions = np.empty((len(self.umarkersix), ncols), dtype=np.int16)
+        self.uregions = np.empty((len(self.umindex), ncols), dtype=np.int16)
         for i in range(ncols):
-            self.uregions[:, i] = np.interp(self.umarkersix,
+            self.uregions[:, i] = np.interp(self.umindex,
                 self.fullmarkersix, self.fullmarkersframerois[:, i])
 
     def fill_umarkers(self):
@@ -370,24 +366,20 @@ class Walk(object):
 
         La función utiliza las regiones de interés obtenidas previamente para
         disminuir la pérdida de datos."""
-        # NOTE: MODIFICAR ESQUEMA
-        schema = json.load(open(self.cfg.get('paths', 'schema')))
-
         self.lostregions = defaultdict(list)
+        nrois = len(self.sch['markersxroi'].keys())
 
-        # Ahora se completa cada uframe.
-        for ii, markers, regions in zip(self.umarkersix, self.umarkers, self.uregions):
-            regions = regions.reshape(3, 2, 2)  # FIXME: HARDCORE
-            for jj, (m, reg) in enumerate(zip((2, 2, 3), regions)):  # FIXME: HARDCORE
-                xmin, ymin, xmax, ymax = reg.flatten()
-                xends = np.logical_and(markers[:, 0] > xmin, markers[:, 0] < xmax)
-                yends = np.logical_and(markers[:, 1] > ymin, markers[:, 1] < ymax)
+        for ii, umk, rois in zip(self.umindex, self.umarkers, self.uregions):
+            rois = rois.reshape(nrois, 2, 2)
+            for (r, mks), points in zip(self.sch['markersxroi'].items(), rois):
+                xmin, ymin, xmax, ymax = points.flatten()
+                xends = np.logical_and(umk[:, 0] > xmin, umk[:, 0] < xmax)
+                yends = np.logical_and(umk[:, 1] > ymin, umk[:, 1] < ymax)
                 region_markers = np.logical_and(xends, yends)
-                if sum(region_markers) == m:
-                    s = schema['slices'][jj]  # FIXME: UGLY
-                    self.markers[ii, s[0]:s[1]] = markers[region_markers]
+                if sum(region_markers) == len(mks):
+                    self.markers[ii, mks[0]:mks[-1]+1] = umk[region_markers]
                 else:
-                    self.lostregions[jj].append(ii)
+                    self.lostregions[r].append(ii)
 
     def sort_foot_markers(self):
         u"""ordena los marcadores de pie.
@@ -395,7 +387,6 @@ class Walk(object):
         En esta función se supone que el pie siempre se encuentra en el plano
         sagital.
         """
-        # FIXME: HARDCORE
         expected_order = [-3, -2, -1]
         distances = np.ndarray((self.markers.shape[0], 3))
         labels = []
@@ -420,14 +411,9 @@ class Walk(object):
         Las posiciones que se identificaron como ausentes en el grupo de
         marcadores de esquema incompleto se interpolan en esta función.
         """
-        regions_mrows = {
-            0: (0, 1),
-            1: (2, 3),
-            2: (4, 5, 6)}
-
         XP = set(np.arange(self.markers.shape[0]))
         for r, frame_indexs in self.lostregions.items():
-            for row in regions_mrows[r]:
+            for row in self.sch['markersxroi'][r]:
                 xp = list(XP.difference(frame_indexs))
                 xfp = self.markers[xp, row, 0]
                 yfp = self.markers[xp, row, 1]
@@ -448,3 +434,34 @@ class Walk(object):
         walkpath = os.path.join(sessionpath, '{}.npy'.format(str(self)))
         with open(walkpath, 'wb') as fh:
             np.save(fh, self.markers)
+
+    def display(self, delay):
+        u"""Se muestran los objetos detectados en el video.
+
+        :param delay: valor de retraso de imagen en segundos.
+        :type delay: float
+        """
+        width = self.cfg.getint('video', 'framewidth')
+        height = self.cfg.getint('video', 'frameheight')
+        windowname = 'Preview: {}'.format(self.source)
+
+        cv2.namedWindow(windowname, cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(windowname, width, height)
+
+        self.open_video(self.source)
+        self.set_position(self.startpos)
+
+        np.random.seed(100)
+        colors = [np.random.randint(0, 255, 3) for __ in range(self.sch['n'])]
+
+        for pos in range(self.lastpos - self.startpos):
+            __, __, frame = self.read_frame()
+            for i, m in enumerate(self.markers[pos]):
+                col = [int(c) for c in colors[i]]
+                cv2.circle(frame, tuple(m), 10, col, -1)
+
+            cv2.imshow(windowname, frame)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+            sleep(delay)
+        cv2.destroyAllWindows()
