@@ -1,4 +1,5 @@
 [
   "test/test_video.py::test_video",
+  "test/test_video.py::test_explorer",
   "test/test_video.py::test_walk"
 ]

@@ -18,49 +18,17 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# TODO:
-# [] implementar Logging
 
 import os
 from collections import defaultdict
 from contextlib import contextmanager
 import json
-import logging
 from time import sleep
 
-import numpy as np
 import cv2
+import numpy as np
+from scipy.interpolate import InterpolatedUnivariateSpline as spline
 
-
-def calculate_calibration_params(source, dest, chessboard, rate):
-    w, h = chessboard
-    objp = np.zeros((w*h, 3), np.float32)
-    objp[:, :2] = np.mgrid[0:w, 0:h].T.reshape(-1,2)
-
-    objpoints = [] # 3d point in real world space
-    imgpoints = [] # 2d points in image plane.
-
-    with open_video(source) as video:
-        read, frame = video.read()
-        while read:
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            ret, corners = cv2.findChessboardCorners(gray, (w, h), None)
-            if ret:
-                objpoints.append(objp)
-                imgpoints.append(corners)
-            next = video.get(cv2.CAP_PROP_POS_FRAMES) + int(rate)
-            video.set(cv2.CAP_PROP_POS_FRAMES, next)
-            read, frame = video.read()
-
-    fw, fh = gray.shape[:2]
-    __, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(
-        objpoints, imgpoints, gray.shape[::-1], None, None)
-    newcameramtx, __ = cv2.getOptimalNewCameraMatrix(
-        mtx, dist, (w,h), 0, (w,h))
-
-    np.savez(dest, mtx=mtx, dist=dist, rvecs=rvecs, tvecs=tvecs,
-             newcameramtx=newcameramtx, source=source,
-             chessboard=chessboard, rate=rate)
 
 class Video(object):
 
@@ -72,8 +40,10 @@ class Video(object):
     def __del__(self):
         if self.vid:
             self.vid.release()
+        cv2.destroyAllWindows()
 
     def open_video(self, source):
+        u"""Abre el archivo de video."""
         self.source = source
         self.vid = cv2.VideoCapture(source)
 
@@ -107,7 +77,7 @@ class Video(object):
             frame = self.undistort_frame(frame)
         return(ret, int(self.vid.get(cv2.CAP_PROP_POS_FRAMES)), frame)
 
-    def load_calibration_params(self):
+    def load_distortion_params(self):
         u"""Carga los datos de calibración de la cámara."""
         calibrationpath = self.cfg.get('paths', 'currentcamera')
         if os.path.isfile(calibrationpath):
@@ -167,6 +137,48 @@ class Video(object):
         """Modifica la posición de lectura (cuadro) dentro del video."""
         self.vid.set(cv2.CAP_PROP_POS_FRAMES, pos)
 
+    def calculate_distortion_params(self, source, cameraname):
+        """Calcula los parámetros de distorisión interna de la cámara.
+
+        :param source: Nombre del archivo de video que contiene la captura
+        del tablero de ajedrez (damero).
+        :type source: str
+        :param cameraname: Nombre del archivo con el que se van a escribir
+        los datos de distorsión.
+        :type cameraname: str
+        """
+        w = self.cfg.getint('video', 'chessboardwidth')
+        h = self.cfg.getint('video', 'chessboardheight')
+        rate = self.cfg.getint('video', 'calibframerate')
+
+        objp = np.zeros((w*h, 3), np.float32)
+        objp[:, :2] = np.mgrid[0:w, 0:h].T.reshape(-1,2)
+
+        objpoints = [] # 3d point in real world space
+        imgpoints = [] # 2d points in image plane.
+
+        self.open_video(source)
+        read, pos, frame = self.read_frame()
+        while read:
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            ret, corners = cv2.findChessboardCorners(gray, (w, h), None)
+            if ret:
+                objpoints.append(objp)
+                imgpoints.append(corners)
+            self.set_position(pos + rate)
+            read, pos, frame = self.read_frame()
+        self.vid.release()
+
+        fw, fh = gray.shape[:2]
+        __, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(
+            objpoints, imgpoints, gray.shape[::-1], None, None)
+        newcameramtx, __ = cv2.getOptimalNewCameraMatrix(
+            mtx, dist, (w,h), 0, (w,h))
+
+        dirpath = self.cfg.get('paths', 'calibration')
+        destpath = os.path.join(dirpath, cameraname)
+        np.savez(destpath, mtx=mtx, dist=dist, newcameramtx=newcameramtx)
+
 
 class Explorer(Video):
 
@@ -195,7 +207,7 @@ class Explorer(Video):
         """
         walk = Walk(len(self.walks), startpos, self.source, self.sch, self.cfg)
         self.walks.append(walk)
-        return(walk)
+        return walk
 
     def find_walks(self):
         u"""Encuentra las caminatas dentro de un video."""
@@ -214,7 +226,6 @@ class Explorer(Video):
                     walking = True
                 else:
                     self.jump_foward()
-
             else:
                 walk.add_framedata((fullschema, contours))
                 if n == 0:
@@ -358,8 +369,8 @@ class Walk(Video):
         ncols = self.fullmarkersframerois.shape[1]
         self.uregions = np.empty((len(self.umindex), ncols), dtype=np.int16)
         for i in range(ncols):
-            self.uregions[:, i] = np.interp(self.umindex,
-                self.fullmarkersix, self.fullmarkersframerois[:, i])
+            self.uregions[:, i] = spline(self.fullmarkersix,
+                self.fullmarkersframerois[:, i])(self.umindex)
 
     def fill_umarkers(self):
         u"""Identifica la posición de marcadores de esquema incompleto.
@@ -412,13 +423,13 @@ class Walk(Video):
         marcadores de esquema incompleto se interpolan en esta función.
         """
         XP = set(np.arange(self.markers.shape[0]))
-        for r, frame_indexs in self.lostregions.items():
+        for r, findexs in self.lostregions.items():
             for row in self.sch['markersxroi'][r]:
-                xp = list(XP.difference(frame_indexs))
+                xp = list(XP.difference(findexs))
                 xfp = self.markers[xp, row, 0]
                 yfp = self.markers[xp, row, 1]
-                self.markers[frame_indexs, row, 0] = np.interp(frame_indexs, xp, xfp)
-                self.markers[frame_indexs, row, 1] = np.interp(frame_indexs, xp, yfp)
+                self.markers[findexs, row, 0] = spline(xp, xfp)(findexs)
+                self.markers[findexs, row, 1] = spline(xp, yfp)(findexs)
 
     def get_markers(self):
         self.classify_markers()
@@ -449,16 +460,26 @@ class Walk(Video):
         cv2.resizeWindow(windowname, width, height)
 
         self.open_video(self.source)
-        self.set_position(self.startpos)
+        self.set_position(self.startpos - 1)
 
-        np.random.seed(100)
+        np.random.seed(0)
         colors = [np.random.randint(0, 255, 3) for __ in range(self.sch['n'])]
 
+        uregionspos = 0
+        nrois = len(self.sch['markersxroi'].keys())
         for pos in range(self.lastpos - self.startpos):
             __, __, frame = self.read_frame()
+            # Markers
             for i, m in enumerate(self.markers[pos]):
                 col = [int(c) for c in colors[i]]
                 cv2.circle(frame, tuple(m), 10, col, -1)
+            # uncompleted regions
+            if 'uregions' in self.__dict__.keys():
+                if pos in self.umindex:
+                    uregions = self.uregions[uregionspos].reshape(nrois, 2, 2)
+                    for p0, p1 in uregions:
+                        cv2.rectangle(frame, tuple(p0),tuple(p1), (0,255,0), 3)
+                    uregionspos += 1
 
             cv2.imshow(windowname, frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):

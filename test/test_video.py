@@ -32,19 +32,20 @@ import video
 
 string_config = """
 [paths]
-schema = /home/mariano/masmarcha/schema7.json
-cameracalib = /home/mariano/masmarcha/cameracalib
-currentcamera = /home/mariano/masmarcha/calibration/MOTOG3-Mariano.npz
-
+calibration = test/testdata
+currentcamera = test/testdata/MTOG3-Mariano.npz
 session = test/testdata
 
 [video]
 thresh = 250.0
-dilate = True
+dilate = False
 roiextrapixel = 35
 fpscorrection = 4
 framewidth = 640
 frameheight = 480
+chessboardwidth = 8
+chessboardheight = 4
+calibframerate = 10
 """
 
 config = ConfigParser()
@@ -52,61 +53,60 @@ config.read_file(StringIO(string_config))
 
 
 schema = {
-    "nmarkers": 7,
-    "mxroi": [2, 2, 3],
-    "slices": [[0, 2], [2, 4], [4, 7]],
-    "mlabels": ["M0", "M1", "M2", "M3", "M4", "M5", "M6"],
+    "n": 7,
+    "markersxroi": {0: [0, 1], 1: [2, 3], 2: [4, 5, 6]},
+    "markerlabels": ["M0", "M1", "M2", "M3", "M4", "M5", "M6"],
     "segments": {"tight": ["M1", "M2"], "leg": ["M3", "M4"], "foot": ["M5", "M6"]},
     "joints": ["hip", "knee", "ankle"]}
 
 
-path = '/home/mariano/Devel/masmarcha/test/testdata/VID_20180814_172232987.mp4'
+path = 'test/testdata/VID_20180814_172232987.mp4'
 
 def test_video():
     # Creación del objeto Video
-    vidobj = video.Video(path, config)
-    # El objeto cv2 de video.
-    vid = vidobj.vid
-    del(vidobj)
-    # Se comprueba que se haya cerrado el objeto de video cv2
+    vi = video.Video(config)
+    assert(vi.vid is None)
+    vi.open_video(path)
+    assert(isinstance(vi.vid, video.cv2.VideoCapture))
+
+    assert(isinstance(vi.get_fps(), float))
+    ret, pos0, frame0 = vi.read_frame()
+    assert(ret)
+    vi.set_position(200)
+    ret, pos1, frame1 = vi.read_frame()
+    assert(ret)
+    assert(pos0 != pos1)
+
+    n, cmarkers = vi.find_markers(frame1)
+    centers = vi.calculate_center_markers(cmarkers)
+
+    assert(isinstance(centers, np.ndarray))
+    assert(n == centers.shape[0])
+
+    vi.cfg.set('video', 'dilate', 'True')
+    n, cmarkers = vi.find_markers(frame1)
+
+    vi.calculate_distortion_params('test/testdata/MOTOG3-DAMERO.mp4',
+                                   'MTOG3-Mariano.npz')
+    vi.load_distortion_params()
+    assert(vi.calibration is True)
+    vi.open_video(path)
+    vi.set_position(100)
+    ret, pos2, frame2 = vi.read_frame()
+    assert(ret is True)
+
+    vid = vi.vid
+    del(vi)
     assert(vid.isOpened() is False)
 
-    # Comenzamos nuevamente con la creación del objeto y ahora probamos
-    # los métodos relacionados con preview
-    vidobj = video.Video(path, config)
-    # Se hace la lectura de un frame.
-    ret, pos, frame = vidobj.read_frame()
-    assert(ret)
-    n, contours = vidobj.find_markers(frame)
-    assert(n == 0)
 
-    # Se salta un segundo en el video.
-    vidobj.jump_foward()
-    ret, pos, frame = vidobj.read_frame()
-    assert(ret)
-    n, contours = vidobj.find_markers(frame)
-    assert(n != 0)
-
-    markers = vidobj.calculate_center_markers(contours)
-    assert(isinstance(markers, np.ndarray))
-
-    # Se prueba el metodo de visualizar el adelanto.
-    vidobj.preview(0.3)
-    del(vidobj)
-
-    # Ahora probamos todo el proceso completo de extracción de marcadores en
-    # el video.
-    vidobj = video.Video(path, config)
-    # Se calibra la cámara si hay archivo previo de calibración.
-    assert(vidobj.calibration is False)
-    vidobj.load_calibration_params()
-    assert(vidobj.calibration)
-
-    # Se buscan las caminatas dentro del video.
-    vidobj.find_walks()
+def test_explorer():
+    explorer= video.Explorer(path, schema, config)
+    explorer.preview(0.0)
+    explorer.find_walks()
 
     # se guarda una de las caminatas para el test.
-    walk = vidobj.walks[0]
+    walk = explorer.walks[0]
     session = config.get('paths', 'session')
     walkpath = os.path.join(session, '{}.pickle'.format(str(walk)))
     with open(walkpath, 'wb') as fh:
@@ -117,11 +117,10 @@ def test_walk():
     """Se prueba la funcionalidad de la clase walk"""
     def load():
         """Función para cargar los datos de caminata de disco."""
-        walk = video.Walk(*range(4))
+        walk = video.Walk(*range(5))
         walkpath = os.path.join(config.get('paths', 'session'), 'W0.pickle')
         with open(walkpath, 'rb') as fh:
             walkdata = pickle.load(fh)
-        for key in walkdata.keys():
             walk.__dict__.update(walkdata)
         return(walk)
     # Se inicializa el objeto caminata con datos arbitrarios, porque se van a
@@ -153,4 +152,5 @@ def test_walk():
     # Se almacenan el arreglo de marcadores que es el producto final de la
     # clase walk, y el fin de la exploración de video. Los cálculos de
     # cinemática suceden en su respectivo modulo, posteriormente
+    walk.display(0.1)
     walk.save_markers()
