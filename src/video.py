@@ -143,45 +143,6 @@ class Video(object):
             u"""Devuelve los centros de los contorno del marcador."""
             x, y, w, h = cv2.boundingRect(contour)
             return x + w/2, y + h/2
-<<<<<<< HEAD
-        list_of_contour_centers = [contour_center(c) for c in self.contours]
-        markers = np.array(list_of_contour_centers, dtype=np.uint8)[::-1]
-        self.markers = markers
-        return(markers)
-
-
-class Walk(object):
-
-    def __init__(self,):
-        pass
-
-
-### NO BORRAR ANTIGUO CODIGO ###
-
-@contextmanager
-def open_video(filepath):
-    video = cv2.VideoCapture(filepath)
-    yield video
-    video.release()
-    cv2.destroyAllWindows()
-
-
-def get_fps(filepath):
-    with open_video(filepath) as video:
-        return video.get(cv2.CAP_PROP_FPS)
-
-
-def calibrate_camera(source, dest, chessboard, rate):
-    w, h = chessboard
-    objp = np.zeros((w*h, 3), np.float32)
-    objp[:, :2] = np.mgrid[0:w, 0:h].T.reshape(-1,2)
-
-    objpoints = [] # 3d point in real world space
-    imgpoints = [] # 2d points in image plane.
-
-    with open_video(source) as video:
-        read, frame = video.read()
-=======
         list_of_contour_centers = [contour_center(c) for c in contours]
         return(np.array(list_of_contour_centers, dtype=np.int16)[::-1])
 
@@ -211,124 +172,12 @@ def calibrate_camera(source, dest, chessboard, rate):
 
         self.open_video(source)
         read, pos, frame = self.read_frame()
->>>>>>> video
         while read:
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             ret, corners = cv2.findChessboardCorners(gray, (w, h), None)
             if ret:
                 objpoints.append(objp)
                 imgpoints.append(corners)
-<<<<<<< HEAD
-            next = video.get(cv2.CAP_PROP_POS_FRAMES) + rate
-            video.set(cv2.CAP_PROP_POS_FRAMES, next)
-            read, frame = video.read()
-
-    fw, fh = gray.shape[:2]
-    __, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(
-        objpoints, imgpoints, gray.shape[::-1], None, None)
-    newcameramtx, __ = cv2.getOptimalNewCameraMatrix(
-        mtx, dist, (w,h), 0, (w,h))
-
-    np.savez(dest, mtx=mtx, dist=dist, rvecs=rvecs, tvecs=tvecs,
-             newcameramtx=newcameramtx, source=source,
-             chessboard=chessboard, rate=rate)
-
-
-def find_contours(frame, threshold=250.0, dilate=False):
-    u"""Encuentra dentro del cuadro los contornos de los marcadores.
-    """
-    # Se pasa el cuadro a canal de grises
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    # Se binariza la imagen gris, el umbral puede ser modificado por el usuario
-    binary = cv2.threshold(gray, threshold, 255., cv2.THRESH_BINARY)[1]
-    if dilate:
-        # Se puede aplicar la opción de dilatar la imagen si es necesario
-        # corregir las opciones de algunos brillos muy cercanos a los
-        # marcadores. Se establece un número máximo de iteraciones
-        # en la dilatacion.
-        binary = cv2.dilate(binary, np.ones((5, 5), np.uint8), iterations=3)
-    # se devuelven los contornos de los marcadores en la imagen binarizada.
-    return cv2.findContours(binary,
-                            cv2.RETR_EXTERNAL,
-                            cv2.CHAIN_APPROX_SIMPLE)[1]
-
-
-def contour_center(contour):
-    u"""Devuelve los centros de los contorno del marcador."""
-    x, y, w, h = cv2.boundingRect(contour)
-    return x + w/2, y + h/2
-
-
-def contour_centers_array(contours):
-    u"""Obtiene los centros de los contornos como un arreglo de numpy.
-    """
-    list_of_contour_centers = [contour_center(c) for c in contours]
-    # el arreglo se devuelve ordenado de menor a mayor en "y-es" porque así es
-    # como se genera la lectura del cuadro en opencv. Cada fila del arreglo
-    # contien el centro (x, y) del contorno detectado.
-    return np.array(list_of_contour_centers, dtype=int)[::-1]
-
-
-def get_distance_scale(markers, realdistance):
-    u"""Devuelve el factor de conversión entre pixeles y metros."""
-    legdistance = np.linalg.norm(markers[:, 3] - markers[:, 4], axis=1).mean()
-    return(realdistance / legdistance)
-
-
-def find_walks(filepath, schema, calb=None):
-    u"""Encuentra las caminatas dentro de un video."""
-    # Se establecen parámetros para el control del flujo de datos.
-    index_frame, back_frames, first_wframe, walking = 0, 0, 0, False
-    N = sum(schema['schema'])
-    markers_contours = []
-    # Se comienza con la búsqueda de caminatas. Cada caminata se concibe
-    # como un conjunto de cuadros consecutivos, en los que el primer y
-    # último cuadro presentan el esquema completo de marcadores.
-    with open_video(filepath) as video:
-        ret, frame = video.read()
-        while ret:
-            if calb:
-                frame = cv2.undistort(frame, calb['mtx'], calb['dist'],
-                                      None, calb['newcameramtx'])
-            contours = find_contours(frame)
-            n = len(contours)
-            # Si el número de marcadores es cero, es porque todavia
-            # no comenzó la caminata o acaba de terminar.
-            if n == 0:
-                # Si se encuentra dentro de la caminata, entonces un
-                # índice cero señala el fin de la misma.
-                if walking:
-                    # se retroceden los últimos cuadros en los que no se
-                    # obtuvo el esquema completo de marcadores.
-                    walk_between = (first_wframe, index_frame - back_frames)
-                    yield (walk_between, markers_contours[:-back_frames])
-                    # Ya no hay marcadores en la escena y esta parte del
-                    # código no se volverá a ejecutar hasta que comience
-                    # una nueva caminata.
-                    markers_contours.clear()
-                    walking = False
-            else:
-                # Si el número de marcadores es se corresponde con el
-                # esquema completo y además, es la primera vez que sucede,
-                # entonces comienza la caminata de esquema completo.
-                if n == N:
-                    if not walking:
-                        first_wframe = index_frame
-                        walking = True
-                    # De otra manera la caminata se encuentra en curso y se
-                    # tiene la posibilidad de que este cuadro sea el último
-                    # de esquema completo
-                    else:
-                        back_frames = 0
-                # Si no es el número esperado de marcadores entonces puede
-                # suceder que los marcadores aún no consigan el número esperado
-                # para iniciar la caminata, que estando inciada, se pierdan
-                # marcadores en la lectura (ej. ocultamiento) o que la caminata
-                # esté llegando a su fin.
-                # En este último caso se debe recordar los últimos r cuadros
-                # para volver al índice de cuadro donde fueron hallados el
-                # número correcto de marcadores.
-=======
             self.set_position(pos + rate)
             read, pos, frame = self.read_frame()
         self.vid.release()
@@ -391,7 +240,6 @@ class Explorer(Video):
                     walk = self.new_walk(pos)
                     walk.add_framedata((fullschema, contours))
                     walking = True
->>>>>>> video
                 else:
                     self.jump_foward()
             else:

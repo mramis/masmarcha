@@ -23,6 +23,15 @@ import logging
 import numpy as np
 
 
+def soften(arr, loops=10):
+    for i in range(loops):
+        pos = 1
+        for pre, post in zip(arr[0:-2], arr[2:]):
+            arr[pos] = np.mean((pre, post))
+            pos += 1
+    return(arr)
+
+
 def gait_cycler(markers, schema, cyclers=("M5", "M6"), threshold=2.5,
                 safephase=10):
     u"""Busca si existen ciclos de apoyo y balanceo en la caminata.
@@ -61,6 +70,9 @@ def gait_cycler(markers, schema, cyclers=("M5", "M6"), threshold=2.5,
     # (-2) y ante pie (-1). El valor absoluto es porque solo estoy interesado
     # en cuando toma valor cero o distinto de cero.
     diff = np.abs(np.gradient(markers[:, ix, :], axis=0).mean(axis=2))
+    soften(diff.transpose()[0])
+    soften(diff.transpose()[1])
+
     mov = np.logical_and(*(diff >= threshold).transpose())
 
     st = []  # stance
