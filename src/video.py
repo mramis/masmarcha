@@ -24,30 +24,35 @@ from collections import defaultdict
 from contextlib import contextmanager
 import json
 from time import sleep
+import logging
 
 import cv2
 import numpy as np
-from scipy.interpolate import InterpolatedUnivariateSpline as spline
+
+video_logger = logging.getLogger('masmarcha.video')
+ch = logging.StreamHandler()
+ch.setLevel(logging.INFO)
+video_logger.addHandler(ch)
 
 
 class Video(object):
 
     def __init__(self, config):
-        self.cfg = config
-        self.vid = None
         self.calibration = False
+        self.cfg = config
+        self.logger = logging.getLogger('masmarcha.video.Video')
+        self.vid = None
 
     def __del__(self):
-        if self.vid:
+        if self.vid is not None and self.vid.isOpened():
             self.vid.release()
-        cv2.destroyAllWindows()
 
     def open_video(self, source):
         u"""Abre el archivo de video."""
         self.source = source
         self.vid = cv2.VideoCapture(source)
 
-    def get_fps(self):
+    def get_fps(self, correction=True):
         u"""Devuelve el número de cuadros por segundos.
 
         Esta función utiliza un valor de corrección "fpscorrection"que, por
@@ -57,8 +62,11 @@ class Video(object):
         :return: cuadros por segundo.
         :rtype: int
         """
-        correction = self.cfg.getfloat('video', 'fpscorrection')
-        return self.vid.get(cv2.CAP_PROP_FPS) * correction
+        if correction:
+            correction = self.cfg.getfloat('video', 'fpscorrection')
+            return self.vid.get(cv2.CAP_PROP_FPS) * correction
+        else:
+            return self.vid.get(cv2.CAP_PROP_FPS)
 
     def read_frame(self):
         u"""Lectura de cuadro de video.
@@ -79,8 +87,13 @@ class Video(object):
 
     def load_distortion_params(self):
         u"""Carga los datos de calibración de la cámara."""
-        calibrationpath = self.cfg.get('paths', 'currentcamera')
-        if os.path.isfile(calibrationpath):
+        if self.cfg.getboolean('video', 'calibrate'):
+            calibrationpath = self.cfg.get('paths', 'currentcamera')
+            if not os.path.isfile(calibrationpath):
+                self.logger.warning(u"""
+                    Calibración cancelada. No se encuentra:
+                    {}""".format(calibrationpath))
+                return
             calibration_setup = dict(np.load(calibrationpath).items())
             self.mtx = calibration_setup['mtx']
             self.dist = calibration_setup['dist']
@@ -178,7 +191,7 @@ class Video(object):
         dirpath = self.cfg.get('paths', 'calibration')
         destpath = os.path.join(dirpath, cameraname)
         np.savez(destpath, mtx=mtx, dist=dist, newcameramtx=newcameramtx)
-
+        self.logger.info(u'Parámetros de distorsión calculados con éxito.')
 
 class Explorer(Video):
 
@@ -186,7 +199,9 @@ class Explorer(Video):
         super(Explorer, self).__init__(config)
         self.sch = schema
         self.walks = []
+        self.logger = logging.getLogger('masmarcha.video.Explorer')
         self.open_video(filename)
+        self.load_distortion_params()
 
     def jump_foward(self):
         u"""Se produce un salto en el cuadro de video actual.
@@ -195,7 +210,7 @@ class Explorer(Video):
         Video.get_fps.
         """
         currpos = self.vid.get(cv2.CAP_PROP_POS_FRAMES)
-        self.set_position(currpos + self.get_fps())
+        self.set_position(currpos + self.get_fps(correction=False))
 
     def new_walk(self, startpos):
         u"""El método inicia una nueva caminata.
@@ -207,6 +222,7 @@ class Explorer(Video):
         """
         walk = Walk(len(self.walks), startpos, self.source, self.sch, self.cfg)
         self.walks.append(walk)
+        self.logger.info(u'Nueva caminata: %s' % str(walk))
         return walk
 
     def find_walks(self):
@@ -231,6 +247,7 @@ class Explorer(Video):
                 if n == 0:
                     walk.stop_walking(pos)
                     walking = False
+        self.logger.info(u'Fin de la exploración')
 
     def preview(self, delay, pos=0):
         u"""Se muestran los objetos detectados en el video.
@@ -268,6 +285,7 @@ class Walk(Video):
     def __init__(self, id, startpos, source, schema, config):
         super(Walk, self).__init__(config)
         self.id = id
+        self.logger = logging.getLogger('masmarcha.video.Walk')
         self.sch = schema
         self.source = source
         self.startpos = startpos
@@ -369,8 +387,8 @@ class Walk(Video):
         ncols = self.fullmarkersframerois.shape[1]
         self.uregions = np.empty((len(self.umindex), ncols), dtype=np.int16)
         for i in range(ncols):
-            self.uregions[:, i] = spline(self.fullmarkersix,
-                self.fullmarkersframerois[:, i])(self.umindex)
+            self.uregions[:, i] = np.interp(self.umindex, self.fullmarkersix,
+                self.fullmarkersframerois[:, i])
 
     def fill_umarkers(self):
         u"""Identifica la posición de marcadores de esquema incompleto.
@@ -428,16 +446,8 @@ class Walk(Video):
                 xp = list(XP.difference(findexs))
                 xfp = self.markers[xp, row, 0]
                 yfp = self.markers[xp, row, 1]
-                self.markers[findexs, row, 0] = spline(xp, xfp)(findexs)
-                self.markers[findexs, row, 1] = spline(xp, yfp)(findexs)
-
-    def get_markers(self):
-        self.classify_markers()
-        self.interp_uncompleted_regions()
-        self.fill_umarkers()
-        self.sort_foot_markers()
-        self.interp_markers_positions()
-        return self.markers
+                self.markers[findexs, row, 0] = np.interp(findexs, xp, xfp)
+                self.markers[findexs, row, 1] = np.interp(findexs, xp, yfp)
 
     def save_markers(self):
         u"""Se escribe en disco el arreglo de marcadores."""
@@ -445,6 +455,7 @@ class Walk(Video):
         walkpath = os.path.join(sessionpath, '{}.npy'.format(str(self)))
         with open(walkpath, 'wb') as fh:
             np.save(fh, self.markers)
+        self.logger.info(u'Se escriben marcadores en disco: %s' % str(self))
 
     def display(self, delay):
         u"""Se muestran los objetos detectados en el video.
@@ -452,9 +463,11 @@ class Walk(Video):
         :param delay: valor de retraso de imagen en segundos.
         :type delay: float
         """
+        self.load_distortion_params()
+
         width = self.cfg.getint('video', 'framewidth')
         height = self.cfg.getint('video', 'frameheight')
-        windowname = 'Preview: {}'.format(self.source)
+        windowname = '{}: {}'.format(str(self), self.source)
 
         cv2.namedWindow(windowname, cv2.WINDOW_NORMAL)
         cv2.resizeWindow(windowname, width, height)
@@ -486,3 +499,11 @@ class Walk(Video):
                 break
             sleep(delay)
         cv2.destroyAllWindows()
+
+    def get_markers(self):
+        self.classify_markers()
+        self.interp_uncompleted_regions()
+        self.fill_umarkers()
+        self.sort_foot_markers()
+        self.interp_markers_positions()
+        return self.markers

@@ -23,6 +23,7 @@ import sys
 import pickle
 from configparser import ConfigParser
 from io import StringIO
+import logging
 
 import numpy as np
 
@@ -35,6 +36,7 @@ string_config = """
 calibration = test/testdata
 currentcamera = test/testdata/MTOG3-Mariano.npz
 session = test/testdata
+logging = test/testdata/masmarcha.log
 
 [video]
 thresh = 250.0
@@ -43,24 +45,21 @@ roiextrapixel = 35
 fpscorrection = 4
 framewidth = 640
 frameheight = 480
+calibrate = True
+calibframerate = 10
 chessboardwidth = 8
 chessboardheight = 4
-calibframerate = 10
 """
-
-config = ConfigParser()
-config.read_file(StringIO(string_config))
-
-
+path = 'test/testdata/VID_20180814_172232987.mp4'
 schema = {
     "n": 7,
     "markersxroi": {0: [0, 1], 1: [2, 3], 2: [4, 5, 6]},
     "markerlabels": ["M0", "M1", "M2", "M3", "M4", "M5", "M6"],
     "segments": {"tight": ["M1", "M2"], "leg": ["M3", "M4"], "foot": ["M5", "M6"]},
     "joints": ["hip", "knee", "ankle"]}
+config = ConfigParser()
+config.read_file(StringIO(string_config))
 
-
-path = 'test/testdata/VID_20180814_172232987.mp4'
 
 def test_video():
     # Creación del objeto Video
@@ -88,8 +87,9 @@ def test_video():
 
     vi.calculate_distortion_params('test/testdata/MOTOG3-DAMERO.mp4',
                                    'MTOG3-Mariano.npz')
+
     vi.load_distortion_params()
-    assert(vi.calibration is True)
+
     vi.open_video(path)
     vi.set_position(100)
     ret, pos2, frame2 = vi.read_frame()
@@ -106,28 +106,13 @@ def test_explorer():
     explorer.find_walks()
 
     # se guarda una de las caminatas para el test.
+    global walk
     walk = explorer.walks[0]
-    session = config.get('paths', 'session')
-    walkpath = os.path.join(session, '{}.pickle'.format(str(walk)))
-    with open(walkpath, 'wb') as fh:
-        pickle.dump(walk.__dict__, fh, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 def test_walk():
     """Se prueba la funcionalidad de la clase walk"""
-    def load():
-        """Función para cargar los datos de caminata de disco."""
-        walk = video.Walk(*range(5))
-        walkpath = os.path.join(config.get('paths', 'session'), 'W0.pickle')
-        with open(walkpath, 'rb') as fh:
-            walkdata = pickle.load(fh)
-            walk.__dict__.update(walkdata)
-        return(walk)
-    # Se inicializa el objeto caminata con datos arbitrarios, porque se van a
-    # cargar desde disco los valores verdaderos resultado de la exploración de
-    # video.
-    walk = load()
-    assert(walk.source == path)
+    global walk
     # Se clasifican los marcadores en esquema completo o incompleto.
     walk.classify_markers()
     # En los cuadros en los que los marcadores no presentan esquema completo
@@ -141,16 +126,8 @@ def test_walk():
     walk.sort_foot_markers()
     # Se interpolan los datos de marcadores famtantes por región.
     walk.interp_markers_positions()
-    M0 = walk.markers
-    # Finalmente este proceso de arreglar los marcadores se puede resumir en
-    # uno:
-    del(walk)
-    walk = load()
-    M1 = walk.get_markers()
-    element = np.random.randint(0, M0.size)
-    assert(M0.flatten()[element] == M1.flatten()[element])
     # Se almacenan el arreglo de marcadores que es el producto final de la
     # clase walk, y el fin de la exploración de video. Los cálculos de
     # cinemática suceden en su respectivo modulo, posteriormente
-    walk.display(0.1)
+    walk.display(0.3)
     walk.save_markers()
