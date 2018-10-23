@@ -63,7 +63,7 @@ def gait_cycler(markers, schema, cyclers=("M5", "M6"), threshold=2.5,
     # duplica el índice para que la función np.mean que se toma después de
     # aplicar la función np.gradient no lanze una excepción por el kwarg
     # "axis".
-    ix = [k for k, m in enumerate(schema['codes']) if m in cyclers]
+    ix = [k for k, m in enumerate(schema['markerlabels']) if m in cyclers]
     if len(ix) == 1:
         ix += ix
     # La media de la derivada de posicion en x e y de los marcadores de retro
@@ -115,7 +115,7 @@ def get_direction(markers, schema):
     """
     # Se utilizan los marcadores de pie para obtener la dirección de avance
     foot = schema['segments']['foot']
-    ix = [k for k, m in enumerate(schema['codes']) if m in foot]
+    ix = [k for k, m in enumerate(schema['markerlabels']) if m in foot]
     # El vector que representa al segmento del pié es la diferencia del
     # marcador del antepié con la del retropié.
     xrfoot, xffoot = markers[:, ix, 0].transpose()
@@ -233,7 +233,7 @@ def calculate_angles(markers, direction, schema):
     # Si bien se toma todo el arreglo de marcadores de la caminata, solo se
     # produce el cálculo de ángulos con los cuadros que pertenecen a un ciclo.
     dmarkers = {}
-    for i, m in enumerate(schema['codes']):
+    for i, m in enumerate(schema['markerlabels']):
         # dmarkers[m] = markers[istrike: fstrike, i, :]
         dmarkers[m] = markers[:, i, :]
 
