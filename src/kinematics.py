@@ -356,3 +356,24 @@ def calculate_spatiotemporal(cycle, markers, fps, pixel_scale):
                      stride,
                      120 / duration,
                      stride / duration))
+
+
+def calculate_pixelscale(markers, legdistance):
+    div = np.linalg.norm(markers[:, 3] - markers[:, 4], axis=1).mean()
+    return(legdistance / div)
+
+
+def calculate(walks, schema, threshold, fps, legdistance):
+    u"""Generador de datos de marcha."""
+    for e, w in enumerate(walks):
+        markers = w.get_markers()
+        # NOTE: COMPLETAR LOS ARGUMENTOS DE GAITCYCLER!
+        __, __, cycles = gait_cycler(markers, schema, threshold=threshold)
+        direction = get_direction(markers, schema)
+        for c, (i, j, k) in enumerate(cycles):
+            codename = '{}C{}'.format(w, c)
+            scale = calculate_pixelscale(markers, legdistance[direction])
+            stp = calculate_spatiotemporal((i, j, k), markers[i:k], fps, scale)
+            ang = calculate_angles(markers[i:k], direction, schema)
+            ang = resize_angles_sample(ang, 101)
+            yield (codename, direction, stp, ang)

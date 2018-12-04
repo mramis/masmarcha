@@ -1,0 +1,112 @@
+#:kivy 1.9.1
+
+# Copyright (C) 2017  Mariano Ramis
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+#:import StringProperty kivy.properties.StringProperty
+
+<MainFrame>:
+    # Nombre del archivo fuente
+    cols:1
+    sourcefile: None
+    config: app.config
+    Label:
+        id: sourcefile
+        variable: StringProperty(None)
+    # Sección de ingreso de datos.
+    GridLayout:
+        cols: 2
+        # Consola de control: 1ra sección.
+        # Boton para buscar el archivo de video.
+        GridLayout:
+            cols: 1
+            Button:
+                text: 'Nuevo'
+                on_release: root.show_load()
+            Button:
+                text: 'Visualizar'
+                on_release: root.video_preview()
+            Button:
+                text: 'Explorar'
+                on_release: root.video_explorer()
+        # Sessión y configuración.
+        GridLayout:
+            cols: 1
+            Label:
+                text: 'CONFIG TABPANNED'
+    # Presentación de resultados.
+    Outcomes:
+        id: outcomes
+    # Consola de control: 2da sección.
+    # Boton de generar graficos.
+    GridLayout:
+        cols:2
+        FloatLayout:
+        Button:
+            text: 'Graficar'
+            on_release: root.ids['outcomes'].plot(root.sourcefile, root.sac)
+
+
+<LoadDialog>:
+    BoxLayout:
+        size: root.size
+        pos: root.pos
+        orientation: "vertical"
+        FileChooserListView:
+            id: filechooser
+            rootpath: root.source
+        BoxLayout:
+            size_hint_y: None
+            height: 50
+            Button:
+                text: "Seleccionar"
+                on_release: root.load(filechooser.path, filechooser.selection)
+
+
+<Outcomes>:
+    cols: 2
+    GridLayout:
+        cols:1
+        Label:
+            text: 'Cyclos Izquierdos'
+        ScrollView:
+            size_hint: 1, None
+            GridLayout:
+                id: leftside
+                cols: 1
+                size_hint_y: None
+                height: self.minimum_height
+                row_default_height: 30
+    GridLayout:
+        cols:1
+        Label:
+            text: 'Cyclos Derechos'
+        ScrollView:
+            size_hint: 1, None
+            GridLayout:
+                id: rightside
+                cols: 1
+                size_hint_y: None
+                height: self.minimum_height
+                row_default_height: 30
+
+
+<Cycle>:
+    cols: 2
+    CheckBox:
+        id: check
+        active: True
+    Label:
+        id: label

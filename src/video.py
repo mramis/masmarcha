@@ -342,7 +342,7 @@ class Walk(Video):
             bounds = self.sch['markersxroi'][r]
             roimin = np.min(markers[bounds[0]: bounds[-1]+1], axis=0) - extra
             roimax = np.max(markers[bounds[0]: bounds[-1]+1], axis=0) + extra
-            regions[r] = np.array((roimin, roimax))
+            regions[int(r)] = np.array((roimin, roimax))
         return regions.flatten()
 
     def classify_markers(self):
@@ -408,7 +408,7 @@ class Walk(Video):
                 if sum(region_markers) == len(mks):
                     self.markers[ii, mks[0]:mks[-1]+1] = umk[region_markers]
                 else:
-                    self.lostregions[r].append(ii)
+                    self.lostregions[int(r)].append(ii)
 
     def sort_foot_markers(self):
         u"""ordena los marcadores de pie.
@@ -442,7 +442,7 @@ class Walk(Video):
         """
         XP = set(np.arange(self.markers.shape[0]))
         for r, findexs in self.lostregions.items():
-            for row in self.sch['markersxroi'][r]:
+            for row in self.sch['markersxroi'][str(r)]:
                 xp = list(XP.difference(findexs))
                 xfp = self.markers[xp, row, 0]
                 yfp = self.markers[xp, row, 1]
