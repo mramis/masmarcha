@@ -6,8 +6,4 @@
 *.png
 *.mp4
 *.npz
-<<<<<<< HEAD
-=======
-*.npy
-*.pickle
->>>>>>> video
+*.ini
