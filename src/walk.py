@@ -27,6 +27,7 @@ schema = {
 "r": 3,
 "markersxroi": ((0, 1), (2, 3), (4, 5, 6))}
 
+
 class Walk(object):
     maxsize = 300
 
@@ -66,6 +67,13 @@ class Walk(object):
         imks = np.arange(self.sch['n']) * 2 + sum(self._cols[:2]) + 1
         return imks[r0,], imks[r1,], imks[r2,]
 
+    @property
+    def imarkers(self):
+        array = []
+        for x, y in zip(self.ixmarkers, self.iymarkers):
+            array.append(np.vstack((x, y)).transpose().flatten())
+        return array
+
     @property  # NUEVO
     def ixregion(self):
         r0 = np.arange(2) * 2 + sum(self._cols[:3])
@@ -80,24 +88,13 @@ class Walk(object):
         r2 = np.arange(2) * 2 + sum(self._cols[:3]) + 9
         return r0, r1, r2
 
+    @property
+    def iincompleted(self):  # nuevo
+        return np.arange(self.sch['r']) + sum(self._cols[:4])
+
     @property  # NUEVO
     def arrincompleted(self):
-        return self._array[:, np.arange(self.sch['r']) + sum(self._cols[:4])]
-
-    # @property
-    # def markers(self):
-    #     if self._array is not None:
-    #         return self._array[:, 2: 16].reshape(self.length, 7, 2) # HARDCORE
-    #
-    # @property
-    # def regions(self):
-    #     if self._array is not None:
-    #         return self._array[:, 16: 28].reshape(self.length, 3, 2, 2) #HARDCORE
-    #
-    # @property
-    # def value_state(self):
-    #     if self._array is not None:
-    #         return self._array[:, 28:].reshape(self.length, 3)
+        return self._array[:, self.iincompleted]
 
     def append_centers(self, pos, fullschema, centers):  # NUEVO
         u"""Agrega información del cuadro de video."""
@@ -105,7 +102,9 @@ class Walk(object):
             data = np.hstack((pos, fullschema, centers.flatten()))
             self._array[self._currow, np.arange(sum(self._cols[:3]))] = data
         else:
+            data = (pos, fullschema)
             self._incompleted.append(centers)
+            self._array[self._currow, np.arange(sum(self._cols[:2]))] = data
         self._currow += 1
 
     def append_stop(self):  # NUEVO
@@ -134,33 +133,31 @@ class Walk(object):
         for r in np.hstack(regions):
             self._array[inco, r] = np.interp(inco, comp, self._array[comp, r])
 
+    def recover_incompleted(self):  # NUEVO
+        incompleted = []
+        axis = self.arrnrows[np.logical_not(self.arrcompleted)]
+        for pos, centers in zip(axis, self._incompleted):
+            xm = centers[:, 0]
+            ym = centers[:, 1]
+            for r, (ix, iy) in enumerate(zip(self.ixregion, self.iyregion)):
+                x0, x1 = self._array[pos, ix]
+                x = np.logical_and(xm > x0, xm < x1)
+                y0, y1 = self._array[pos, iy]
+                y = np.logical_and(ym > y0, ym < y1)
+                substitution = centers[np.logical_and(x, y)]
+                if len(substitution) == len(self.sch['markersxroi'][r]):
+                    self._array[pos, self.imarkers[r]] = substitution.flatten()
+                    incompleted.append(0)
+                else:
+                    incompleted.append(1)
+            self._array[pos, self.iincompleted] = incompleted
+            incompleted.clear()
 
-### CONTINUAR ACA
-    def detect_incompleted(self, index, markers):
-        u"""Detecta los marcadores incompletos que pertenecen a cada región."""
-        rois = self._array[index, np.arange(*self._index['roi'])]
-        incr = int(rois.size / len(self.sch['markersxroi']))
-        X, Y = np.arange(0, markers.size, 2), np.arange(1, markers.size, 2)
-        new_markers = np.zeros(self.sch['n']*2, dtype=np.int16)
 
-        for r, ends in sorted(self.sch['markersxroi'].items()):
-            a, b = int(r) * incr, (int(r) + 1) * incr
-            xmin, ymin, xmax, ymax = rois[np.arange(a, b)]
-            xbool = np.logical_and(markers[X] > xmin, markers[X] < xmax)
-            ybool = np.logical_and(markers[Y] > ymin, markers[Y] < ymax)
-            markersbool = np.logical_and(xbool, ybool)
-            if np.count_nonzero(markersbool) == len(ends):
-                ix = np.array(ends) * 2
-                iy = np.array(ends) * 2 + 1
-                new_markers[ix] = markers[X[markersbool]]
-                new_markers[iy] = markers[Y[markersbool]]
-            else:
-                self._array[index, self._index['inr'][0] + int(r)] = 1
-        return new_markers
-
+#### DESDE ACA...
     def sort_foot(self):
         u"""ordena los marcadores de pie."""
-        indexes = np.array(self.sch['markersxroi']['2'])
+        indexes = np.array(self.sch['markersxroi'][2])
         # El 2 es por las dos primeras columnas del arreglo
         x = 2 + indexes * 2
         y = 2 + indexes * 2 + 1
@@ -184,192 +181,11 @@ class Walk(object):
         for r, ix in enumerate(ordered_indexes):
             self._array[r, indexes.flatten()] = self._array[r, ix]
 
-    def recovery(self):
-        self.intp_regions()
-        mkscolumns = np.arange(*self._index['mks'])
-        for i, inco_markers in self._inco:
-            self._array[i, mkscolumns] = self.detect_unfulled(i, inco_markers)
-        self.sort_foot()
-
-    def intp_markers(self):
-        comp = self._array[self._full, self._index['inx'][0]]
-        for r, group in self.sch['markersxroi'].items():
-            inco = self._array[np.bool8(self.value_state.transpose()[int(r)]), 0]
-            ix = 2 + np.array(group) * 2
-            iy = 2 + np.array(group) * 2 + 1
-            for m in np.hstack((ix, iy)):
-                self._array[inco, m] = np.interp(inco, comp, self._array[comp, m])
-
-    def get_markers(self):
-        self.classify()
-        self.recovery()
-        self.intp_markers()
-        return self.markers
-
-##############################################################################
-from configparser import ConfigParser
-import unittest
-
-stringcf = """
-[walk]
-roiwidth = 10
-roiheigth = 10
-"""
-
-config = ConfigParser()
-config.read_string(stringcf)
-
-schema = {
-"n": 7,
-"markersxroi": {'0':(0, 1), '1': (2, 3), '2': (4, 5, 6)}
-}
-
-class WalkTest(unittest.TestCase):
-
-    def test_adddata(self):
-        walk = Walk(0, config, schema)
-        arr = np.ndarray(14)
-        walk.append_centers(True, arr)
-        assert(walk.data[0][1] is arr)
-
-    def test_stop(self):
-        walk = Walk(0, config, schema)
-        arr = np.ndarray(14)
-        for i in range(10):
-            walk.append_centers(True, arr)
-        for i in range(5):
-            walk.append_centers(False, arr)
-        walk.stop_walking(15)
-        self.assertEqual(walk.lastpos, 10, 'message')
-
-    def test_classify(self):
-        walk = Walk(0, config, schema)
-        arrt = np.arange(14)
-        arrf = np.arange(16)
-        walk.append_centers(True, arrt)
-        walk.append_centers(False, arrf)
-        walk.classify()
-        assert(walk._array.shape[0] == 2)
-        assert(walk._inco[0][1] is arrf)
-
-    def test_calcrois(self):
-        walk = Walk(0, config, schema)
-        markers = np.arange(14)
-        result = walk.calc_regions(markers)
-        expected = np.array([-10, -9, 12, 13, -6, -5, 16, 17, -2, -1, 22, 23])
-        assert(np.all(result == expected))
-
-    def test_intprois(self):
-        walk = Walk(0, config, schema)
-        arr0 = np.arange(14)
-        arr1 = np.arange(14)
-        arr2 = np.arange(16)
-        arr3 = np.arange(14)
-        walk.append_centers(True, arr0)
-        walk.append_centers(True, arr1)
-        walk.append_centers(False, arr2)
-        walk.append_centers(True, arr3)
-        walk.classify()
-        walk.intp_regions()
-        result = walk._array[2, np.arange(*walk._index['roi'])]
-        expected = np.array([-10, -9, 12, 13, -6, -5, 16, 17, -2, -1, 22, 23])
-        assert(np.all(result == expected))
-
-    def test_detectun(self):
-        walk = Walk(0, config, schema)
-        arr0 = np.array((
-            (1059, 1743),
-            (1071, 1770),
-            (1085, 1830),
-            (1081, 1850),
-            (1062, 1940),
-            (1061, 1955),
-            (1091, 1955)))
-        walk.append_centers(True, arr0.flatten())
-        walk.classify()
-        arr4 = arr0[4:].flatten()
-        walk.detect_unfulled(0, arr4.flatten())
-
-    def test_sortfoot(self):
-        walk = Walk(0, config, schema)
-        arr0 = np.array((
-            (0, 0),
-            (0, 0),
-            (0, 0),
-            (0, 0),
-            (0, 0),
-            (17, 60),
-            (135, 60)))
-        arr1 = np.array((
-            (0, 0),
-            (0, 0),
-            (0, 0),
-            (0, 0),
-            (-6, 25),
-            (141, 35),
-            (30, 75)))
-        walk.append_centers(True, arr0.flatten())
-        walk.append_centers(True, arr1.flatten())
-        walk.append_centers(True, arr0.flatten())
-        walk.classify()
-        walk.sort_foot()
-        arr1 = np.array((
-            (0, 0),
-            (0, 0),
-            (0, 0),
-            (0, 0),
-            (-6, 25),
-            (30, 75),
-            (141, 35)))
-        assert(np.all(walk._array[1, np.arange(2, 16)] == arr1.flatten()))
-
-    def test_recovery(self):
-        walk = Walk(0, config, schema)
-        arr0 = np.array((
-            (1059, 1743),
-            (1071, 1770),
-            (1085, 1830),
-            (1081, 1850),
-            (1062, 1940),
-            (1061, 1955),
-            (1091, 1955)))
-        arr1 = arr0[4:].flatten()
-        arr2 = arr0 + np.array((5, 0))
-        walk.append_centers(True, arr0.flatten())
-        walk.append_centers(False, arr1.flatten())
-        walk.append_centers(True, arr2.flatten())
-        walk.classify()
-        walk.recovery()
-
-    def test_intpmks(self):
-        walk = Walk(0, config, schema)
-        arr0 = np.array((
-            (0, 0),
-            (0, 0),
-            (0, 0),
-            (0, 0),
-            (0, 0),
-            (17, 60),
-            (135, 60)))
-        arr1 = np.array((
-            (0, 0),
-            (0, 0),
-            (0, 0),
-            (0, 0),
-            (-6, 25),
-            (141, 35),
-            (30, 75)))
-        walk.append_centers(True, arr0.flatten())
-        walk.append_centers(False, arr0.flatten())
-        walk.append_centers(True, arr1.flatten())
-        walk.classify()
-        walk.recovery()
-        walk.intp_markers()
-
-        mks = walk._array[:, np.arange(10, 16)]
-        for i in range(3):
-            x, y = mks[i].reshape(3, 2).T
-            plt.plot(x, -y)
-        plt.show()
-if __name__ == '__main__':
-    unittest.main()
+#### HASTA ACA
+    def interpolate_markers(self):  # NUEVO
+        comp = self.arrnrows[np.bool8(self.arrcompleted)]
+        for r, (mx, my) in enumerate(zip(self.ixmarkers, self.iymarkers)):
+            inco = self.arrnrows[np.bool8(self.arrincompleted[:, r])]
+            for m in np.hstack((mx, my)):
+                interp = np.interp(inco, comp, self._array[comp, m])
+                self._array[inco, m] = interp
