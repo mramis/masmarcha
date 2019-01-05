@@ -39,12 +39,6 @@ from video import Explorer
 import kinematics
 import representation2 as repr
 
-# TODO:
-# [] Mejorar la declaración del esquema que se carga en tres funciones de un
-# mismo objeto.
-# [] Revisar el código de video y kinematics para hacer más prolijo el codigo
-# acá.
-
 
 class MasMarchaApp(App):
 
@@ -67,6 +61,7 @@ class LoadDialog(FloatLayout):
 
 class MainFrame(GridLayout):
 
+    
     def __init__(self):
         super().__init__()
         self.schema = load(open(self.config.get('paths', 'schema')))
