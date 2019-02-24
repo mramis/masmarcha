@@ -25,41 +25,11 @@ from kivy.app import App
 
 sys.path.insert(0, 'src')
 
-import masmarchaapp
-
-string_config = """
-[paths]
-config = test/masmarchaconfig
-sourcedir =
-
-[explorer]
-dilate = 0
-threshold = 240
-extrapixel = 35
-roimethod = Banda
-
-[display]
-framewidth = 640
-frameheight = 480
-
-[camera]
-fpscorrection = 0
-
-[cycles]
-threshold = 0.8
-cyclemarker1 = M5
-cyclemarker2 = M6
-
-[plots]
-aspect1 = 0.65
-aspect2 = 0.3
-dpi = 80
-"""
-
-config = ConfigParser()
-config.read_string(string_config)
+# import masmarchaapp
+import benchuix
 
 
 def test_main():
-    app = masmarchaapp.MasMarchaApp('test/masmarchaconfig')
+    # app = masmarchaapp.MasMarchaApp()
+    app = benchuix.BenchApp()
     app.run()

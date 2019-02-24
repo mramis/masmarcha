@@ -19,6 +19,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+import threading
 from time import sleep
 
 import numpy as np
@@ -29,7 +30,7 @@ class Video(object):
 
     def __init__(self, config):
         self.cap = None
-        self.cfg = config
+        self.config = config
         self._dilate = config.getboolean('explorer', 'dilate')
         self._threshold = config.getfloat('explorer', 'threshold')
 
@@ -71,7 +72,7 @@ class Video(object):
 
     def get_fps(self):
         u"""Devuelve el número de cuadros por segundos."""
-        correction = self.cfg.getfloat('camera', 'fpscorrection')
+        correction = self.config.getfloat('camera', 'fpscorrection')
         return self.fps * correction
 
     def read_frame(self):
@@ -81,8 +82,8 @@ class Video(object):
         return ret, pos, frame
 
     def new_window(self, name, extra=''):
-        width = self.cfg.getint('display', 'framewidth')
-        height = self.cfg.getint('display', 'frameheight')
+        width = self.config.getint('video', 'framewidth')
+        height = self.config.getint('video', 'frameheight')
         windowname = 'View%s: %s' % (extra, name)
         cv2.namedWindow(windowname, cv2.WINDOW_NORMAL)
         cv2.resizeWindow(windowname, width, height)
@@ -95,12 +96,16 @@ class Video(object):
 
     def draw_markers(self, frame, markers, colors=False):
         u"""Dibuja sobre el cuadro la posición de los marcadores."""
+        copy = markers.copy()
+        copy.resize((self.config.getint('schema', 'n'), 2))
         if colors is False:
             colors = ((0,0,255) for __ in range(markers.shape[0]))
         else:
-            variation = np.linspace(255, 0, markers.shape[0])
-            colors = ((x, 127, 255) for x in variation)
-        for m, c in zip(markers, colors):
+            markersxroi = self.config.get('schema','markersxroi').split('/')
+            combination = [len(m.split(',')) for m in markersxroi]
+            variation = ((0, 0, 255), (0, 255, 0), (255, 0, 0))
+            colors = [variation[i] for com in combination for i in range(com)]
+        for m, c in zip(copy, colors):
             cv2.circle(frame, tuple(m), 10, c, -1)
 
     def draw_regions(self, frame, regions, condition):
@@ -139,24 +144,25 @@ class Video(object):
 
 class Explorer(object):
 
-    def __init__(self, schema, config):
-        self.cfg = config
-        self.sch = schema
+    def __init__(self, config):
+        self.config = config
         self.walks = []
+        self.source = None
 
     def open_file(self, filename):
+        self.walks.clear()
         self.source = filename
-        self.video = Video(self.cfg)
-        self.video.open(filename)
+        self.video = Video(self.config)
+        __, __, self.nframes = self.video.open(filename)
 
     def new_walk(self):
         u"""El método inicia una nueva caminata."""
-        walk = Walk(len(self.walks), self.cfg, self.sch)
+        walk = Walk(len(self.walks), self.config)
         self.walks.append(walk)
         print('New walk', str(walk))
         return walk
 
-    def find_walks(self):
+    def find_walks(self, pqueue=None):
         u"""Encuentra las caminatas dentro de un video."""
         walking = False
         while True:
@@ -165,7 +171,7 @@ class Explorer(object):
                 break
             n, conts = self.video.contours(frame)
             centers = self.video.centers(conts)
-            fullschema = (n == self.sch['n'])
+            fullschema = (n == self.config.getint('schema', 'n'))
             if not walking:
                 if fullschema:
                     walk = self.new_walk()
@@ -176,6 +182,12 @@ class Explorer(object):
                 if n == 0:
                     walk.append_stop()
                     walking = False
+                    if pqueue:
+                        pqueue.put(pos)
+                        sleep(0.00001)
+        if pqueue:
+            pqueue.put(pos)
+            pqueue.put(-1)
 
     def preview(self, delay):
         self.video.view("preview", delay)
@@ -185,19 +197,20 @@ class Explorer(object):
 
 
 class Walk(object):
-    maxsize = 500
+    maxsize = 2500
 
-    def __init__(self, wid, config, schema):
-        self.wid = wid
-        self.cfg = config
-        self.sch = schema
-        self._cols = (1, 1, schema['n']*2, schema['r']*4, schema['r'])
+    def __init__(self, id, config):
+        self.id = id
+        self.config = config
+        mplaces = config.getint('schema', 'n')
+        rplaces = config.getint('schema', 'r')
+        self._cols = (1, 1, mplaces*2, rplaces*4, rplaces)
         self._array = np.zeros((self.maxsize, sum(self._cols)), dtype=np.int16)
         self._currow = 0
         self._incompleted = []
 
     def __repr__(self):
-        return 'W{0}'.format(self.wid)
+        return 'W{0}'.format(self.id)
 
     @property
     def arrnrows(self):
@@ -205,22 +218,33 @@ class Walk(object):
 
     @property
     def info(self):
-        return (self.wid, self._array[0, 0], self._array[-1, 0])
+        return (self.id, self._array[0, 0], self._array[-1, 0])
 
     @property
     def arrcompleted(self):
         return self._array[:, 1]
 
     @property
+    def markersxroi(self):
+        out = []
+        stringtuple = self.config.get('schema', 'markersxroi')
+        for tup in stringtuple.split('/'):
+            stringvector = tup.split(',')
+            out.append([int(x) for x in stringvector])
+        return(out)
+
+    @property
     def ixmarkers(self):
-        r0, r1, r2 = self.sch['markersxroi']
-        imks = np.arange(self.sch['n']) * 2 + sum(self._cols[:2])
+        r0, r1, r2 = self.markersxroi
+        nmarkers = self.config.getint('schema', 'n')
+        imks = np.arange(nmarkers) * 2 + sum(self._cols[:2])
         return imks[r0,], imks[r1,], imks[r2,]
 
     @property
     def iymarkers(self):
-        r0, r1, r2 = self.sch['markersxroi']
-        imks = np.arange(self.sch['n']) * 2 + sum(self._cols[:2]) + 1
+        r0, r1, r2 = self.markersxroi
+        nmarkers = self.config.getint('schema', 'n')
+        imks = np.arange(nmarkers) * 2 + sum(self._cols[:2]) + 1
         return imks[r0,], imks[r1,], imks[r2,]
 
     @property
@@ -248,7 +272,7 @@ class Walk(object):
 
     @property
     def iincompleted(self):
-        return np.arange(self.sch['r']) + sum(self._cols[:4])
+        return np.arange(self.config.getint('schema','r')) + sum(self._cols[:4])
 
     @property
     def arrincompleted(self):
@@ -262,8 +286,7 @@ class Walk(object):
     @property
     def markers(self):
         cols = np.arange(self._cols[2]) + sum(self._cols[:2])
-        markers = self._array[:, cols]
-        return markers.reshape(self._array.shape[0], self.sch['n'], 2)
+        return self._array[:, cols]
 
     def append_centers(self, pos, fullschema, centers):
         u"""Agrega información del cuadro de video."""
@@ -283,8 +306,8 @@ class Walk(object):
 
     def calculate_regions(self):
         u"""Encuentra las regiones de interes del esquema de marcadores."""
-        xextra = self.cfg.getint('walk', 'roiwidth')
-        yextra = self.cfg.getint('walk', 'roiheigth')
+        xextra = self.config.getint('walk', 'roiwidth')
+        yextra = self.config.getint('walk', 'roiheight')
         for x, rx in zip(self.ixmarkers, self.ixregion):
             _min = np.min(self._array[:, x], 1) - xextra
             _max = np.max(self._array[:, x], 1) + xextra
@@ -314,7 +337,7 @@ class Walk(object):
                 y0, y1 = self._array[pos, iy]
                 y = np.logical_and(ym > y0, ym < y1)
                 substitution = centers[np.logical_and(x, y)]
-                if len(substitution) == len(self.sch['markersxroi'][r]):
+                if len(substitution) == len(self.markersxroi[r]):
                     self._array[pos, self.imarkers[r]] = substitution.flatten()
                     incompleted.append(0)
                 else:
@@ -324,7 +347,7 @@ class Walk(object):
 
     def sort_foot(self):
         u"""ordena los marcadores de pie."""
-        indexes = np.array(self.sch['markersxroi'][2])
+        indexes = np.array(self.markersxroi[2])
         # El 2 es por las dos primeras columnas del arreglo
         x = 2 + indexes * 2
         y = 2 + indexes * 2 + 1

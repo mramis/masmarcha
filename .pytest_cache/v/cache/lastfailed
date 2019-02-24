@@ -1,4 +1,5 @@
 {
   "test/test_repr.py": true,
+  "test/test_uix.py::test_main": true,
   "test/test_video.py::test_markers": true
 }

@@ -26,162 +26,257 @@ formato de archivo de dibujo.
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+import os
+
+import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-import numpy as np
 
 
-# TODO: Tabla para ROM
+class Curves(object):
 
-def plot_spatiotemporal(name, params, norm, std):
-    fig = plt.gcf()
-    fig.set_figwidth(15)
+    def __init__(self, config):
+        self.subplotparams = {'top':.85, 'wspace':.5}
+        self.config = config
+        self.figure = None
+        self._color = None
+        self.title = ""
+        self.ndata = 0
+        self.axes = []
 
-    spatiotemporal = plt.gca()
-    spatiotemporal.set_axis_off()
+    @property
+    def color(self):
+        if self._color:
+            return self._color
+        return plt.cm.Spectral(np.linspace(0, 1, self.ndata))
 
-    lines = []
+    @color.setter
+    def color(self, value):
+        self._color = value
 
-    # Primer separador vertical.
-    lines.append(Line2D((.11, .11), (0.05, 0.85), transform=fig.transFigure,
-        figure=fig, color='k'))
+    def new_figure(self, title):
+        dpi = self.config.getint('plots', 'dpi')
+        width = self.config.getint('plots', 'chartwidth')
+        height = self.config.getint('plots', 'chartheight')
+        fontsize = self.config.getint('plots', 'titlesize')
+        self.figure = plt.figure(dpi=dpi, figsize=(width, height))
+        self.figure.suptitle(title, fontsize=fontsize)
+        return self.figure
 
-    # El resto de los separadores verticales.
-    x_separator, xstep = np.linspace(.45, 0.85, 4, retstep=True)
-    for p in x_separator:
-        lines.append(Line2D((p, p), (0.05, 0.85), transform=fig.transFigure,
-            figure=fig, color='k'))
+    def add_axes(self, name, pos):
+        sharey = None if not self.axes else self.axes[0]
+        self.axes.append(self.figure.add_subplot(*pos, sharey=sharey))
+        self.axes[-1].set_title(name)
+        return self.axes[-1]
 
-    # Separadores horizontales.
-    y_separator, ystep = np.linspace(0.05, 0.85, 8, retstep=True)
-    for p in y_separator:
-        lines.append(Line2D((0.11, 0.85), (p, p), transform=fig.transFigure,
-            figure=fig, color='k'))
+    def add_normal(self, name, pos):
+        refpath = self.config.get('paths', 'normal_%s' % name)
+        with open(refpath) as fh:
+            mean, dev = np.loadtxt(fh, delimiter=',')
+        std = dev * self.config.getint('plots', 'standardeviation')
+        x = np.arange(mean.size)
+        self.axes[pos].fill_between(x, mean - std, mean + std, color='k',
+            alpha=0.15)
+        self.axes[pos].plot(mean, color='k')
 
-    x_wordpoints = np.linspace(.5, 0.85, 3)
-    y_wordpoints = np.linspace(-0.05, 0.85, 7)[::-1]
-
-
-    # Columnas
-    col_names = ['Izquierdo', 'Derecho', 'Normal']
-    col_colours = ['r', 'b', 'k']
-    for e, word in enumerate(col_names):
-        spatiotemporal.text(x=x_wordpoints[e], y=y_wordpoints[0], s=word,
-            horizontalalignment='center',
-            fontdict={'size':22, 'color':col_colours[e]})
-
-    # Filas
-    row_names = [
-        'Duración de ciclo [seg]',
-        'Fase de apoyo [%]',
-        'Fase de Balanceo [%]',
-        'Longitud de zancada [m]',
-        'Cadencia [pasos/minuto]',
-        'Velocidad media [m/seg]']
-
-    for e, word in enumerate(row_names):
-        spatiotemporal.text(x=0, y=y_wordpoints[e+1], s=word,
-            fontdict={'size':23})
-
-    # Valores
-    sac = ['${}\pm{}$'.format(n, s) for n, s in zip(norm.round(), std.round())]
-    left = np.asarray(params['left']).mean(0).round(2)
-    right = np.asarray(params['right']).mean(0).round(2)
-    data = np.stack((left, right, sac)).transpose()
-
-    for i in range(len(row_names)):
-        for j in range(len(col_names)):
-            spatiotemporal.text(x=x_wordpoints[j], y=y_wordpoints[i+1],
-                s=data[i, j], horizontalalignment='center',
-                fontdict={'size':20, 'color':col_colours[j], })
-
-    fig.lines.extend(lines)
-    fig.suptitle('Parámetros espaciotemporales', fontsize=28)
-    plt.savefig('%s-stp.png' % name)
-    plt.close()
+    def save(self, destpath):
+        self.figure.subplots_adjust(**self.subplotparams)
+        self.figure.savefig(os.path.join(destpath, self.title))
+        plt.close(self.figure)
 
 
-def plot_angles(name, angles, legends, side):
+class AnglePlot(Curves):
 
-    lat = {'left': 'Izquierdo', 'right': 'Derecho'}
-    colors = plt.cm.Spectral(np.linspace(0, 1, len(legends[side])))
-    fig, (hip, knee, ankle) = plt.subplots(ncols=3, sharey=True)
+    def __init__(self, title, **kwargs):
+        super().__init__(kwargs['config'])
+        self.count = 0
+        self.title = title
+        self.joints = []
+        self.legends = []
 
-    hip.set_prop_cycle(plt.cycler('color', colors))
-    hip.plot(np.asarray(angles[side]['hip']).transpose())
-    for v in angles[side]['phase']:
-        hip.axvline(v, c='k', ls='--', lw=0.6, alpha=0.4)
-    hip.axhline(0, c='k', ls='--')
+    def add_joint(self, name, direction, legends, curves, vlines):
+        leftside = np.arange(direction.size)[direction == 0]
+        rightside = np.arange(direction.size)[direction == 1]
+        if not np.any(leftside) and not np.any(rightside):
+            return
+        self.joints.append({'name':name})
+        self.joints[self.count]['sides'] = []
+        if np.any(leftside):
+            self.joints[self.count]['sides'].append('leftside')
+            self.joints[self.count]['leftside'] = {}
+            self.joints[self.count]['leftside']['curves'] = curves[leftside]
+            self.joints[self.count]['leftside']['vlines'] = vlines[leftside]
+        if np.any(rightside):
+            self.joints[self.count]['sides'].append('rightside')
+            self.joints[self.count]['rightside'] = {}
+            self.joints[self.count]['rightside']['curves'] = curves[rightside]
+            self.joints[self.count]['rightside']['vlines'] = vlines[rightside]
+        self.legends = legends
+        self.ndata, __ = curves.shape
+        self.count += 1
 
-    knee.set_prop_cycle(plt.cycler('color', colors))
-    knee.plot(np.asarray(angles[side]['knee']).transpose())
-    for v in angles[side]['phase']:
-        knee.axvline(v, c='k', ls='--', lw=0.6, alpha=0.4)
-    knee.axhline(0, c='k', ls='--')
+    def summary(self, pos):
+        for side in self.joints[pos]['sides']:
+            curves = self.joints[pos][side]['curves']
+            self.joints[pos][side]['curves'] = np.mean(curves, axis=0)
+            vlines = self.joints[pos][side]['vlines']
+            self.joints[pos][side]['vlines'] = (np.mean(vlines, axis=0),)
+            self.legends = ('leftside', 'rightside')
 
-    ankle.set_prop_cycle(plt.cycler('color', colors))
-    ankle.plot(np.asarray(angles[side]['ankle']).transpose())
-    for v in angles[side]['phase']:
-        ankle.axvline(v, c='k', ls='--', lw=0.6, alpha=0.4)
-    ankle.axhline(0, c='k', ls='--')
-
-    plt.legend(loc=(1, 0.1), labels=legends[side])
-    fig.suptitle('Cinemática %s N=%d' % (lat[side], len(legends[side])),
-                 fontsize=22)
-    fig.set_figwidth(15)
-    plt.savefig('%s-Cinemática-%s.png' % (name, lat[side]))
-    plt.close()
-
-
-def plot_angles_summary(name, jointname, angles, norm, std, normet, dev=2):
-    title = {'hip': 'Cadera', 'knee': 'Rodilla', 'ankle': 'Tobillo'}
-    lim = {'hip': (-35, 45), 'knee': (-25, 85), 'ankle': (-45, 35)}
-
-    fig = plt.figure()
-    joint = plt.gca()
-
-    # SAC
-    nhip, nknee, nankle = norm
-    ship, sknee, sankle = std
-    norm = {'hip': nhip, 'knee': nknee, 'ankle': nankle}
-    std = {'hip': ship, 'knee': sknee, 'ankle': sankle}
-
-    joint.fill_between(np.arange(norm[jointname].size),
-                       norm[jointname] - std[jointname]*dev,
-                       norm[jointname] + std[jointname]*dev,
-                       color='k', alpha=0.15)
-    joint.plot(norm[jointname], color='k')
-
-    # Valores
-    joint.plot(np.asarray(angles['left'][jointname]).mean(0),
-               c='r', label='Izquierdo')
-    joint.plot(np.asarray(angles['right'][jointname]).mean(0),
-               c='b', label='Derecho')
-    joint.axvline(np.mean(angles['left']['phase'][1].mean()),
-                  c='r', ls='--', lw=0.8, alpha=0.8)
-    joint.axvline(np.mean(angles['right']['phase'][1].mean()),
-                  c='b', ls='--', lw=0.8, alpha=0.8)
-
-    joint.axvline(normet[1], c='k', alpha=0.2)
-    joint.axhline(0, c='k', ls='--')
-    joint.set_ylim(*lim[jointname])
-
-    plt.legend()
-    fig.set_figwidth(8)
-    fig.suptitle(title[jointname], fontsize=22)
-    plt.savefig('%s-%s.png' % (name, title[jointname]))
-    plt.close()
+    def plot(self, summary=False, putlegends=False):
+        if self.joints == []:
+            return
+        figure = self.new_figure(self.title)
+        lines = []
+        for j, joint in enumerate(self.joints):
+            ax = self.add_axes(joint['name'], (1, self.count, j+1))
+            if summary:
+                self.summary(j)
+                self.add_normal(joint['name'], j)
+                self.color = ('r', 'b')
+            ax.set_prop_cycle(plt.cycler('color', self.color))
+            vlinecolor = 0
+            for side in self.joints[j]['sides']:
+                lines += ax.plot(self.joints[j][side]['curves'].transpose())
+                ax.axhline(0, c='k', ls='--')
+                ax.set_xlabel('Ciclo [%]')
+                ax.set_ylabel('Grados [°]')
+                for line in self.joints[j][side]['vlines']:
+                    color = self.color[vlinecolor]
+                    ax.axvline(line, c=color, ls='--', lw=0.7, alpha=0.5)
+                    vlinecolor += 1
+        if putlegends:
+            nlegends = len(self.legends)
+            figure.legend(lines[:nlegends], self.legends, loc='right')
+            self.subplotparams['right'] = .85
 
 
-def plot(source, stp, angles, legends, norm, std, normet, stdet):
-    # Parametros espaciotemporales.
-    plot_spatiotemporal(source, stp, normet, stdet)
+class Table(object):
+    box = {'top':0.85, 'bottom':0.05, 'left':0.03, 'right':0.97}
 
-    # Curvas de angulos.
-    plot_angles(source, angles, legends, 'left')
-    plot_angles(source, angles, legends, 'right')
+    def __init__(self, config, title):
+        self.index = None
+        self.title = title
+        self.config = config
+        self.nrows = 0
+        self.ncols = 0
+        self.colors = []
+        self.subtitles = []
+        self.subtables = []
 
-    # Curvas de resumen.
-    plot_angles_summary(source, 'hip', angles, norm, std, normet)
-    plot_angles_summary(source, 'knee', angles, norm, std, normet)
-    plot_angles_summary(source, 'ankle', angles, norm, std, normet)
+    def add_normal(self, config_name, header="", formater=""):
+        path = self.config.get('paths', config_name)
+        with open(path) as fh:
+            norm = np.loadtxt(fh, delimiter=',').round(1)
+        cols = ['${}{}{}$'.format(u, formater, v) for u, v in norm.transpose()]
+        self.add_subtable(header, np.array(cols).reshape(len(cols), 1), ['k',])
+        self.normalflag = True
+
+    def add_index(self, index):
+        self.nrows = len(index)
+        self.index = np.zeros((1 + self.nrows, 1), dtype='U32')
+        self.index[1:, 0] = index
+
+    def add_subtable(self, header, values, colcolors, title=""):
+        self.ncols += len(header)
+        self.colors += colcolors
+        self.subtitles.append(title)
+        self.subtables.append(np.vstack((header, values)))
+
+    @property
+    def xpoints(self):
+        iwidth = self.config.getfloat('plots', 'cell_index_width')
+        nwidth = self.config.getfloat('plots', 'cell_normal_width')
+        rlindex = self.box['left'] + iwidth  # RightLineIndex
+        llnormal =  self.box['right'] - nwidth
+        xmiddle = np.linspace(rlindex, llnormal, self.ncols)
+        xlines = np.hstack((self.box['left'],  xmiddle, self.box['right']))
+        return xlines, xlines[:-1] + np.diff(xlines)*.5
+
+    @property
+    def ypoints(self):
+        ylines = np.linspace(self.box['bottom'], self.box['top'], self.nrows + 2)
+        return ylines, ylines[:-1] + np.diff(ylines)*.5
+
+
+    def build_grid(self, fig):
+        xlines, __ = self.xpoints
+        ylines, __ = self.ypoints
+        xbounds = xlines[np.newaxis, (0, -1)]
+        ybounds = ylines[np.newaxis, (0, -1)]
+        lines = []
+        for level in ylines:
+            l = Line2D(xbounds, (level, level), color='k',
+                       transform=fig.transFigure)
+            lines.append(l)
+        for level in xlines:
+            l = Line2D((level, level), ybounds, color='k',
+                       transform=fig.transFigure)
+            lines.append(l)
+        fig.lines.extend(lines)
+
+    def build_text(self, fig):
+        mastertable = np.hstack((self.index, np.hstack((self.subtables))))
+        textsize = np.zeros(mastertable.shape, dtype=np.int)
+        textsize[:, 0] = self.config.getint('plots', 'subtitlesize')
+        textsize[0, :] = self.config.getint('plots', 'subtitlesize')
+        textsize[1:, 1:] = self.config.getint('plots', 'textsize')
+
+        textcolor = np.zeros(mastertable.shape, dtype='U32')
+        textcolor[:, 0] = 'k'
+        for i, color in enumerate(self.colors):
+            textcolor[:, i+1] = color
+
+        __, xwords = self.xpoints
+        __, ywords = self.ypoints
+        for i, ycoord in enumerate(ywords[::-1]):
+            for j, xcoord in enumerate(xwords):
+                fig.text(xcoord, ycoord, mastertable[i, j],
+                         color=textcolor[i, j],
+                         fontdict={"fontsize":textsize[i,j]},
+                         verticalalignment='center',
+                         horizontalalignment='center')
+
+    def build(self, figure=None):
+        dpi = self.config.getint('plots', 'dpi')
+        width = self.config.getint('plots', 'tablewidth')
+        height = self.config.getint('plots', 'tableheight')
+        fontsize = self.config.getint('plots', 'titlesize')
+
+        if not figure:
+            self.figure = plt.figure(figsize=(width, height), dpi=dpi)
+            self.figure.suptitle(self.title, fontsize=fontsize)
+        else:
+            self.figure = figure
+
+        self.build_grid(self.figure)
+        self.build_text(self.figure)
+
+    def save(self, destpath):
+        self.figure.savefig(os.path.join(destpath, self.title))
+        plt.close(self.figure)
+
+
+class SpatioTemporal(Table):
+
+    def build(self, params):
+        index = ("Duración [s]", "F.Apoyo [%]", "F.Balanceo [%]",
+                 "L.Zancada [m]", "Cadencia [p/min]", "Velocidad [m/s]")
+        header = ("Izquierdo", "Derecho")
+        paramcolors = ['r', 'b']
+
+        self.add_index(index)
+        self.add_subtable(header, params, paramcolors)
+        self.add_normal('normal_stp', ('Normal [$norm \pm dev$]',), '\pm')
+        super().build()
+
+class ROM(Table):
+
+    def build(self, params):
+        index = ("Cadera", "Rodilla", "Tobillo")
+        header = ("Imin", "Imax", "Dmin", "Dmax")
+        paramcolors = ['r', 'r', 'b', 'b']
+        self.add_index(index)
+        self.add_subtable(header, params, paramcolors)
+        self.add_normal('normal_rom', ("Normal [Min < Max]",), "<")
+        super().build()
