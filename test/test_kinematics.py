@@ -34,31 +34,90 @@ import kinematics1
 cstring = """
 [schema]
 n = 7
+leg = 3,4
+foot = 5,6
+tight = 1,2
+
+order_joints = hip,knee,ankle
+order_segments = tight,leg,foot
 
 [kinematics]
 cyclemarker1 = M5
 cyclemarker2 = M6
 leftthreshold = .17
 rightthreshold = .23
+
+leftlength = 0.28
+rightlength = 0.28
+
+[camera]
+fps = 60
+fpscorrection = 1
 """
 
 config = ConfigParser()
 config.read_string(cstring)
-test_array = np.sin(np.linspace(-2*np.pi, 3*np.pi, 40))
+
+
+nsample = 100 #np.random.randint(50, 120)
+testarray = np.sin(np.linspace(-2*np.pi, 3*np.pi, nsample))
+mockarray = np.ndarray((nsample, 14))
+
+for col in range(14):
+    mockarray[:, col] = testarray + np.random.random()
 
 walk = mock.Mock()
-walk.markers = np.repeat(test_array, 14).reshape((40, 14))
+walk.markers = mockarray
 walk.dir = 0
 walk.id = 1
 
+#
+# def test_schema():
+#     schema = kinematics1.Schema(config)
+#     schema.get_marker(walk.markers, 0)
+#     schema.get_marker(np.array((walk.markers, walk.markers)), 6)
+#     schema.get_segment(walk.markers, 'leg')
+# #
+# def test_cycler():
+#     cyclemarkers = (10, 11), (12, 13)
+#     threshold = (.15, .17)
+#     cycler = kinematics1.Cycler(config)
+#     cycler.find_cycles(walk, cyclemarkers, threshold)
+#     cycler.stop()
+#
+# def test_kinematics():
+#     kine = kinematics1.Kinematics(config)
+#     kine.cycle_walks([walk, walk, walk, walk, walk ])
+#     kine.calculate_angles()
+#     kine.calculate_stp()
+#
+# def test_angles():
+#     nsample = np.random.randint(0, 50)
+#     segments = mockarray[:, :6]
+#     segments = np.repeat(segments, nsample).reshape((nsample,) + segments.shape)
+#     direction = np.random.randint(0, 2 , nsample)
+#
+#     anglesCalc = kinematics1.Angles()
+#     canonical = anglesCalc.canonicalX(direction)
+#     anglesCalc.calculate(segments, direction)
 
-def test_cycler():
-    cyclemarkers = (10, 11), (12, 13)
-    threshold = (.15, .17)
-    cycler = kinematics1.Cycler(config)
-    cycler.find_cycles(walk, cyclemarkers, threshold)
+def test_stp():
+    nsample = np.random.randint(0, 50)
+    markers = np.random.random((nsample, 100, 14))
+    direction = np.random.randint(0, 2 , nsample)
 
+    # cyclessv = np.random.random((nsample, 6))
+    # duration = np.random.random((nsample))
+    # stride = np.random.random((nsample))
 
-def test_kinematics():
-    kine = kinematics1.Kinematics(config)
-    kine.cycle_walks([walk, walk, walk, walk, walk ])
+    stp = kinematics1.SpatioTemporal(config)
+    realdistances = stp._legdistance(direction)
+    pxtom = stp._scale(markers, realdistances)
+    print(stp.stride(markers, pxtom))
+
+    # b = stp.temporal(60, cyclessv)
+    # c = stp.velocity(duration, stride)
+    # det = np.ndarray((nsample, 9))
+    # det[:, 1:6] = np.array(b).transpose()
+    # det[:, 6] = a
+    # det[:, 7:] = np.array(c).transpose()

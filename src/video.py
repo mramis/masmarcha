@@ -380,6 +380,16 @@ class Walk(object):
                 interp = np.interp(inco, comp, self._array[comp, m])
                 self._array[inco, m] = interp
 
+    @property
+    def direction(self):
+        sm = int(self.config.get('schema', 'foot').split(',')[0])
+        rf, ff = self.markers[:, (sm*2, (sm + 1) * 2)].transpose()
+        return int((ff - rf).mean(axis=0) > 0)
+
+    @property
+    def dir(self):
+        return self.direction
+
     def find_markers(self):
         self.calculate_regions()
         self.interpolate_regions()
