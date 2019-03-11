@@ -1,0 +1,131 @@
+#:kivy 1.9.1
+
+# Copyright (C) 2017  Mariano Ramis
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
+
+<UserSettings@GridLayout>:
+    rows: 2
+    Label:
+        size_hint: 1, 0.2
+        text: "CONFIGURACIÓN"
+    GridLayout:
+        cols: 3
+        size_hint: 1, 0.8
+        GridLayout:
+            cols: 1
+            spacing: 15
+            padding: 15, 0
+            row_force_default: True
+            row_default_height: 35
+            Label:
+                text: "Video"
+            Variable:
+                section: 'explorer'
+                variable: 'threshold'
+                spinner_text: app.config.get(self.section, self.variable)
+                variable_text: u"Umbral de blanco"
+                values: map(lambda x: str(x), range(200, 256, 5))
+            Variable:
+                section: 'explorer'
+                variable: 'dilate'
+                spinner_text: app.config.get(self.section, self.variable)
+                variable_text: u"Dilatación de marcadores"
+                values: ["True", "False"]
+            Variable:
+                section: 'video'
+                variable: 'delay'
+                spinner_text: app.config.get(self.section, self.variable)
+                variable_text: u"Demora en reproducción"
+                values: map(lambda x: str(round(x * .15, 1)), range(0, 11))
+            Variable:
+                section: 'camera'
+                variable: 'fpscorrection'
+                spinner_text: app.config.get(self.section, self.variable)
+                variable_text: u"Compensación en cuadros"
+                values: map(lambda x: str(x), range(1, 6))
+        GridLayout:
+            cols: 1
+            spacing: 15
+            padding: 15, 0
+            row_force_default: True
+            row_default_height: 35
+            Label:
+                text: "Caminata"
+            Variable:
+                section: 'walk'
+                variable: 'roiwidth'
+                spinner_text: app.config.get(self.section, self.variable)
+                variable_text: u"Ancho de la región"
+                values: map(lambda x: str(x), range(50, 325, 25))
+            Variable:
+                section: 'walk'
+                variable: 'roiheight'
+                spinner_text: app.config.get(self.section, self.variable)
+                variable_text: u"Alto de la región"
+                values: map(lambda x: str(x), range(10, 55, 5))
+        GridLayout:
+            cols: 1
+            spacing: 15
+            padding: 15, 0
+            row_force_default: True
+            row_default_height: 35
+            Label:
+                text: "Cinemática"
+            Variable:
+                section: 'kinematics'
+                variable: 'leftthreshold'
+                spinner_text: app.config.get(self.section, self.variable)
+                variable_text: u"Umbral de velocidad izquierdo"
+                values: map(lambda x: str(round(x * .15, 1)), range(5, 30, 5))
+            Variable:
+                section: 'kinematics'
+                variable: 'rightthreshold'
+                spinner_text: app.config.get(self.section, self.variable)
+                variable_text: u"Umbral de velocidad derecho"
+                values: map(lambda x: str(round(x * .15, 1)), range(5, 30, 5))
+            Variable:
+                section: 'kinematics'
+                variable: 'cyclemarker1'
+                spinner_text: app.config.get(self.section, self.variable)
+                variable_text: u"1° Marcador de ciclo"
+                values: ['M5', 'M6']
+            Variable:
+                section: 'kinematics'
+                variable: 'cyclemarker2'
+                spinner_text: app.config.get(self.section, self.variable)
+                variable_text: u"2° Marcador de ciclo"
+                values: ['M5', 'M6']
+
+
+<Variable@GridLayout>:
+    rows: 1
+    values: []
+    section: None
+    variable: None
+    spinner_text: ""
+    variable_text: ""
+    # row_force_default: True
+    # row_default_height: 45
+    Label:
+        text: root.variable_text
+        halign: 'left'
+        size_hint: 0.75, 1
+    Spinner:
+        text: root.spinner_text
+        values: root.values
+        size_hint: 0.25, 1
+        on_text: app.config.set(root.section, root.variable, self.text)

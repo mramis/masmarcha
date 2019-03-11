@@ -1,0 +1,137 @@
+#:kivy 1.9.1
+
+# Copyright (C) 2017  Mariano Ramis
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
+
+<LoadDialog>:
+    BoxLayout:
+        size: root.size
+        pos: root.pos
+        orientation: "vertical"
+        FileChooserListView:
+            id: filechooser
+            rootpath: root.source
+        BoxLayout:
+            size_hint_y: None
+            height: 50
+            Button:
+                text: "Seleccionar"
+                on_release: root.load(filechooser.path, filechooser.selection)
+
+
+<Control>:
+    rows: 2
+    Label:
+        text: "CONTROL"
+        size_hint: 1, 0.2
+    GridLayout:
+        rows: 8
+        size_hint: 1, 0.8
+        row_force_default: True
+        row_default_height: 35
+        Label:
+            text: "Video"
+            text_size: self.size
+        VidControl:
+            progressbar: root.ids.progress
+            walks: root.ids.walks
+        Label:
+            text: "Caminatas"
+            text_size: self.size
+        WalksControl:
+            id: walks
+        Label:
+            text: "Gráficas"
+            text_size: self.size
+        PlotsControl:
+            config: app.config
+            explorer: app.explorer
+            progressbar: root.ids.progress
+        Label:
+            text: "Progreso"
+            text_size: self.size
+        ProgressBar:
+            id: progress
+            row_force_default: True
+            row_default_height: 35
+
+
+<VidControl>:
+    cols: 4
+    spacing: 3
+    config: app.config
+    explorer: app.explorer
+    Button:
+        text: "Abrir"
+        on_press: root.show_load()
+        size_hint_x: 0.15
+    TextInput:
+        id: sourcefile
+        multiline: False
+        size_hint_x: 0.45
+        write_tab: False
+        on_text: root.load_video()
+    Button:
+        text: 'Visualizar'
+        on_release: root.preview()
+        size_hint_x: 0.15
+    Button:
+        text: "Procesar"
+        on_press: root.find_walks()
+        size_hint_x: 0.15
+
+
+<WalksControl>:
+    cols:3
+    spacing: 3
+    config: app.config
+    explorer: app.explorer
+    Spinner:
+        id: choice
+        default: "Seleccionar"
+        text: self.default
+        size_hint_x: 0.17
+        on_text: root.choice(self.text)
+    Button:
+        text: "Visualizar"
+        size_hint_x: 0.17
+        on_release: root.walkview()
+    FloatLayout:
+        size_hint_x: 0.5
+
+
+<PlotsControl>:
+    cols: 3
+    spacing: 3
+    explorer: app.explorer
+    kinematics: app.kinematics
+    pathmanager: app.pathmanager
+    Button:
+        text: "Graficar"
+        size_hint_x: 0.17
+        on_release: root.plot(True)
+    TextInput:
+        id: toremove
+        text: "Ejemplo: W0, W2C2, W3, ..."
+        multiline: False
+        size_hint_x: 0.66
+        on_focus: root.select()
+        on_text_validate: root.select()
+    Button:
+        text: "Eliminar"
+        on_release: root.remove()
+        size_hint_x: 0.17

@@ -32,20 +32,20 @@ from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.popup import Popup
 
 from video import Explorer
-from paths import Manager
+from paths import Path
+from kinematics1 import Kinematics
+from representation import SpatioTemporal, AnglePlot, ROM
 
-Window.size = (1280, 1024)
+
+Window.size = (1200, 800)
 
 class MasMarchaApp(App):
-
-    def __init__(self):
-        super().__init__()
-        self.explorer = Explorer(self.config)
-        self.pathmanager = Manager()
+    pathmanager = Path()
 
     def build_config(self, config):
         config.add_section('paths')
         config.set('paths', 'app', self.pathmanager.app)
+        config.set('paths', 'sourcedir', self.pathmanager.home)
         config.set('paths', 'normal_',
             os.path.join(config.get('paths', 'app'), 'normal'))
         config.set('paths', 'normal_stp',
@@ -79,11 +79,11 @@ class MasMarchaApp(App):
         config.add_section('kinematics')
         config.set('kinematics', 'stpsize', '6')
         config.set('kinematics', 'maxcycles', '50')
-        config.set('kinematics', 'llength', '0.28')
-        config.set('kinematics', 'rlength', '0.28')
+        config.set('kinematics', 'leftlength', '0.28')
+        config.set('kinematics', 'rightlength', '0.28')
         config.set('kinematics', 'anglessize', '100')
-        config.set('kinematics', 'lthreshold', '3.2')
-        config.set('kinematics', 'rthreshold', '3.2')
+        config.set('kinematics', 'leftthreshold', '3.2')
+        config.set('kinematics', 'rightthreshold', '3.2')
         config.set('kinematics', 'cyclemarker1', 'M5')
         config.set('kinematics', 'cyclemarker2', 'M6')
 
@@ -112,6 +112,8 @@ class MasMarchaApp(App):
 
     def build(self):
         u"""Construye la interfaz gráfica."""
+        self.explorer = Explorer(self.config)
+        self.kinematics = Kinematics(self.config)
         return MainFrame()
 
 
@@ -124,3 +126,169 @@ class Session(GridLayout):
     def session_data_collect(self):
         for i in self.ids.items():
             print(i)
+
+
+class Control(GridLayout):
+    pass
+
+
+class LoadDialog(FloatLayout):
+    load = ObjectProperty(None)
+    source = StringProperty(None)
+
+
+class VidControl(GridLayout):
+    sourcefile = None
+
+    def dismiss_popup(self):
+        self._popup.dismiss()
+
+    def show_load(self):
+        u"""Popup para buscar la ruta del video."""
+        sourcedir = self.config.get('paths', 'sourcedir')
+        self._content = LoadDialog(load=self.load, source=sourcedir)
+        self._popup = Popup(title='Seleccionar Video', content=self._content)
+        self._popup.open()
+
+    def load(self, path, filename):
+        u"""Establece la ruta del archivo fuente de video en el sistema."""
+        if not self._content.ids['filechooser'].selection:
+            return
+        self.ids.sourcefile.text = os.path.join(path, filename[0])
+        self.dismiss_popup()
+
+    def load_video(self):
+        value = self.ids.sourcefile.text
+        if os.path.isfile(value):
+            self.sourcefile = value
+            self.explorer.open_file(value)
+            self.progressbar.max = self.explorer.nframes
+
+    def progress(self, pqueue):
+        while True:
+            value = pqueue.get()
+            if value is -1:
+                break
+            self.progressbar.value = value
+            pqueue.task_done()
+            sleep(.00001)
+        self.process_walks()
+        self.walks.walks.clear()
+        self.walks.walks.update({str(w): w for w in self.explorer.walks})
+        self.progressbar.value = 0
+
+    def process_walks(self):
+        for walk in self.explorer.walks:
+            walk.find_markers()
+
+    def find_walks(self):
+        u"""Lanza el proceso de procesamiento del video."""
+        if self.sourcefile is None:
+            return
+        self.progressbar.value = 10
+        q = Queue()
+        t1 = Thread(target=self.explorer.find_walks, args=(q,), daemon=True)
+        t2 = Thread(target=self.progress, args=(q,), daemon=True)
+        t1.start()
+        t2.start()
+
+    def preview(self):
+        if self.sourcefile is None:
+            return
+        self.explorer.preview(self.config.getfloat('video', 'delay'))
+
+
+class WalksControl(GridLayout):
+    walks = DictProperty({})
+
+    def on_walks(self, instace, value):
+        self.current = None
+        self.ids.choice.text = self.ids.choice.default
+        self.ids.choice.values = sorted(self.walks.keys())
+
+    def choice(self, wid):
+        self.current = self.walks[wid]
+
+    def walkview(self):
+        if self.current is None:
+            return
+        delay = self.config.getfloat('video', 'delay')
+        self.explorer.walkview(self.current, delay)
+
+
+class PlotsControl(GridLayout):
+    cids = []
+
+    def get_params(self):
+        self.kinematics.start()
+        self.kinematics.cycle_walks(self.explorer.walks)
+        self.kinematics.build_segments()
+
+    def select(self):
+        self.cids = [s.strip() for s in self.ids.toremove.text.split(',')]
+
+    def remove(self):
+        self.kinematics.delete_cycles(self.cids)
+        self.plot()
+
+    def plot(self, getparams=False):
+        if not self.explorer.source:
+            return
+        import numpy as np # NOTE: quitar cuando se formalice la tabla rom
+        destpath = self.pathmanager.new(self.explorer.source)
+
+        if getparams:
+            self.get_params()
+        labels, direction, stp, hip, knee, ankle = self.kinematics.to_plot()
+        # Por ahora no se están aceptando en la tabla los datos de tiempos de fase
+        stp = stp[:, [1, 4, 5, 6, 7, 8]]
+
+        # parámetros espacio temporales
+        leftstp = stp[direction == 0].mean(axis=0).round(1)
+        rightstp = stp[direction == 1].mean(axis=0).round(1)
+        tablestp = SpatioTemporal(self.config, "Parámetros espacio-temporales")
+        tablestp.build(params=np.array((leftstp, rightstp)).transpose())
+        tablestp.save(destpath)
+        # cinemática ángulos
+        angles = AnglePlot('Cinematica', config=self.config)
+        angles.add_joint('cadera', direction, labels, hip, stp[:, 1])
+        angles.add_joint('rodilla', direction, labels, knee, stp[:, 1])
+        angles.add_joint('tobillo', direction, labels, ankle, stp[:, 1])
+        angles.plot(putlegends=True)
+        angles.save(destpath)
+
+        #cadera
+        h = AnglePlot('Cadera', config=self.config)
+        h.add_joint('hip', direction, labels, hip, stp[:, 1])
+        h.plot(summary=True)
+        h.save(destpath)
+
+        #rodilla
+        k = AnglePlot('Rodilla', config=self.config)
+        k.add_joint('knee', direction, labels, knee, stp[:, 1])
+        k.plot(summary=True)
+        k.save(destpath)
+
+        #tobillo
+        a = AnglePlot('Tobillo', config=self.config)
+        a.add_joint('ankle', direction, labels, ankle, stp[:, 1])
+        a.plot(summary=True)
+        a.save(destpath)
+
+        # ROM
+        maxlh, minlh = np.max(hip[direction==0].mean(axis=0)), np.min(hip[direction==0].mean(axis=0))
+        maxrh, minrh = np.max(hip[direction==1].mean(axis=0)), np.min(hip[direction==1].mean(axis=0))
+
+        maxlk, minlk = np.max(knee[direction==0].mean(axis=0)), np.min(knee[direction==0].mean(axis=0))
+        maxrk, minrk = np.max(knee[direction==1].mean(axis=0)), np.min(knee[direction==1].mean(axis=0))
+
+        maxla, minla = np.max(ankle[direction==0].mean(axis=0)), np.min(ankle[direction==0].mean(axis=0))
+        maxra, minra = np.max(ankle[direction==1].mean(axis=0)), np.min(ankle[direction==1].mean(axis=0))
+
+        rom = np.array((
+                        ((minlh.round(1), maxlh.round(1), minrh.round(1), maxrh.round(1)),
+                         (minlk.round(1), maxlk.round(1), minrk.round(1), maxrk.round(1)),
+                         (minla.round(1), maxla.round(1), minra.round(1), maxra.round(1)))))
+        romtable = ROM(self.config, "Rango de movimiento")
+        romtable.build(rom)
+        romtable.save(destpath)

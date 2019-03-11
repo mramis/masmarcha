@@ -19,7 +19,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-import sys
 import numpy as np
 
 
@@ -28,29 +27,34 @@ class Schema(object):
     def __init__(self, config):
         self.config = config
 
-    def get_marker(self, markersarray, position):
+    def getmarker(self, markersarray, position):
         if len(markersarray.shape) == 2:
             return markersarray[:, (position * 2, position * 2 + 1)]
         elif len(markersarray.shape) == 3:
             return markersarray[:, :, (position * 2, position * 2 + 1)]
 
-    def get_segment(self, markersarray, segment):
+    def getsegment(self, markersarray, segment):
         a, b = [int(s) for s in self.config.get('schema', segment).split(',')]
-        return (self.get_marker(markersarray, a) -
-                self.get_marker(markersarray, b))
+        return (self.getmarker(markersarray, a) -
+                self.getmarker(markersarray, b))
 
 
 class Cycler(object):
-    maxcycles = 50
+    maxcycles = 75
 
     def __init__(self, config):
         u"""."""
         self.config = config
         self.start()
 
-    def stop(self):
-        self.cyclessv = self.cyclessv[:self.counter]
-        self.cyclesmk = self.cyclesmk[:self.counter]
+    @property
+    def directionvec(self):
+        return self.cyclessv[:, 2]
+
+    def build_ids(self):
+        """Construye un arreglo con las id de los ciclos."""
+        id = 'W{wid}C{cid}'
+        return [id.format(cid=c, wid=w) for c, w in self.cyclessv[:, (0, 1)]]
 
     def cycler(self, footmotion):
         u"""."""
@@ -78,13 +82,16 @@ class Cycler(object):
                 (self.counter, walk.id, walk.dir, (c1, c2, c3)))
             self.cyclesmk[self.counter] = self.resize(walk.markers[c1:c3, :])
 
-    def soft(self, array, loops=10):
-        u"""."""
-        for i in range(loops):
-            pre = array[:-2, :]
-            pos = array[2:, :]
-            array[1:-1, :] = np.mean((pre, pos), axis=0)
-        return array
+    def remove(self, cycleids):
+        ids = self.build_ids()
+        index = []
+        for cid in cycleids:
+            if cid in ids:
+                index.append(ids.index(cid))
+        if index:
+            print('removed')
+            self.cyclessv = np.delete(self.cyclessv, index, axis=0)
+            self.cyclesmk = np.delete(self.cyclesmk, index, axis=0)
 
     def resize(self, sample):
         nrows, ncols = sample.shape
@@ -95,6 +102,14 @@ class Cycler(object):
             newsample[:, c] = np.interp(newdomain, xarange, values)
         return newsample
 
+    def soft(self, array, loops=10):
+        u"""."""
+        for i in range(loops):
+            pre = array[:-2, :]
+            pos = array[2:, :]
+            array[1:-1, :] = np.mean((pre, pos), axis=0)
+        return array
+
     def start(self):
         u"""."""
         nmarkers = self.config.getint('schema', 'n') * 2
@@ -102,17 +117,16 @@ class Cycler(object):
         self.cyclessv = np.ndarray((self.maxcycles, 6), dtype=np.int32)
         self.cyclesmk = np.ndarray((self.maxcycles, 100, nmarkers))
 
+    def stop(self):
+        self.cyclessv = self.cyclessv[:self.counter]
+        self.cyclesmk = self.cyclesmk[:self.counter]
+
 
 class Kinematics(object):
 
     def __init__(self, config):
         self.config = config
         self.start()
-
-    def start(self):
-        self.cycler = Cycler(self.config)
-        self.angles = Angles()
-        self.stp = SpatioTemporal(self.config)
 
     @property
     def cyclemarkers(self):
@@ -125,13 +139,6 @@ class Kinematics(object):
         lth = self.config.getfloat('kinematics', 'leftthreshold')
         rth = self.config.getfloat('kinematics', 'rightthreshold')
         return (lth, rth)
-
-    def cycle_walks(self, walks):
-        cyclemarkers = self.cyclemarkers
-        lrthreshold = self.footvelocitythreshold
-        for walk in walks:
-            self.cycler.find_cycles(walk, cyclemarkers, lrthreshold)
-        self.cycler.stop()
 
     def build_segments(self):
         # NOTE: MODIFICAR CON LA CLASE SCHEMA
@@ -159,6 +166,30 @@ class Kinematics(object):
         legmarkers = self.cycler.cyclesmk[:, :, 6:10]
         return self.stp.calculate(self.cycler.cyclessv, self.cycler.cyclesmk)
 
+    def cycle_walks(self, walks):
+        cyclemarkers = self.cyclemarkers
+        lrthreshold = self.footvelocitythreshold
+        for walk in walks:
+            self.cycler.find_cycles(walk, cyclemarkers, lrthreshold)
+        self.cycler.stop()
+
+    def delete_cycles(self, cycles, ret=False):
+        self.cycler.remove(cycles)
+        if ret:
+            return self.to_plot()
+
+    def start(self):
+        self.cycler = Cycler(self.config)
+        self.angles = Angles()
+        self.stp = SpatioTemporal(self.config)
+
+    def to_plot(self):
+        ids = np.array(self.cycler.build_ids())
+        stp = self.calculate_stp()
+        dir = self.cycler.directionvec
+        hip, knee, ankle = self.calculate_angles()
+        return (ids, dir, stp, hip, knee, ankle)
+
 
 class SpatioTemporal(object):
 
@@ -180,7 +211,7 @@ class SpatioTemporal(object):
         :rtype: numpy(1darray)
         """
         __, n, __ = markers.shape
-        leg = self.schema.get_segment(markers, 'leg')
+        leg = self.schema.getsegment(markers, 'leg')
         realdistance = np.repeat(legdistance, n).reshape((legdistance.size), n)
         pixeldistance = np.linalg.norm(leg, axis=-1)
         return (realdistance / pixeldistance).mean(axis=-1)
@@ -195,7 +226,7 @@ class SpatioTemporal(object):
 
     def stride(self, markers, scale):
         u"""Calcula la longitud de la zacada."""
-        m5 = self.schema.get_marker(markers, 5)
+        m5 = self.schema.getmarker(markers, 5)
         stridedistance = np.linalg.norm(m5[:, 0] - m5[:, -1], axis=1)
         return stridedistance * scale
 
@@ -224,8 +255,8 @@ class SpatioTemporal(object):
 
         fps = self.config.getint('camera', 'fps')
         correction = self.config.getint('camera', 'fpscorrection')
-
         stp[:, 1: 6] = np.array(self.temporal(fps*correction, cyclessv)).transpose()
+
         stp[:, 7:] = np.array(self.velocity(stp[:, 1], stp[:, 6])).transpose()
         return stp
 

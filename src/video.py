@@ -164,6 +164,7 @@ class Explorer(object):
 
     def find_walks(self, pqueue=None):
         u"""Encuentra las caminatas dentro de un video."""
+        self.walks.clear()
         walking = False
         while True:
             ret, pos, frame = self.video.read_frame()

@@ -92,7 +92,7 @@ class AnglePlot(Curves):
         self.count = 0
         self.title = title
         self.joints = []
-        self.legends = []
+        self.legends = {}
 
     def add_joint(self, name, direction, legends, curves, vlines):
         leftside = np.arange(direction.size)[direction == 0]
@@ -106,12 +106,13 @@ class AnglePlot(Curves):
             self.joints[self.count]['leftside'] = {}
             self.joints[self.count]['leftside']['curves'] = curves[leftside]
             self.joints[self.count]['leftside']['vlines'] = vlines[leftside]
+            self.legends['leftside'] = legends[leftside].tolist()
         if np.any(rightside):
             self.joints[self.count]['sides'].append('rightside')
             self.joints[self.count]['rightside'] = {}
             self.joints[self.count]['rightside']['curves'] = curves[rightside]
             self.joints[self.count]['rightside']['vlines'] = vlines[rightside]
-        self.legends = legends
+            self.legends['rightside'] = legends[rightside].tolist()
         self.ndata, __ = curves.shape
         self.count += 1
 
@@ -121,13 +122,12 @@ class AnglePlot(Curves):
             self.joints[pos][side]['curves'] = np.mean(curves, axis=0)
             vlines = self.joints[pos][side]['vlines']
             self.joints[pos][side]['vlines'] = (np.mean(vlines, axis=0),)
-            self.legends = ('leftside', 'rightside')
+            self.legends = {'leftside':['leftside',], 'rightside':['rightside',]}
 
     def plot(self, summary=False, putlegends=False):
         if self.joints == []:
             return
         figure = self.new_figure(self.title)
-        lines = []
         for j, joint in enumerate(self.joints):
             ax = self.add_axes(joint['name'], (1, self.count, j+1))
             if summary:
@@ -137,7 +137,8 @@ class AnglePlot(Curves):
             ax.set_prop_cycle(plt.cycler('color', self.color))
             vlinecolor = 0
             for side in self.joints[j]['sides']:
-                lines += ax.plot(self.joints[j][side]['curves'].transpose())
+                lines = ax.plot(self.joints[j][side]['curves'].transpose())
+                [l.set_label(s) for l, s in zip(lines, self.legends[side])]
                 ax.axhline(0, c='k', ls='--')
                 ax.set_xlabel('Ciclo [%]')
                 ax.set_ylabel('Grados [°]')
@@ -146,8 +147,7 @@ class AnglePlot(Curves):
                     ax.axvline(line, c=color, ls='--', lw=0.7, alpha=0.5)
                     vlinecolor += 1
         if putlegends:
-            nlegends = len(self.legends)
-            figure.legend(lines[:nlegends], self.legends, loc='right')
+            ax.legend(bbox_to_anchor=(1.05, 1))
             self.subplotparams['right'] = .85
 
 
@@ -269,6 +269,7 @@ class SpatioTemporal(Table):
         self.add_subtable(header, params, paramcolors)
         self.add_normal('normal_stp', ('Normal [$norm \pm dev$]',), '\pm')
         super().build()
+
 
 class ROM(Table):
 

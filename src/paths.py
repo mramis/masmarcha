@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 # coding: utf-8
 
-"""Docstring."""
-
-# Copyright (C) 2018  Mariano Ramis
+# Copyright (C) 2019  Mariano Ramis
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,18 +16,27 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+
 import os
-import sys
-from configparser import ConfigParser
-from kivy.app import App
-
-sys.path.insert(0, 'src')
-
-import masmarchaapp
-# import benchuix
+# import sys
 
 
-def test_main():
-    app = masmarchaapp.MasMarchaApp()
-    # app = benchuix.BenchApp()
-    app.run()
+class Path(object):
+    home = os.environ["HOME"]
+
+    def __init__(self):
+        self.app = os.path.join(self.home, "masmarcha")
+        self.sessions = os.path.join(self.app, 'sessions')
+        self.mkappdir()
+
+    def mkappdir(self):
+        if not os.path.isdir(self.app):
+            os.mkdir(self.app)
+        if not os.path.isdir(self.sessions):
+            os.mkdir(self.sessions)
+
+    def new(self, name):
+        destpath = os.path.join(self.app, 'sessions', os.path.basename(name))
+        if not os.path.isdir(destpath):
+            os.mkdir(destpath)
+        return destpath
