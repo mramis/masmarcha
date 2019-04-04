@@ -29,14 +29,18 @@ formato de archivo de dibujo.
 import os
 
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
+
 from matplotlib.lines import Line2D
+
+matplotlib.use("Agg")
 
 
 class Curves(object):
 
     def __init__(self, config):
-        self.subplotparams = {'top':.85, 'wspace':.5}
+        self.subplotparams = {'top': .85, 'wspace': .5}
         self.config = config
         self.figure = None
         self._color = None

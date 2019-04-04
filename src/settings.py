@@ -16,17 +16,24 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
 import os
-# import sys
+
+HOME_DIR = os.getenv("HOME", os.getenv("USERPROFILE", None))
+if HOME_DIR is None:
+    raise Exception(u"No se encontró $HOME or $USERPROFILE en $PATH")
+
+APP_DIR = os.path.join(HOME_DIR, "masmarcha")
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+NORMAL_DIR = os.path.join(ROOT_DIR, "normal")
 
 
-class Path(object):
-    home = os.environ["HOME"]
+class PathManager(object):
 
     def __init__(self):
-        self.app = os.path.join(self.home, "masmarcha")
-        self.sessions = os.path.join(self.app, 'sessions')
+        self.app = APP_DIR
+        self.home = HOME_DIR
+        self.normal = NORMAL_DIR
+        self.sessions = os.path.join(APP_DIR, "sessions")
         self.mkappdir()
 
     def mkappdir(self):
@@ -36,7 +43,7 @@ class Path(object):
             os.mkdir(self.sessions)
 
     def new(self, name):
-        destpath = os.path.join(self.app, 'sessions', os.path.basename(name))
+        destpath = os.path.join(self.sessions, os.path.basename(name))
         if not os.path.isdir(destpath):
             os.mkdir(destpath)
         return destpath

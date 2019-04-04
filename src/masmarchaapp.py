@@ -21,7 +21,7 @@
 import os
 from time import sleep
 from queue import Queue
-from threading import Thread, Event
+from threading import Thread
 
 from kivy.app import App
 from kivy.properties import ObjectProperty, StringProperty, DictProperty
@@ -31,33 +31,33 @@ from kivy.uix.gridlayout import GridLayout
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.popup import Popup
 
-from video import Explorer
-from paths import Path
-from kinematics1 import Kinematics
-from representation import SpatioTemporal, AnglePlot, ROM
+from .video import Explorer
+from .settings import PathManager
+from .kinematics1 import Kinematics
+from .representation import SpatioTemporal, AnglePlot, ROM
 
 
 Window.size = (1200, 800)
 
+
 class MasMarchaApp(App):
-    pathmanager = Path()
+    pathmanager = PathManager()
 
     def build_config(self, config):
         config.add_section('paths')
         config.set('paths', 'app', self.pathmanager.app)
         config.set('paths', 'sourcedir', self.pathmanager.home)
-        config.set('paths', 'normal_',
-            os.path.join(config.get('paths', 'app'), 'normal'))
+        config.set('paths', 'normal_', self.pathmanager.normal)
         config.set('paths', 'normal_stp',
-            os.path.join(config.get('paths', 'normal_'), 'stp.csv'))
+                   os.path.join(self.pathmanager.normal, 'stp.csv'))
         config.set('paths', 'normal_rom',
-            os.path.join(config.get('paths', 'normal_'), 'rom.csv'))
+                   os.path.join(self.pathmanager.normal, 'rom.csv'))
         config.set('paths', 'normal_hip',
-            os.path.join(config.get('paths', 'normal_'), 'hip.csv'))
+                   os.path.join(self.pathmanager.normal, 'hip.csv'))
         config.set('paths', 'normal_knee',
-            os.path.join(config.get('paths', 'normal_'), 'knee.csv'))
+                   os.path.join(self.pathmanager.normal, 'knee.csv'))
         config.set('paths', 'normal_ankle',
-            os.path.join(config.get('paths', 'normal_'), 'ankle.csv'))
+                   os.path.join(self.pathmanager.normal, 'ankle.csv'))
 
         config.add_section('explorer')
         config.set('explorer', 'dilate', 'False')
@@ -234,13 +234,14 @@ class PlotsControl(GridLayout):
     def plot(self, getparams=False):
         if not self.explorer.source:
             return
-        import numpy as np # NOTE: quitar cuando se formalice la tabla rom
+        import numpy as np  # NOTE: quitar cuando se formalice la tabla rom
         destpath = self.pathmanager.new(self.explorer.source)
 
         if getparams:
             self.get_params()
         labels, direction, stp, hip, knee, ankle = self.kinematics.to_plot()
-        # Por ahora no se están aceptando en la tabla los datos de tiempos de fase
+        # Por ahora no se están aceptando en la tabla los datos de tiempos de
+        # fase
         stp = stp[:, [1, 4, 5, 6, 7, 8]]
 
         # parámetros espacio temporales
@@ -257,27 +258,27 @@ class PlotsControl(GridLayout):
         angles.plot(putlegends=True)
         angles.save(destpath)
 
-        #cadera
+        # cadera
         h = AnglePlot('Cadera', config=self.config)
         h.add_joint('hip', direction, labels, hip, stp[:, 1])
         h.plot(summary=True)
         h.save(destpath)
 
-        #rodilla
+        # rodilla
         k = AnglePlot('Rodilla', config=self.config)
         k.add_joint('knee', direction, labels, knee, stp[:, 1])
         k.plot(summary=True)
         k.save(destpath)
 
-        #tobillo
+        # tobillo
         a = AnglePlot('Tobillo', config=self.config)
         a.add_joint('ankle', direction, labels, ankle, stp[:, 1])
         a.plot(summary=True)
         a.save(destpath)
 
         # ROM
-        maxlh, minlh = np.max(hip[direction==0].mean(axis=0)), np.min(hip[direction==0].mean(axis=0))
-        maxrh, minrh = np.max(hip[direction==1].mean(axis=0)), np.min(hip[direction==1].mean(axis=0))
+        maxlh, minlh = np.max(hip[direction == 0].mean(axis=0)), np.min(hip[direction == 0].mean(axis=0))
+        maxrh, minrh = np.max(hip[direction == 1].mean(axis=0)), np.min(hip[direction == 1].mean(axis=0))
 
         maxlk, minlk = np.max(knee[direction==0].mean(axis=0)), np.min(knee[direction==0].mean(axis=0))
         maxrk, minrk = np.max(knee[direction==1].mean(axis=0)), np.min(knee[direction==1].mean(axis=0))

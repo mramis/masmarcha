@@ -18,8 +18,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
-import threading
 from time import sleep
 
 import numpy as np
@@ -67,7 +65,9 @@ class Video(object):
             binary = cv2.dilate(binary, kernel, iterations=3)
         # 0 = cv2.RETR_EXTERNAL
         # 2 = cv2.CHAIN_APPROX_SIMPLE
-        contours = cv2.findContours(binary, 0, 2)[1]
+        contours, __ = cv2.findContours(binary, 0, 2)
+        if contours is None:
+            contours = [[], ]  # Parche por el cambio de version de opencv.
         return len(contours), contours
 
     def get_fps(self):
