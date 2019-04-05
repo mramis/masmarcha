@@ -17,6 +17,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+import configparser
 
 HOME_DIR = os.getenv("HOME", os.getenv("USERPROFILE", None))
 if HOME_DIR is None:
@@ -25,6 +26,78 @@ if HOME_DIR is None:
 APP_DIR = os.path.join(HOME_DIR, "masmarcha")
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 NORMAL_DIR = os.path.join(ROOT_DIR, "normal")
+
+CONFIG_PATH = os.path.join(APP_DIR, "application.config")
+
+DEFAULT_CONFIG = """
+[paths]
+app = {APP}
+normal = {NORMAL}
+sourcedir = {HOME}
+
+[explorer]
+dilate = False
+threshold = 240
+
+[walk]
+roiwidth = 125
+roiheight = 35
+
+[video]
+delay = .1
+framewidth = 640
+frameheight = 480
+
+[camera]
+fps = 60
+fpscorrection = 1
+
+[kinematics]
+stpsize = 6
+nfixed = 100
+maxcycles = 50
+anglessize = 100
+leftlength = 0.28
+rightlength = 0.28
+cyclemarker1 = M5
+cyclemarker2 = M6
+leftthreshold = 3.2
+rightthreshold = 3.2
+filter_by_duration = False
+
+[schema]
+n = 7
+r = 3
+leg = 3,4
+foot = 5,6
+tight = 1,2
+markersxroi = 0,1/2,3/4,5,6
+order_segments = tight,leg,foot
+order_joints = hip,knee,ankle
+
+[plots]
+dpi = 80
+textsize = 16
+titlesize = 23
+chartwidth = 8
+chartheight = 5
+tablewidth = 12
+tableheight = 5
+subtitlesize = 18
+standardeviation = 2
+cell_index_width = 0.3
+cell_normal_width = 0.25
+"""
+
+app_config = configparser.ConfigParser()
+if not os.path.isfile(CONFIG_PATH):
+    with open(CONFIG_PATH, "w") as fh:
+        formatter = {"APP": APP_DIR, "HOME": HOME_DIR, "NORMAL": NORMAL_DIR}
+        app_config.read_string(DEFAULT_CONFIG.format(**formatter))
+        app_config.write(fh)
+else:
+    with open(CONFIG_PATH) as fh:
+        app_config.read_file(fh)
 
 
 class PathManager(object):

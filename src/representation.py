@@ -74,13 +74,13 @@ class Curves(object):
         return self.axes[-1]
 
     def add_normal(self, name, pos):
-        refpath = self.config.get('paths', 'normal_%s' % name)
-        with open(refpath) as fh:
+        dirpath = self.config.get("paths", "normal")
+        with open(os.path.join(dirpath, "%s.csv" % name)) as fh:
             mean, dev = np.loadtxt(fh, delimiter=',')
         std = dev * self.config.getint('plots', 'standardeviation')
         x = np.arange(mean.size)
         self.axes[pos].fill_between(x, mean - std, mean + std, color='k',
-            alpha=0.15)
+                                    alpha=0.15)
         self.axes[pos].plot(mean, color='k')
 
     def save(self, destpath):
@@ -169,8 +169,8 @@ class Table(object):
         self.subtables = []
 
     def add_normal(self, config_name, header="", formater=""):
-        path = self.config.get('paths', config_name)
-        with open(path) as fh:
+        dirpath = self.config.get("paths", "normal")
+        with open(os.path.join(dirpath, "%s.csv" % config_name)) as fh:
             norm = np.loadtxt(fh, delimiter=',').round(1)
         cols = ['${}{}{}$'.format(u, formater, v) for u, v in norm.transpose()]
         self.add_subtable(header, np.array(cols).reshape(len(cols), 1), ['k',])
@@ -271,7 +271,7 @@ class SpatioTemporal(Table):
 
         self.add_index(index)
         self.add_subtable(header, params, paramcolors)
-        self.add_normal('normal_stp', ('Normal [$norm \pm dev$]',), '\pm')
+        self.add_normal('stp', ('Normal [$norm \pm dev$]',), '\pm')
         super().build()
 
 
@@ -283,5 +283,5 @@ class ROM(Table):
         paramcolors = ['r', 'r', 'b', 'b']
         self.add_index(index)
         self.add_subtable(header, params, paramcolors)
-        self.add_normal('normal_rom', ("Normal [Min < Max]",), "<")
+        self.add_normal('rom', ("Normal [Min < Max]",), "<")
         super().build()

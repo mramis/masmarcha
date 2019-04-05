@@ -32,7 +32,7 @@ from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.popup import Popup
 
 from .video import Explorer
-from .settings import PathManager
+from .settings import PathManager, app_config
 from .kinematics import Kinematics
 from .representation import SpatioTemporal, AnglePlot, ROM
 
@@ -43,77 +43,9 @@ Window.size = (1200, 800)
 class MasMarchaApp(App):
     pathmanager = PathManager()
 
-    def build_config(self, config):
-        config.add_section('paths')
-        config.set('paths', 'app', self.pathmanager.app)
-        config.set('paths', 'sourcedir', self.pathmanager.home)
-        config.set('paths', 'normal_', self.pathmanager.normal)
-        config.set('paths', 'normal_stp',
-                   os.path.join(self.pathmanager.normal, 'stp.csv'))
-        config.set('paths', 'normal_rom',
-                   os.path.join(self.pathmanager.normal, 'rom.csv'))
-        config.set('paths', 'normal_hip',
-                   os.path.join(self.pathmanager.normal, 'hip.csv'))
-        config.set('paths', 'normal_knee',
-                   os.path.join(self.pathmanager.normal, 'knee.csv'))
-        config.set('paths', 'normal_ankle',
-                   os.path.join(self.pathmanager.normal, 'ankle.csv'))
-
-        config.add_section('explorer')
-        config.set('explorer', 'dilate', 'False')
-        config.set('explorer', 'threshold', '240')
-
-        config.add_section('walk')
-        config.set('walk', 'roiwidth', '125')
-        config.set('walk', 'roiheight', '35')
-
-        config.add_section('video')
-        config.set('video', 'delay', '.1')
-        config.set('video', 'framewidth', '640')
-        config.set('video', 'frameheight', '480')
-
-        config.add_section('camera')
-        config.set('camera', 'fps', '60')
-        config.set('camera', 'fpscorrection', '1')
-
-        config.add_section('kinematics')
-        config.set('kinematics', 'stpsize', '6')
-        config.set('kinematics', 'nfixed', '100')
-        config.set('kinematics', 'maxcycles', '75')
-        config.set('kinematics', 'leftlength', '0.28')
-        config.set('kinematics', 'rightlength', '0.28')
-        config.set('kinematics', 'anglessize', '100')
-        config.set('kinematics', 'leftthreshold', '3.2')
-        config.set('kinematics', 'rightthreshold', '3.2')
-        config.set('kinematics', 'filter_by_duration', 'True')
-        config.set('kinematics', 'cyclemarker1', 'M5')
-        config.set('kinematics', 'cyclemarker2', 'M6')
-
-        config.add_section('schema')
-        config.set('schema', 'n', '7')
-        config.set('schema', 'r', '3')
-        config.set('schema', 'leg', '3,4')
-        config.set('schema', 'foot', '5,6')
-        config.set('schema', 'tight', '1,2')
-        config.set('schema', 'markersxroi', '0,1/2,3/4,5,6')
-        config.set('schema', 'order_segments', 'tight,leg,foot')
-        config.set('schema', 'order_joints', 'hip,knee,ankle')
-
-        config.add_section('plots')
-        config.set('plots', 'dpi', '80')
-        config.set('plots', 'textsize', '16')
-        config.set('plots', 'titlesize', '23')
-        config.set('plots', 'chartwidth', '8')
-        config.set('plots', 'chartheight', '5')
-        config.set('plots', 'tablewidth', '12')
-        config.set('plots', 'tableheight', '5')
-        config.set('plots', 'subtitlesize', '18')
-        config.set('plots', 'standardeviation', '2')
-        config.set('plots', 'cell_index_width', '0.3')
-        config.set('plots', 'cell_normal_width', '0.25')
-
     def build(self):
         u"""Construye la interfaz gráfica."""
+        self.config = app_config
         self.explorer = Explorer(self.config)
         self.kinematics = Kinematics(self.config)
         return MainFrame()
