@@ -7,4 +7,4 @@
 *.mp4
 *.npz
 *.ini
-*.pytest_cache
+.pytest_cache*
