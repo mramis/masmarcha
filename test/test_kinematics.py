@@ -22,13 +22,12 @@
 import os
 import sys
 import numpy as np
-import matplotlib.pyplot as plt
 
 from configparser import ConfigParser
 from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.abspath('.'), 'src'))
-import kinematics1
+import kinematics
 
 
 cstring = """
@@ -42,10 +41,13 @@ order_joints = hip,knee,ankle
 order_segments = tight,leg,foot
 
 [kinematics]
+nfixed = 100
+maxcycles = 50
 cyclemarker1 = M5
 cyclemarker2 = M6
 leftthreshold = .17
 rightthreshold = .23
+filter_by_duration = False
 
 leftlength = 0.28
 rightlength = 0.28
@@ -59,7 +61,7 @@ config = ConfigParser()
 config.read_string(cstring)
 
 
-nsample = 100 #np.random.randint(50, 120)
+nsample = 100
 testarray = np.sin(np.linspace(-2*np.pi, 3*np.pi, nsample))
 mockarray = np.ndarray((nsample, 14))
 
@@ -78,13 +80,17 @@ walk.id = 1
 #     schema.get_marker(np.array((walk.markers, walk.markers)), 6)
 #     schema.get_segment(walk.markers, 'leg')
 # #
-# def test_cycler():
-#     cyclemarkers = (10, 11), (12, 13)
-#     threshold = (.15, .17)
-#     cycler = kinematics1.Cycler(config)
-#     cycler.find_cycles(walk, cyclemarkers, threshold)
-#     cycler.stop()
-#
+
+
+def test_cycler():
+    cyclemarkers = (10, 11), (12, 13)
+    threshold = (.15, .17)
+    cycler = kinematics.Cycler(config)
+    cycler.find_cycles(walk, cyclemarkers, threshold)
+    cycler.stop()
+    cycler.filter_by_duration()
+
+
 # def test_kinematics():
 #     kine = kinematics1.Kinematics(config)
 #     kine.cycle_walks([walk, walk, walk, walk, walk ])
@@ -101,19 +107,19 @@ walk.id = 1
 #     canonical = anglesCalc.canonicalX(direction)
 #     anglesCalc.calculate(segments, direction)
 
-def test_stp():
-    nsample = np.random.randint(0, 50)
-    markers = np.random.random((nsample, 100, 14))
-    direction = np.random.randint(0, 2 , nsample)
+# def test_stp():
+#     nsample = np.random.randint(0, 50)
+#     markers = np.random.random((nsample, 100, 14))
+#     direction = np.random.randint(0, 2 , nsample)
 
     # cyclessv = np.random.random((nsample, 6))
     # duration = np.random.random((nsample))
     # stride = np.random.random((nsample))
 
-    stp = kinematics1.SpatioTemporal(config)
-    realdistances = stp._legdistance(direction)
-    pxtom = stp._scale(markers, realdistances)
-    print(stp.stride(markers, pxtom))
+    # stp = kinematics1.SpatioTemporal(config)
+    # realdistances = stp._legdistance(direction)
+    # pxtom = stp._scale(markers, realdistances)
+    # print(stp.stride(markers, pxtom))
 
     # b = stp.temporal(60, cyclessv)
     # c = stp.velocity(duration, stride)

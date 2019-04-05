@@ -33,7 +33,7 @@ from kivy.uix.popup import Popup
 
 from .video import Explorer
 from .settings import PathManager
-from .kinematics1 import Kinematics
+from .kinematics import Kinematics
 from .representation import SpatioTemporal, AnglePlot, ROM
 
 
@@ -78,12 +78,14 @@ class MasMarchaApp(App):
 
         config.add_section('kinematics')
         config.set('kinematics', 'stpsize', '6')
-        config.set('kinematics', 'maxcycles', '50')
+        config.set('kinematics', 'nfixed', '100')
+        config.set('kinematics', 'maxcycles', '75')
         config.set('kinematics', 'leftlength', '0.28')
         config.set('kinematics', 'rightlength', '0.28')
         config.set('kinematics', 'anglessize', '100')
         config.set('kinematics', 'leftthreshold', '3.2')
         config.set('kinematics', 'rightthreshold', '3.2')
+        config.set('kinematics', 'filter_by_duration', 'True')
         config.set('kinematics', 'cyclemarker1', 'M5')
         config.set('kinematics', 'cyclemarker2', 'M6')
 
