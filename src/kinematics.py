@@ -50,8 +50,10 @@ class Cycler(object):
     def directionvec(self):
         return self.cyclessv[:, 2]
 
-    def build_ids(self):
+    def build_ids(self, justnumbers=False):
         """Construye un arreglo con las id de los ciclos."""
+        if justnumbers:
+            return [str(c) for c in self.cyclessv[:, 0]]
         id = 'W{wid}C{cid}'
         return [id.format(cid=c, wid=w) for c, w in self.cyclessv[:, (0, 1)]]
 
@@ -81,14 +83,14 @@ class Cycler(object):
                 (self.counter, walk.id, walk.dir, (c1, c2, c3)))
             self.cyclesmk[self.counter] = self.resize_markers_array(walk.markers[c1:c3, :])
 
-    def remove(self, cycleids):
-        ids = self.build_ids()
+    def remove(self, toremoveids):
+        cycleids = self.build_ids(justnumbers=True)
         index = []
-        for cid in cycleids:
-            if cid in ids:
-                index.append(ids.index(cid))
+        for cid in toremoveids:
+            if cid in cycleids:
+                index.append(cycleids.index(cid))
         if index:
-            print('removed')
+            logging.info("removed")
             self.cyclessv = np.delete(self.cyclessv, index, axis=0)
             self.cyclesmk = np.delete(self.cyclesmk, index, axis=0)
 

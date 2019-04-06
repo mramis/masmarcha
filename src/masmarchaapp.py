@@ -215,19 +215,26 @@ class PlotsControl(GridLayout):
         a.save(destpath)
 
         # ROM
-        maxlh, minlh = np.max(hip[direction == 0].mean(axis=0)), np.min(hip[direction == 0].mean(axis=0))
-        maxrh, minrh = np.max(hip[direction == 1].mean(axis=0)), np.min(hip[direction == 1].mean(axis=0))
+        maxlh = np.max(np.nanmean(hip[direction == 0], axis=0))
+        minlh = np.min(np.nanmean(hip[direction == 0], axis=0))
+        maxrh = np.max(np.nanmean(hip[direction == 1], axis=0))
+        minrh = np.min(np.nanmean(hip[direction == 1], axis=0))
 
-        maxlk, minlk = np.max(knee[direction==0].mean(axis=0)), np.min(knee[direction==0].mean(axis=0))
-        maxrk, minrk = np.max(knee[direction==1].mean(axis=0)), np.min(knee[direction==1].mean(axis=0))
+        maxlk = np.max(np.nanmean(knee[direction == 0], axis=0))
+        minlk = np.min(np.nanmean(knee[direction == 0], axis=0))
+        maxrk = np.max(np.nanmean(knee[direction == 1], axis=0))
+        minrk = np.min(np.nanmean(knee[direction == 1], axis=0))
 
-        maxla, minla = np.max(ankle[direction==0].mean(axis=0)), np.min(ankle[direction==0].mean(axis=0))
-        maxra, minra = np.max(ankle[direction==1].mean(axis=0)), np.min(ankle[direction==1].mean(axis=0))
+        maxla = np.max(np.nanmean(ankle[direction == 0], axis=0))
+        minla = np.min(np.nanmean(ankle[direction == 0], axis=0))
+        maxra = np.max(np.nanmean(ankle[direction == 1], axis=0))
+        minra = np.min(np.nanmean(ankle[direction == 1], axis=0))
 
         rom = np.array((
-                        ((minlh.round(1), maxlh.round(1), minrh.round(1), maxrh.round(1)),
-                         (minlk.round(1), maxlk.round(1), minrk.round(1), maxrk.round(1)),
-                         (minla.round(1), maxla.round(1), minra.round(1), maxra.round(1)))))
+            ((minlh.round(1), maxlh.round(1), minrh.round(1), maxrh.round(1)),
+             (minlk.round(1), maxlk.round(1), minrk.round(1), maxrk.round(1)),
+             (minla.round(1), maxla.round(1), minra.round(1), maxra.round(1))))
+        )
         romtable = ROM(self.config, "Rango de movimiento")
         romtable.build(rom)
         romtable.save(destpath)
