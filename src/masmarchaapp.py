@@ -32,7 +32,7 @@ from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.popup import Popup
 
 from .video import Explorer
-from .settings import app_config, new_session
+from .settings import app_config, new_session, CONFIG_PATH
 from .kinematics import Kinematics
 from .representation import SpatioTemporal, AnglePlot, ROM
 
@@ -48,6 +48,11 @@ class MasMarchaApp(App):
         self.explorer = Explorer(self.config)
         self.kinematics = Kinematics(self.config)
         return MainFrame()
+
+    def update_config(self, *args):
+        self.config.set(*args)
+        with open(CONFIG_PATH, "w") as fh:
+            self.config.write(fh)
 
 
 class MainFrame(GridLayout):

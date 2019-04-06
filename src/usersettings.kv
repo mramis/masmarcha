@@ -21,7 +21,7 @@
     rows: 2
     Label:
         size_hint: 1, 0.2
-        text: "CONFIGURACIÓN"
+        text: "CONFIGURACION"
     GridLayout:
         cols: 3
         size_hint: 1, 0.8
@@ -43,19 +43,19 @@
                 section: 'explorer'
                 variable: 'dilate'
                 spinner_text: app.config.get(self.section, self.variable)
-                variable_text: u"Dilatación de marcadores"
+                variable_text: u"Dilatacion de marcadores"
                 values: ["True", "False"]
             Variable:
                 section: 'video'
                 variable: 'delay'
                 spinner_text: app.config.get(self.section, self.variable)
-                variable_text: u"Demora en reproducción"
+                variable_text: u"Demora en reproduccion"
                 values: map(lambda x: str(round(x * .15, 1)), range(0, 11))
             Variable:
                 section: 'camera'
                 variable: 'fpscorrection'
                 spinner_text: app.config.get(self.section, self.variable)
-                variable_text: u"Compensación en cuadros"
+                variable_text: u"Compensacion en cuadros"
                 values: map(lambda x: str(x), range(1, 6))
         GridLayout:
             cols: 1
@@ -69,13 +69,13 @@
                 section: 'walk'
                 variable: 'roiwidth'
                 spinner_text: app.config.get(self.section, self.variable)
-                variable_text: u"Ancho de la región"
+                variable_text: u"Ancho de la region"
                 values: map(lambda x: str(x), range(50, 325, 25))
             Variable:
                 section: 'walk'
                 variable: 'roiheight'
                 spinner_text: app.config.get(self.section, self.variable)
-                variable_text: u"Alto de la región"
+                variable_text: u"Alto de la region"
                 values: map(lambda x: str(x), range(10, 55, 5))
         GridLayout:
             cols: 1
@@ -84,7 +84,7 @@
             row_force_default: True
             row_default_height: 35
             Label:
-                text: "Cinemática"
+                text: "Cinematica"
             Variable:
                 section: 'kinematics'
                 variable: 'leftthreshold'
@@ -109,7 +109,12 @@
                 spinner_text: app.config.get(self.section, self.variable)
                 variable_text: u"2° Marcador de ciclo"
                 values: ['M5', 'M6']
-
+            Variable:
+                section: 'kinematics'
+                variable: 'filter_by_duration'
+                spinner_text: app.config.get(self.section, self.variable)
+                variable_text: u"Filtrar por duracion"
+                values: ["True", "False"]
 
 <Variable@GridLayout>:
     rows: 1
@@ -128,4 +133,4 @@
         text: root.spinner_text
         values: root.values
         size_hint: 0.25, 1
-        on_text: app.config.set(root.section, root.variable, self.text)
+        on_text: app.update_config(root.section, root.variable, self.text)
