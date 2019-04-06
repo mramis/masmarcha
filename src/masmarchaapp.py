@@ -32,7 +32,7 @@ from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.popup import Popup
 
 from .video import Explorer
-from .settings import PathManager, app_config
+from .settings import app_config, new_session
 from .kinematics import Kinematics
 from .representation import SpatioTemporal, AnglePlot, ROM
 
@@ -41,7 +41,6 @@ Window.size = (1200, 800)
 
 
 class MasMarchaApp(App):
-    pathmanager = PathManager()
 
     def build(self):
         u"""Construye la interfaz gráfica."""
@@ -169,7 +168,7 @@ class PlotsControl(GridLayout):
         if not self.explorer.source:
             return
         import numpy as np  # NOTE: quitar cuando se formalice la tabla rom
-        destpath = self.pathmanager.new(self.explorer.source)
+        destpath = new_session(self.explorer.source)
 
         if getparams:
             self.get_params()
