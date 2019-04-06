@@ -103,7 +103,7 @@ class AnglePlot(Curves):
         rightside = np.arange(direction.size)[direction == 1]
         if not np.any(leftside) and not np.any(rightside):
             return
-        self.joints.append({'name':name})
+        self.joints.append({'name': name})
         self.joints[self.count]['sides'] = []
         if np.any(leftside):
             self.joints[self.count]['sides'].append('leftside')
@@ -126,7 +126,8 @@ class AnglePlot(Curves):
             self.joints[pos][side]['curves'] = np.mean(curves, axis=0)
             vlines = self.joints[pos][side]['vlines']
             self.joints[pos][side]['vlines'] = (np.mean(vlines, axis=0),)
-            self.legends = {'leftside':['leftside',], 'rightside':['rightside',]}
+            self.legends = {'leftside': ['leftside', ],
+                            'rightside': ['rightside', ]}
 
     def plot(self, summary=False, putlegends=False):
         if self.joints == []:
@@ -151,12 +152,14 @@ class AnglePlot(Curves):
                     ax.axvline(line, c=color, ls='--', lw=0.7, alpha=0.5)
                     vlinecolor += 1
         if putlegends:
-            ax.legend(bbox_to_anchor=(1.05, 1))
-            self.subplotparams['right'] = .85
+            plt.legend(bbox_to_anchor=(-3.2, -.6, 4.4, .3), loc="center",
+                       ncol=10, mode="expand", borderaxespad=0.,
+                       fontsize="x-small")
+            self.subplotparams['bottom'] = .35
 
 
 class Table(object):
-    box = {'top':0.85, 'bottom':0.05, 'left':0.03, 'right':0.97}
+    box = {'top': .85, 'bottom': .05, 'left': .03, 'right': .97}
 
     def __init__(self, config, title):
         self.index = None
@@ -173,7 +176,7 @@ class Table(object):
         with open(os.path.join(dirpath, "%s.csv" % config_name)) as fh:
             norm = np.loadtxt(fh, delimiter=',').round(1)
         cols = ['${}{}{}$'.format(u, formater, v) for u, v in norm.transpose()]
-        self.add_subtable(header, np.array(cols).reshape(len(cols), 1), ['k',])
+        self.add_subtable(header, np.array(cols).reshape(len(cols), 1), ['k', ])
         self.normalflag = True
 
     def add_index(self, index):
@@ -192,7 +195,7 @@ class Table(object):
         iwidth = self.config.getfloat('plots', 'cell_index_width')
         nwidth = self.config.getfloat('plots', 'cell_normal_width')
         rlindex = self.box['left'] + iwidth  # RightLineIndex
-        llnormal =  self.box['right'] - nwidth
+        llnormal = self.box['right'] - nwidth
         xmiddle = np.linspace(rlindex, llnormal, self.ncols)
         xlines = np.hstack((self.box['left'],  xmiddle, self.box['right']))
         return xlines, xlines[:-1] + np.diff(xlines)*.5
