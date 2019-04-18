@@ -3,4 +3,3 @@
 *.npz
 *.ini
 .pytest_cache/
-htmlcov/
