@@ -34,7 +34,7 @@ from kivy.uix.popup import Popup
 from .video import Explorer
 from .settings import app_config, new_session, CONFIG_PATH
 from .kinematics import Kinematics
-from .representation import SpatioTemporal, AnglePlot, ROM
+from .representation import WalkPlot, SpatioTemporal, AnglePlot, ROM
 
 
 Window.size = (1200, 800)
@@ -173,10 +173,15 @@ class PlotsControl(GridLayout):
         if not self.explorer.source:
             return
         import numpy as np  # NOTE: quitar cuando se formalice la tabla rom
-        destpath = new_session(self.explorer.source)
+        destpath, walkspath = new_session(self.explorer.source)
 
         if getparams:
             self.get_params()
+
+        # resultados del ciclado.
+        walks = WalkPlot(walkpath)
+        walks.plot(self.explorer.cycler)  # NOTE: por ahora se obtienen del cycler
+
         labels, direction, stp, hip, knee, ankle = self.kinematics.to_plot()
         # Por ahora no se están aceptando en la tabla los datos de tiempos de
         # fase
