@@ -113,6 +113,8 @@ else:
 def new_session(name):
     """Crea el directorio de la session."""
     destpath = os.path.join(SESSION_DIR, os.path.basename(name))
+    walkpath = os.path.join(destpath, 'walks')
     if not os.path.isdir(destpath):
         os.mkdir(destpath)
-    return destpath
+        os.mkdir(walkpath)
+    return destpath, walkpath
