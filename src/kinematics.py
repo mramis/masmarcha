@@ -78,6 +78,8 @@ class Cycler(object):
         footvelocity = self.soft_foot_velocity(np.abs(np.diff(footmarkers, axis=1).mean(2)))
 
         footmotion = np.logical_and(*(footvelocity >= lrthreshold[walk.dir]))
+        self.movement.append((walk.id, footvelocity, footmotion))
+
         for (c1, c2, c3) in self.cycler(footmotion):
             self.cyclessv[self.counter] = np.hstack(
                 (self.counter, walk.id, walk.dir, (c1, c2, c3)))
@@ -104,12 +106,12 @@ class Cycler(object):
             newsample[:, c] = np.interp(newdomain, xarange, values)
         return newsample
 
-    def soft_foot_velocity(self, array, loops=10):
+    def soft_foot_velocity(self, array, loops=8):
         u"""Suaviza las curvas de velocidad de los marcadores de pie."""
-        for i in range(loops):
-            pre = array[:-2, :]
-            pos = array[2:, :]
-            array[1:-1, :] = np.mean((pre, pos), axis=0)
+        index = np.arange(array.shape[1])
+        for __ in range(loops):
+            for i, j, k in zip(index[:-1], index[1:-1], index[2:]):
+                array[:, j] = (array[:, i] + array[:, k]) / 2
         return array
 
     def filter_by_duration(self):
@@ -128,6 +130,8 @@ class Cycler(object):
         maxcycles = self.config.getint("kinematics", "maxcycles")
         self.cyclessv = np.ndarray((maxcycles, 6), dtype=np.int32)
         self.cyclesmk = np.ndarray((maxcycles, self.nfix, nmarkers))
+        self.movement = []  # NOTE: Este es un parche para plotear los valores
+        # de velocidad y movimiento resultado del cyclado.
 
     def stop(self):
         """Finaliza los contenedores."""

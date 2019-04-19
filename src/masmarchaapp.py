@@ -179,8 +179,8 @@ class PlotsControl(GridLayout):
             self.get_params()
 
         # resultados del ciclado.
-        walks = WalkPlot(walkpath)
-        walks.plot(self.explorer.cycler)  # NOTE: por ahora se obtienen del cycler
+        walks = WalkPlot(self.config)
+        walks.plot(self.kinematics.cycler, walkspath)  # NOTE: por ahora se obtienen del cycler
 
         labels, direction, stp, hip, knee, ankle = self.kinematics.to_plot()
         # Por ahora no se están aceptando en la tabla los datos de tiempos de

@@ -89,6 +89,21 @@ class Curves(object):
         plt.close(self.figure)
 
 
+class WalkPlot(Curves):
+
+    def __init__(self, config):
+        super().__init__(config)
+
+    def plot(self, cycler, destpath):
+        for (wid, vel, mov) in cycler.movement:
+            fig = self.new_figure("W%s" % wid)
+            ax = self.add_axes("", (1, 1, 1))
+            ax.plot(vel.T)
+            ax.plot(mov*5)
+            self.title = "Ciclado de caminata W%s" % wid
+            self.save(destpath)
+
+
 class AnglePlot(Curves):
 
     def __init__(self, title, **kwargs):
