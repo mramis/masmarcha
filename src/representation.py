@@ -27,6 +27,7 @@ formato de archivo de dibujo.
 
 
 import os
+import logging
 
 import numpy as np
 import matplotlib
@@ -84,6 +85,9 @@ class Curves(object):
         self.axes[pos].plot(mean, color='k')
 
     def save(self, destpath):
+        if self.figure is None:
+            logging.error("%s No se encontró figura" % destpath)
+            return
         self.figure.subplots_adjust(**self.subplotparams)
         self.figure.savefig(os.path.join(destpath, self.title))
         plt.close(self.figure)

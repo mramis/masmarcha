@@ -18,6 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
 from time import sleep
 
 import numpy as np
@@ -397,3 +398,67 @@ class Walk(object):
         self.recover_incompleted()
         self.sort_foot()
         self.interpolate_markers()
+
+
+class Pics(Video):
+
+    def __init__(self, *args, **kwrags):
+        super().__init__(*args, **kwrags)
+        self.height = 480
+        self.width = 640
+
+    @property
+    def base_array(self):
+        return np.zeros((self.height, self.width, 3))
+
+    @property
+    def pic_size(self):
+        return (self.height, 200, 3)
+
+    @property
+    def indexes(self):
+        w = self.pic_size[1]
+        x0 = [(w * i + 20 * i) for i in range(3)]
+        x1 = [(w * (i + 1) + 20 * i) for i in range(3)]
+        return np.array((x0, x1)).transpose()
+
+    def calc_xcenter(self, walk, pos):
+        center = np.mean(walk.markers[pos, np.arange(0, 14, 2)])
+        return int(center * self.width / self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+
+    def cut_frame(self, frame, xcenter):
+        d0 = (xcenter - 100) if xcenter > 100 else 0
+        d1 = (xcenter + 100)
+        cutted = frame[:, d0: d1]  # HARDCORE(delta)
+        if cutted.shape != self.pic_size:
+            replace = np.zeros((self.pic_size))
+            replace[:, :cutted.shape[1]] = cutted
+            cutted = replace
+        return cutted
+
+    def frame_from_cycle(self, posframe):
+        u"""Devuelve el cuadro (imagen) en la posción que se le indica."""
+        self.cap.set(cv2.CAP_PROP_POS_FRAMES, posframe)
+        frame = cv2.resize(self.cap.read()[1], (self.width, self.height))
+        return frame
+
+    def build_pic(self, cframes):
+        u"""Construye la imagen final con las subimágenes."""
+        base = self.base_array
+        for pic, (i, j) in enumerate(self.indexes):
+            base[:, i: j] = cframes[pic]
+        return base
+
+    def save(self, image, name):
+        destpath = os.path.join(self.config.get("current", "pics"), name)
+        cv2.imwrite("%s.png" % destpath, image)
+
+    def make_pics(self, cycles, walks):
+        """Genera las pics de fase por cada ciclo."""
+        for cycle in cycles:
+            walk = walks[cycle[1]]  # walk_id
+            centers = [self.calc_xcenter(walk, pos) for pos in cycle[3:]]
+            frames = [self.frame_from_cycle(c) for c in cycle[3:] + walk.info[1]]  # absolute frame position
+            cutted = [self.cut_frame(f, c) for f, c in zip(frames, centers)]
+            pic = self.build_pic(cutted)
+            self.save(pic, "W%dC%d" % (cycle[1], cycle[0]))

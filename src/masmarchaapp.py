@@ -31,7 +31,7 @@ from kivy.uix.gridlayout import GridLayout
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.popup import Popup
 
-from .video import Explorer
+from .video import Explorer, Pics
 from .settings import app_config, new_session, CONFIG_PATH
 from .kinematics import Kinematics
 from .representation import WalkPlot, SpatioTemporal, AnglePlot, ROM
@@ -54,16 +54,15 @@ class MasMarchaApp(App):
         with open(CONFIG_PATH, "w") as fh:
             self.config.write(fh)
 
+    def new_session(self, sessionname):
+        session, walks, pics = new_session(sessionname)
+        self.config.set('current', 'session', session)
+        self.config.set('current', 'walks', walks)
+        self.config.set('current', 'pics', pics)
+
 
 class MainFrame(GridLayout):
     pass
-
-
-class Session(GridLayout):
-
-    def session_data_collect(self):
-        for i in self.ids.items():
-            print(i)
 
 
 class Control(GridLayout):
@@ -98,6 +97,7 @@ class VidControl(GridLayout):
     def load_video(self):
         value = self.ids.sourcefile.text
         if os.path.isfile(value):
+            self.new_session(value)  # NOTE: esta implementación hace innecesaria "sourcefile"
             self.sourcefile = value
             self.explorer.open_file(value)
             self.progressbar.max = self.explorer.nframes
@@ -170,17 +170,28 @@ class PlotsControl(GridLayout):
         self.plot()
 
     def plot(self, getparams=False):
+        # NOTE:  TODA ESTA SECCIÓN TIENE UN MAL DISEÑO.
+        # POR AHORA TODAS LAS IMÁGENES QUE SE CREAN VAN A SALR DE ACÁ
+        # PERO ES NECESARIO REDISEÑAR EL PROCESO.
         if not self.explorer.source:
             return
         import numpy as np  # NOTE: quitar cuando se formalice la tabla rom
-        destpath, walkspath = new_session(self.explorer.source)
+        destpath = self.config.get('current', 'session')
 
         if getparams:
             self.get_params()
 
-        # resultados del ciclado.
+        # NOTE: resultados del ciclado.
         walks = WalkPlot(self.config)
-        walks.plot(self.kinematics.cycler, walkspath)  # NOTE: por ahora se obtienen del cycler
+        # NOTE: por ahora se obtienen del cycler
+        walks.plot(self.kinematics.cycler, self.config.get('current', 'walks'))
+
+
+        # Pics de los cyclos.
+        pics = Pics(self.config)
+        pics.open(self.explorer.source)
+        pics.make_pics(self.kinematics.cycler.cyclessv, self.explorer.walks)
+
 
         labels, direction, stp, hip, knee, ankle = self.kinematics.to_plot()
         # Por ahora no se están aceptando en la tabla los datos de tiempos de

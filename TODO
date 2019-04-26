@@ -1,24 +1,8 @@
-masmarcha2018 (versión1.1)
+masmarcha2019
 
-# masmarcha (CLI)
+[x] Se generó una uneva interfáz (video.Pics) para poder vizualizar los ciclos.
 
-[] Desarrollo de motor de cinemática.
-	[x] Lectura de video.
-	[] Calibración de imagen de video.
-	[x] Extracción de datos de video.
-	[x] Lectura de kinovea.
-	[x] Extracción de datos de kinovea.
-	[x] Cálculo de parámetros por ciclo.
-	[] Transformación de unidades de distancia.
-
-[] Desarrollo de base de datos SQLite.
-	[x] Diseño de base relacional.
-	[] Creación de las tablas.
-	[] Métodos de introducción de datos en las tablas.
-	[] Métodos de lectura de datos de tablas.
-	[] Métodos de cálculo de datos de tablas.
-
-[] Desarrollo del módulo de representación.
-  [] Tablas de datos paramétricos.
-	[] Gráficas de ángulos.
-	[] Gráficas de indicadores.
+A seguir:
+[] Se tiene que modificar el manejo de los arreglos de datos.
+[] Se tiene que mejorar la interfaz, para poder contemplar por separado caminatas, ciclos, y parámetros.
+[] Se tiene que modificar la base de datos sqlite (que no está siendo implemetada), para almacenar datos de procesamiento.

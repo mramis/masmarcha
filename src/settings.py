@@ -19,14 +19,21 @@
 import os
 import configparser
 
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+NORMAL_DIR = os.path.join(ROOT_DIR, "normal")
+
 HOME_DIR = os.getenv("HOME", os.getenv("USERPROFILE", None))
 if HOME_DIR is None:
     raise Exception(u"No se encontró $HOME or $USERPROFILE en $PATH")
 
 APP_DIR = os.path.join(HOME_DIR, "masmarcha")
-ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-NORMAL_DIR = os.path.join(ROOT_DIR, "normal")
 SESSION_DIR = os.path.join(APP_DIR, "sesiones")
+# Se crea el directorio de la aplicación.
+if not os.path.isdir(APP_DIR):
+    os.mkdir(APP_DIR)
+# Se crea la carpeta de la sesiones.
+if not os.path.isdir(SESSION_DIR):
+    os.mkdir(SESSION_DIR)
 
 CONFIG_PATH = os.path.join(APP_DIR, "application.config")
 
@@ -35,6 +42,11 @@ DEFAULT_CONFIG = """
 app = {APP}
 normal = {NORMAL}
 sourcedir = {HOME}
+
+[current]
+session =
+walks =
+pics =
 
 [explorer]
 dilate = False
@@ -90,14 +102,6 @@ cell_index_width = 0.3
 cell_normal_width = 0.25
 """
 
-# Se crea el directorio de la aplicación.
-if not os.path.isdir(APP_DIR):
-    os.mkdir(APP_DIR)
-
-# Se crea la carpeta de la sesiones.
-if not os.path.isdir(SESSION_DIR):
-    os.mkdir(SESSION_DIR)
-
 # Se crea/carga el archivo de configuración.
 app_config = configparser.ConfigParser()
 if not os.path.isfile(CONFIG_PATH):
@@ -112,9 +116,11 @@ else:
 
 def new_session(name):
     """Crea el directorio de la session."""
-    destpath = os.path.join(SESSION_DIR, os.path.basename(name))
-    walkpath = os.path.join(destpath, 'walks')
-    if not os.path.isdir(destpath):
-        os.mkdir(destpath)
-        os.mkdir(walkpath)
-    return destpath, walkpath
+    sessiondir = os.path.join(SESSION_DIR, os.path.basename(name))
+    walkdir = os.path.join(sessiondir, 'walks')
+    picsdir = os.path.join(sessiondir, 'cycles')
+    if not os.path.isdir(sessiondir):
+        os.mkdir(sessiondir)
+        os.mkdir(walkdir)
+        os.mkdir(picsdir)
+    return sessiondir, walkdir, picsdir
