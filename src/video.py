@@ -451,7 +451,7 @@ class Pics(Video):
 
     def save(self, image, name):
         destpath = os.path.join(self.config.get("current", "pics"), name)
-        cv2.imwrite("%s.png" % destpath, image)
+        cv2.imwrite(u"%s.png" % destpath, image)
 
     def make_pics(self, cycles, walks):
         """Genera las pics de fase por cada ciclo."""
