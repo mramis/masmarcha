@@ -1,0 +1,58 @@
+#:kivy 1.9.1
+
+# Copyright (C) 2017  Mariano Ramis
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
+<VideoFrame>:
+  rows: 3
+  cols: 1
+  spacing: 0, 2
+  row_force_default: True
+  row_default_height: 35
+  GridLayout:  # Apertura
+    rows: 1
+    cols: 3
+    Button:
+      text: "Abrir"
+      size_hint_x: 0.40
+      on_release: root.show_load()
+    Label:
+      text: "Archivo:"
+      size_hint_x: 0.20
+    Label:
+      id: show_file
+      valign: 'middle'
+      halign: 'left'
+      text_size: self.size
+  Button:
+    text: "Reproducir"
+    on_release: root.show_video()
+
+
+<LoadDialog>:
+  BoxLayout:
+    size: root.size
+    pos: root.pos
+    orientation: "vertical"
+    FileChooserListView:
+      id: filechooser
+      rootpath: root.source
+    BoxLayout:
+      size_hint_y: None
+      height: 35
+      Button:
+        text: "Seleccionar"
+        on_release: root.load(filechooser.selection)

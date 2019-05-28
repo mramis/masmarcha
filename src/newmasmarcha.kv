@@ -15,54 +15,5 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
-<ConfigWidget>:
-  label: "ConfigWidget"
-  key: None
-  value: None
-  rows: 2
-  row_force_default: True
-  row_default_height: 35
-  cols: 1
-  col_force_default: True
-  col_default_width: 200
-
-<ConfigOption1>:
-  Label:
-    id: label
-    text: root.label
-  ToggleButton:
-    text: "Desactivado/Activado"
-    on_press: root.change_option()
-
-<ConfigOption2>:
-  Label:
-    id: label
-    text: root.label
-  GridLayout:
-    rows: 1
-    cols: 2
-    TextInput:
-      id: showvalue
-      multiline: False
-      on_text_validate: root.change_option()
-    GridLayout:
-      rows: 2
-      cols: 1
-      size_hint_x: 0.3
-      Button:
-        text: "Subir"
-        on_press: root.up_change_option()
-      Button:
-        text: "Bajar"
-        on_press: root.down_change_option()
-
-<ConfigOption4>:
-  Label:
-    id: label
-    text: root.label
-  Spinner:
-    id: optionsvalue
-    text: "Elegir"
-    values: list("Python")
-    on_text: root.change_option()
+#:include src/uix/configwidgets.kv
+#:include src/uix/videoframe.kv

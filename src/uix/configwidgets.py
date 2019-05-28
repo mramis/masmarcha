@@ -18,7 +18,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import logging
 
 from kivy.properties import BooleanProperty, StringProperty, NumericProperty
 from kivy.uix.gridlayout import GridLayout
@@ -27,7 +26,7 @@ from kivy.uix.gridlayout import GridLayout
 class ConfigWidget(GridLayout):
     u"""Clase base de widgets de configuración de variables de usuario."""
 
-    def __init__(self, label, section, variable, *args, **kwargs):
+    def __init__(self, label, section, variable):
         super().__init__()
         self.section = section
         self.variable = variable
@@ -68,8 +67,7 @@ class ConfigOption2(ConfigWidget):
     def change_option(self):
         try:
             self.current_value = int(self.ids.showvalue.text)
-        except ValueError as error:
-            logging.error("Opción no válida [error]: %s" % error)
+        except ValueError:
             self.current_value = self.minvalue
 
     def up_change_option(self):

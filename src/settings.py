@@ -61,6 +61,7 @@ emptyframelimit = 60
 delay = .1
 framewidth = 640
 frameheight = 480
+extensions = mp4,avi
 
 [camera]
 fps = 60

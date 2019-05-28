@@ -18,251 +18,151 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import logging
-# import os
-# from time import sleep
-# from queue import Queue
-# from threading import Thread
-
 from kivy.app import App
-from kivy.clock import Clock
-from kivy.properties import BooleanProperty, StringProperty, NumericProperty
-# from kivy.core.window import Window
-#
+from kivy.uix.popup import Popup
 from kivy.uix.gridlayout import GridLayout
+from kivy.uix.floatlayout import FloatLayout
+from kivy.properties import StringProperty, ObjectProperty
+
 from .settings import app_config  #, new_session, CONFIG_PATH
 
 # from kivy.uix.floatlayout import FloatLayout
 # from kivy.uix.popup import Popup
 
-# from .video import Video, Pics
+from .video import Video, Pics
 # from .videoexplorer import Explorer
 
 # from .kinematics import Kinematics
 # from .representation import WalkPlot, SpatioTemporal, AnglePlot, ROM
 
-
-def printConfig(dt):
-    for key in app_config:
-        for value in app_config[key]:
-            print(value, app_config[key][value])
+from .uix.configwidgets import *
 
 
 class NewMasMarchaApp(App):
 
-    def schedullePrintConfig(self):
-        Clock.schedule_interval(printConfig, 5)
-
     def build(self):
         u"""Construye la interfaz gráfica."""
         self.config = app_config
-        main = MainFrame()
-        main.buildConfigOptions()
-        self.schedullePrintConfig()
+        main = VideoFrame()
         return main
 
 
-class MainFrame(GridLayout):
-    rows = 5  # DELETE
-    pass
+class ConfigFrame(GridLayout):
+    u"""Para test."""
+    rows = 10
 
     def buildConfigOptions(self):
         u"""Construye los widgets de configuración de sección."""
-        widget = ConfigOption1("Dilatación", "explorer", "dilate").build(app_config)
-        self.add_widget(widget)
-        widget = ConfigOption1("FiltradoXduración", "kinematics", "filter_by_duration").build(app_config)
-        self.add_widget(widget)
-        widget = ConfigOption2("NumMarcadores", "schema", "n").build(app_config, 5, 14, 1)
-        self.add_widget(widget)
-        widget = ConfigOption3("Logitud Derecha", "kinematics", "leftlength").build(app_config, 0.15, 0.4, 0.01)
-        self.add_widget(widget)
-        widget = ConfigOption4("1er Ciclador", "kinematics", "cyclemarker.1").build(app_config)
+        widget = ConfigOption1("Dilatación", "explorer", "dilate")
+        widget.build(app_config)
         self.add_widget(widget)
 
+        widget = ConfigOption1("FiltradoXduración", "kinematics", "filter_by_duration")
+        widget.build(app_config)
+        self.add_widget(widget)
 
-class ConfigWidget(GridLayout):
-    u"""Clase base de widgets de configuración de variables de usuario."""
+        widget = ConfigOption2("NumMarcadores", "schema", "n")
+        widget.build(app_config, 5, 14, 1)
+        self.add_widget(widget)
 
-    def __init__(self, label, section, variable, *args, **kwargs):
-        super().__init__()
-        self.section = section
-        self.variable = variable
-        self.ids.label.text = label
+        widget = ConfigOption3("Logitud Derecha", "kinematics", "leftlength")
+        widget.build(app_config, 0.15, 0.4, 0.01)
+        self.add_widget(widget)
 
-    def build(self, config):
-        return NotImplemented
-
-
-class ConfigOption1(ConfigWidget):
-    u"""Widget para ajustes de configuración de tipo Boleano."""
-    current_value = BooleanProperty(False)
-
-    def build(self, config):
-        self.config = config
-        self.current_value = config.getboolean(self.section, self.variable)
-        return self
-
-    def change_option(self):
-        self.current_value = not self.current_value
-
-    def on_current_value(self, instance, value):
-        self.config.set(self.section, self.variable, str(value))
+        widget = ConfigOption4("Cicladores", "kinematics", "cyclemarker.1")
+        widget.build(app_config)
+        self.add_widget(widget)
 
 
-class ConfigOption2(ConfigWidget):
-    u"""Widget para ajustes de configuración Numérico de tipo entero."""
-    current_value = NumericProperty(0)
-
-    def build(self, config, min, max, dt):
-        self.config = config
-        self.interval = dt
-        self.minvalue = min
-        self.maxvalue = max
-        self.current_value = config.getint(self.section, self.variable)
-        return self
-
-    def change_option(self):
-        try:
-            self.current_value = int(self.ids.showvalue.text)
-        except ValueError as error:
-            logging.error("Opción no válida [error]: %s" % error)
-            self.current_value = self.minvalue
-
-    def up_change_option(self):
-        self.current_value += self.interval
-
-    def down_change_option(self):
-        self.current_value -= self.interval
-
-    def validate(self, value):
-        if float(value) < self.minvalue:
-            self.up_change_option()
-        elif float(value) > self.maxvalue:
-            self.down_change_option()
-
-    def on_current_value(self, instance, value):
-        self.validate(value)
-        self.config.set(self.section, self.variable, str(value))
-        self.ids.showvalue.text = "{:.2f}".format(self.current_value)
+class LoadDialog(FloatLayout):
+    load = ObjectProperty(None)
+    source = StringProperty(None)
 
 
-class ConfigOption3(ConfigOption2):
-    u"""Widget para ajustes de configuración Numérico de tipo flotante."""
+class VideoFrame(GridLayout):
+    u"""Frame de control de video."""
+    current_video = StringProperty(None, allownone=True)
+    paths = []
 
-    def build(self, config, min, max, dt):
-        self.config = config
-        self.interval = dt
-        self.minvalue = min
-        self.maxvalue = max
-        self.current_value = config.getfloat(self.section, self.variable)
-        return self
+    def show_load(self):
+        u"""Popup para buscar la ruta del video."""
+        sourcedir = app_config.get("paths", "sourcedir")
+        self._content = LoadDialog(load=self.load, source=sourcedir)
+        self._popup = Popup(title='Seleccionar Video', content=self._content)
+        self._popup.open()
 
-    def change_option(self):
-        try:
-            self.current_value = float(self.ids.showvalue.text)
-        except ValueError as error:
-            logging.error("Opción no válida [error]: %s" % error)
-            self.current_value = self.minvalue
+    def dismiss_popup(self):
+        u"""Destruye el popup de archivos."""
+        self._popup.dismiss()
 
+    def load(self, filepath):
+        u"""Establece la ruta del archivo fuente de video en el sistema."""
+        value = filepath.pop(0) if filepath != [] else None
+        if value is not None:
+            ext = value.split('.')[-1]
+            if ext in app_config.get("video", "extensions").split(','):
+                self.current_video = value
+                self.dismiss_popup()
 
-class ConfigOption4(ConfigWidget):
-    u"""Widget para ajustes de configuración de tipo opciones establecidas."""
-    current_value = StringProperty("")
+    def on_current_video(self, instance, value):
+        u"""Agrega la ruta a la lista de rutas."""
+        self.ids.show_file.text = value
+        self.paths.append(value)
 
-    def build(self, config):
-        self.config = config
-        self.ids.optionsvalue.values = self.getVariables()
-        return self
+    def show_video(self):
+        u"""Muestra el archivo de video seleccionado."""
+        video = Video(app_config)
+        video.open(self.current_video)
+        video.view("preview", delay=.0)
 
-    def getVariables(self):
-        values = []
-        for variable in self.config[self.section]:
-            if variable.split('.')[0] == self.variable.split('.')[0]:
-                values.append(self.config[self.section][variable])
-        return values
+        #
+        # if self.sourcefile is None:
+        #     return
+        #     self.explorer.preview(self.config.getfloat('video', 'delay'))
 
-    def change_option(self):
-        self.current_value = self.ids.optionsvalue.text
-
-    def on_current_value(self, instance, value):
-        self.config.set(self.section, self.variable, str(value))
+    # def load_video(self):
+    #     self.video = Video(self.config)
+    #     value = self.ids.sourcefile.text
+    #     if os.path.isfile(value):
+    #         self.new_session(value)  # NOTE: esta implementación hace innecesaria "sourcefile"
+    #         self.sourcefile = value
+    #         self.video.open(value)
+    #         self.progressbar.max = self.video.videosize
+    #
+    # def progress(self, pqueue):
+    #     while True:
+    #         value = pqueue.get()
+    #         if value is -1:
+    #             break
+    #         self.progressbar.value = value
+    #         pqueue.task_done()
+    #         sleep(.00001)
+    #     self.process_walks()
+    #     self.walks.walks.clear()
+    #     self.walks.walks.update({str(w): w for w in self.explorer.walks})
+    #     self.progressbar.value = 0
+    #
+    # def process_walks(self):
+    #     for walk in self.explorer.walks:
+    #         walk.find_markers()
+    #
+    # def find_walks(self):
+    #     u"""Lanza el proceso de procesamiento del video."""
+    #     self.explorer.findWalks(self.video)
+    #     self.process_walks()
+    #     self.walks.walks.update({str(w): w for w in self.explorer.walks})
+    #     # if self.sourcefile is None:
+    #     #     return
+    #     # self.progressbar.value = 10
+    #     # q = Queue()
+    #     # t1 = Thread(target=self.explorer.findWalks, args=(q,), daemon=True)
+    #     # t2 = Thread(target=self.progress, args=(q,), daemon=True)
+    #     # t1.start()
+    #     # t2.start()
+    #
 
 
 
-
-# class Control(GridLayout):
-#     pass
-#
-#
-# class LoadDialog(FloatLayout):
-#     load = ObjectProperty(None)
-#     source = StringProperty(None)
-#
-#
-# class VidControl(GridLayout):
-#     sourcefile = None
-#
-#     def dismiss_popup(self):
-#         self._popup.dismiss()
-#
-#     def show_load(self):
-#         u"""Popup para buscar la ruta del video."""
-#         sourcedir = self.config.get('paths', 'sourcedir')
-#         self._content = LoadDialog(load=self.load, source=sourcedir)
-#         self._popup = Popup(title='Seleccionar Video', content=self._content)
-#         self._popup.open()
-#
-#     def load(self, path, filename):
-#         u"""Establece la ruta del archivo fuente de video en el sistema."""
-#         if not self._content.ids['filechooser'].selection:
-#             return
-#         self.ids.sourcefile.text = os.path.join(path, filename[0])
-#         self.dismiss_popup()
-#
-#     def load_video(self):
-#         self.video = Video(self.config)
-#         value = self.ids.sourcefile.text
-#         if os.path.isfile(value):
-#             self.new_session(value)  # NOTE: esta implementación hace innecesaria "sourcefile"
-#             self.sourcefile = value
-#             self.video.open(value)
-#             self.progressbar.max = self.video.videosize
-#
-#     def progress(self, pqueue):
-#         while True:
-#             value = pqueue.get()
-#             if value is -1:
-#                 break
-#             self.progressbar.value = value
-#             pqueue.task_done()
-#             sleep(.00001)
-#         self.process_walks()
-#         self.walks.walks.clear()
-#         self.walks.walks.update({str(w): w for w in self.explorer.walks})
-#         self.progressbar.value = 0
-#
-#     def process_walks(self):
-#         for walk in self.explorer.walks:
-#             walk.find_markers()
-#
-#     def find_walks(self):
-#         u"""Lanza el proceso de procesamiento del video."""
-#         self.explorer.findWalks(self.video)
-#         self.process_walks()
-#         self.walks.walks.update({str(w): w for w in self.explorer.walks})
-#         # if self.sourcefile is None:
-#         #     return
-#         # self.progressbar.value = 10
-#         # q = Queue()
-#         # t1 = Thread(target=self.explorer.findWalks, args=(q,), daemon=True)
-#         # t2 = Thread(target=self.progress, args=(q,), daemon=True)
-#         # t1.start()
-#         # t2.start()
-#
-#     def preview(self):
-#         if self.sourcefile is None:
-#             return
-#         self.explorer.preview(self.config.getfloat('video', 'delay'))
 #
 #
 # class WalksControl(GridLayout):
