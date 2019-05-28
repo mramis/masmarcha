@@ -55,6 +55,7 @@ threshold = 240
 [walk]
 roiwidth = 125
 roiheight = 35
+emptyframelimit = 60
 
 [video]
 delay = .1

@@ -43,8 +43,8 @@ class Video(object):
         self.source = path
         self.cap = cv2.VideoCapture(path)
         self.fps = int(self.cap.get(cv2.CAP_PROP_FPS))
-        self.size = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        return self.cap, self.fps, self.size
+        self.videosize = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        return self.cap, self.fps, self.videosize
 
     def centers(self, contours):
         u"""Obtiene los centros de los contornos como un arreglo de numpy."""
@@ -79,8 +79,8 @@ class Video(object):
     def read_frame(self):
         u"""Lectura de cuadro de video."""
         ret, frame = self.cap.read()
-        pos = int(self.cap.get(cv2.CAP_PROP_POS_FRAMES))
-        return ret, pos, frame
+        self.currentframe = int(self.cap.get(cv2.CAP_PROP_POS_FRAMES))
+        return ret, self.currentframe, frame
 
     def new_window(self, name, extra=''):
         width = self.config.getint('video', 'framewidth')
@@ -130,7 +130,7 @@ class Video(object):
         win = self.new_window(self.source, '' if walk is None else walk.info[0])
         # se establece el rango de cuadros
         stpos = 0 if walk is None else walk.info[1] - 1
-        lspos = self.size if walk is None else walk.info[2]
+        lspos = self.videosize if walk is None else walk.info[2]
         self.cap.set(cv2.CAP_PROP_POS_FRAMES, stpos)
         for pos in range(lspos - stpos):
             ret, __, frame = self.read_frame()
@@ -210,6 +210,7 @@ class Walk(object):
         self._array = np.zeros((self.maxsize, sum(self._cols)), dtype=np.int16)
         self._currow = 0
         self._incompleted = []
+        print("NewWalk %s" % self)
 
     def __repr__(self):
         return 'W{0}'.format(self.id)
@@ -305,6 +306,7 @@ class Walk(object):
         u"""Cierra la información de cuadros en la caminata."""
         lastcompleted = self.arrnrows[np.bool8(self.arrcompleted)][-1]
         self._array = self._array[:lastcompleted+1]
+        print("EndWalk %s" % self)
 
     def calculate_regions(self):
         u"""Encuentra las regiones de interes del esquema de marcadores."""

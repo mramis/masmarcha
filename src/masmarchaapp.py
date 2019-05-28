@@ -31,7 +31,8 @@ from kivy.uix.gridlayout import GridLayout
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.popup import Popup
 
-from .video import Explorer, Pics
+from .video import Video, Pics
+from .videoexplorer import Explorer
 from .settings import app_config, new_session, CONFIG_PATH
 from .kinematics import Kinematics
 from .representation import WalkPlot, SpatioTemporal, AnglePlot, ROM
@@ -95,12 +96,13 @@ class VidControl(GridLayout):
         self.dismiss_popup()
 
     def load_video(self):
+        self.video = Video(self.config)
         value = self.ids.sourcefile.text
         if os.path.isfile(value):
             self.new_session(value)  # NOTE: esta implementación hace innecesaria "sourcefile"
             self.sourcefile = value
-            self.explorer.open_file(value)
-            self.progressbar.max = self.explorer.nframes
+            self.video.open(value)
+            self.progressbar.max = self.video.videosize
 
     def progress(self, pqueue):
         while True:
@@ -121,14 +123,17 @@ class VidControl(GridLayout):
 
     def find_walks(self):
         u"""Lanza el proceso de procesamiento del video."""
-        if self.sourcefile is None:
-            return
-        self.progressbar.value = 10
-        q = Queue()
-        t1 = Thread(target=self.explorer.find_walks, args=(q,), daemon=True)
-        t2 = Thread(target=self.progress, args=(q,), daemon=True)
-        t1.start()
-        t2.start()
+        self.explorer.findWalks(self.video)
+        self.process_walks()
+        self.walks.walks.update({str(w): w for w in self.explorer.walks})
+        # if self.sourcefile is None:
+        #     return
+        # self.progressbar.value = 10
+        # q = Queue()
+        # t1 = Thread(target=self.explorer.findWalks, args=(q,), daemon=True)
+        # t2 = Thread(target=self.progress, args=(q,), daemon=True)
+        # t1.start()
+        # t2.start()
 
     def preview(self):
         if self.sourcefile is None:

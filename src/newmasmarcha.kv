@@ -1,0 +1,66 @@
+#:kivy 1.9.1
+
+# Copyright (C) 2017  Mariano Ramis
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
+<ConfigWidget>:
+  label: "ConfigWidget"
+  key: None
+  value: None
+  rows: 2
+  row_force_default: True
+  row_default_height: 35
+  cols: 1
+  col_force_default: True
+  col_default_width: 200
+
+<ConfigOption1>:
+  Label:
+    id: label
+    text: root.label
+  ToggleButton:
+    text: "SetMeDown"
+    on_press: root.change_option()
+
+<ConfigOption2>:
+  Label:
+    id: label
+    text: root.label
+  GridLayout:
+    rows: 1
+    cols: 2
+    TextInput:
+      id: showvalue
+      multiline: False
+      on_text_validate: root.change_option()
+    GridLayout:
+      rows: 2
+      cols: 1
+      size_hint_x: 0.3
+      Button:
+        text: "Upper"
+        on_press: root.up_change_option()
+      Button:
+        text: "Lower"
+        on_press: root.down_change_option()
+
+<ConfigOption4>:
+  Label:
+    id: label
+    text: root.label
+  Spinner:
+    text: "Choose"
+    values: list("MARIANO")

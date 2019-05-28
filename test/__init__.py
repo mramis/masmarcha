@@ -3,7 +3,7 @@
 
 """Docstring."""
 
-# Copyright (C) 2019  Mariano Ramis
+# Copyright (C) 2018  Mariano Ramis
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,13 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
+import sys
 
-import logging
-import src.newmasmarchaapp as App
-
-logging.basicConfig(level=logging.INFO)
-app = App.NewMasMarchaApp()
-
-
-def test_config_options():
-    app.run()
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
