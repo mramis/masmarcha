@@ -18,6 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import logging
 # import os
 # from time import sleep
 # from queue import Queue
@@ -25,7 +26,7 @@
 
 from kivy.app import App
 from kivy.clock import Clock
-from kivy.properties import BooleanProperty, OptionProperty, NumericProperty
+from kivy.properties import BooleanProperty, StringProperty, NumericProperty
 # from kivy.core.window import Window
 #
 from kivy.uix.gridlayout import GridLayout
@@ -41,13 +42,23 @@ from .settings import app_config  #, new_session, CONFIG_PATH
 # from .representation import WalkPlot, SpatioTemporal, AnglePlot, ROM
 
 
+def printConfig(dt):
+    for key in app_config:
+        for value in app_config[key]:
+            print(value, app_config[key][value])
+
+
 class NewMasMarchaApp(App):
+
+    def schedullePrintConfig(self):
+        Clock.schedule_interval(printConfig, 5)
 
     def build(self):
         u"""Construye la interfaz gráfica."""
         self.config = app_config
         main = MainFrame()
         main.buildConfigOptions()
+        self.schedullePrintConfig()
         return main
 
 
@@ -57,17 +68,20 @@ class MainFrame(GridLayout):
 
     def buildConfigOptions(self):
         u"""Construye los widgets de configuración de sección."""
-        widget = ConfigOption1("Dilatacion", "explorer", "dilate").build(app_config)
+        widget = ConfigOption1("Dilatación", "explorer", "dilate").build(app_config)
         self.add_widget(widget)
         widget = ConfigOption1("FiltradoXduración", "kinematics", "filter_by_duration").build(app_config)
         self.add_widget(widget)
         widget = ConfigOption2("NumMarcadores", "schema", "n").build(app_config, 5, 14, 1)
         self.add_widget(widget)
-        widget = ConfigOption3("Logitud Derecha", "kinematics", "leftlength").build(app_config, 0.15, 0.4, 0.1)
+        widget = ConfigOption3("Logitud Derecha", "kinematics", "leftlength").build(app_config, 0.15, 0.4, 0.01)
+        self.add_widget(widget)
+        widget = ConfigOption4("1er Ciclador", "kinematics", "cyclemarker.1").build(app_config)
         self.add_widget(widget)
 
 
 class ConfigWidget(GridLayout):
+    u"""Clase base de widgets de configuración de variables de usuario."""
 
     def __init__(self, label, section, variable, *args, **kwargs):
         super().__init__()
@@ -80,6 +94,7 @@ class ConfigWidget(GridLayout):
 
 
 class ConfigOption1(ConfigWidget):
+    u"""Widget para ajustes de configuración de tipo Boleano."""
     current_value = BooleanProperty(False)
 
     def build(self, config):
@@ -95,6 +110,7 @@ class ConfigOption1(ConfigWidget):
 
 
 class ConfigOption2(ConfigWidget):
+    u"""Widget para ajustes de configuración Numérico de tipo entero."""
     current_value = NumericProperty(0)
 
     def build(self, config, min, max, dt):
@@ -106,7 +122,11 @@ class ConfigOption2(ConfigWidget):
         return self
 
     def change_option(self):
-        self.current_value = int(self.ids.showvalue.text)
+        try:
+            self.current_value = int(self.ids.showvalue.text)
+        except ValueError as error:
+            logging.error("Opción no válida [error]: %s" % error)
+            self.current_value = self.minvalue
 
     def up_change_option(self):
         self.current_value += self.interval
@@ -123,10 +143,11 @@ class ConfigOption2(ConfigWidget):
     def on_current_value(self, instance, value):
         self.validate(value)
         self.config.set(self.section, self.variable, str(value))
-        self.ids.showvalue.text = str(self.current_value)
+        self.ids.showvalue.text = "{:.2f}".format(self.current_value)
 
 
 class ConfigOption3(ConfigOption2):
+    u"""Widget para ajustes de configuración Numérico de tipo flotante."""
 
     def build(self, config, min, max, dt):
         self.config = config
@@ -137,11 +158,35 @@ class ConfigOption3(ConfigOption2):
         return self
 
     def change_option(self):
-        self.current_value = float(self.ids.showvalue.text), 2
+        try:
+            self.current_value = float(self.ids.showvalue.text)
+        except ValueError as error:
+            logging.error("Opción no válida [error]: %s" % error)
+            self.current_value = self.minvalue
 
 
 class ConfigOption4(ConfigWidget):
-    current_value = OptionProperty([])
+    u"""Widget para ajustes de configuración de tipo opciones establecidas."""
+    current_value = StringProperty("")
+
+    def build(self, config):
+        self.config = config
+        self.ids.optionsvalue.values = self.getVariables()
+        return self
+
+    def getVariables(self):
+        values = []
+        for variable in self.config[self.section]:
+            if variable.split('.')[0] == self.variable.split('.')[0]:
+                values.append(self.config[self.section][variable])
+        return values
+
+    def change_option(self):
+        self.current_value = self.ids.optionsvalue.text
+
+    def on_current_value(self, instance, value):
+        self.config.set(self.section, self.variable, str(value))
+
 
 
 

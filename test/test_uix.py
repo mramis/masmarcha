@@ -25,6 +25,7 @@ import src.newmasmarchaapp as App
 logging.basicConfig(level=logging.INFO)
 app = App.NewMasMarchaApp()
 
+# Mudar el código de configuración para testear configwidgets
 
 def test_config_options():
     app.run()
