@@ -18,25 +18,21 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import queue
-import threading
-
-from kivy.clock import mainthread
+from kivy.app import App
 from kivy.uix.popup import Popup
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.floatlayout import FloatLayout
 from kivy.properties import StringProperty, ObjectProperty
 
-from ..video import Video, explore_video
-from ..settings import app_config
-from .configwidgets import BoolOption, IntegerOption, FloatOption
+from .settings import app_config
+
+from .video import Video, Pics
 
 
 class VideoFrame(GridLayout):
     u"""Frame de control de video."""
     current_video = StringProperty(None, allownone=True)
-    positions = []
-    walks = queue.Queue()
+    paths = []
 
     def show_load(self):
         u"""Popup para buscar la ruta del video."""
@@ -58,53 +54,13 @@ class VideoFrame(GridLayout):
                 self.current_video = value
                 self.dismiss_popup()
 
-    def load_video(self):
-        """Carga el archivo de video."""
-        self.video = Video(app_config)
-        self.video.open(self.current_video)
-        self.ids.endframe.current_value = self.video.size
-        self.ids.startframe.current_value = 0
-
     def on_current_video(self, instance, value):
         u"""Agrega la ruta a la lista de rutas."""
         self.ids.show_file.text = value
-        self.load_video()
+        self.paths.append(value)
 
     def show_video(self):
         u"""Muestra el archivo de video seleccionado."""
-        if self.current_video is None:
-            self.show_load()
-            return
-        self.video.view("preview")
-
-    def explore_video(self, queue):
-        u"""Realiza la exploración del video en busca de caminatas."""
-        if self.current_video is None:
-            self.show_load()
-            return
-        for walk, framepos in explore_video(self.video):
-            self.upload_progress(framepos)
-            queue.put(walk)
-        self.reset_progress()
-
-    def run_explorer_thread(self):
-        u"""Inicia la exploración en otro hilo."""
-        # NOTE: Por ahora el contenedor walks pertenece al widget de video.
-        threading.Thread(target=self.explore_video, args=(self.walks,)).start()
-
-    @mainthread
-    def upload_progress(self, progress):
-        u"""Actualiza el progreso de exploración de video."""
-        value = (progress / self.video.size) * 100
-        self.ids.progressbar.value = value
-        self.ids.progresstext.text = "Progreso {:.2f}%".format(value)
-
-    @mainthread
-    def reset_progress(self):
-        self.ids.progressbar.value = 0
-        self.ids.progresstext.text = "Progreso"
-
-
-class LoadDialog(FloatLayout):
-    load = ObjectProperty(None)
-    source = StringProperty(None)
+        video = Video(app_config)
+        video.open(self.current_video)
+        video.view("preview", delay=.0)

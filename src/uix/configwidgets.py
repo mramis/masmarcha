@@ -67,6 +67,7 @@ class IntegerOption(ConfigWidget):
             self.change_option(int(self.ids.input.text))
         except ValueError:
             self.current_value = self.minvalue
+            self.ids.input.text = "{:.2f}".format(self.current_value)
 
     def change_option(self, value):
         if value <= self.minvalue:
@@ -79,10 +80,10 @@ class IntegerOption(ConfigWidget):
             self.current_value = value
 
     def up_change_option(self):
-        self.current_value += self.interval
+        self.change_option(self.current_value + self.interval)
 
     def down_change_option(self):
-        self.current_value = abs(self.current_value - self.interval)
+        self.change_option(self.current_value - self.interval)
 
 
 class FloatOption(IntegerOption):

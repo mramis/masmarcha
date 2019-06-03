@@ -1,0 +1,102 @@
+#:kivy 1.9.1
+
+# Copyright (C) 2017  Mariano Ramis
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+#:include src/uix/configwidgets.kv
+#:set minheight 35
+
+
+<WalksFrame>:
+  id: walks
+  rows: 5
+  cols: 1
+  spacing: 0, 4
+  row_default_height: minheight
+  row_force_default:True
+  rows_minimum: {1: 150}
+  # Apertura
+  GridLayout:
+    rows: 1
+    cols: 5
+    spacing: 4, 0
+    Button:
+      text: "Seleccionar"
+      size_hint_x: 0.4
+      # on_release: root.show_load()
+    Button:
+      text: "Atrás"
+      size_hint_x: 0.2
+      # on_release: root.show_load()
+    Label:
+      text: "Caminata:"
+      size_hint_x: 0.2
+    Label:
+      id: show_walk
+      valign: 'middle'
+      halign: 'left'
+      text_size: self.size
+    Button:
+      text: "Adelante"
+      size_hint_x: 0.2
+      # on_release: root.show_load()
+  # Configuración
+  GridLayout:
+    rows: 2
+    cols: 3
+    id: configwidget
+    FloatOption:
+      label: u"Demora en reproducción"
+      section_variable: "video-delay"
+      option_values: [0, 0.15, 0.01]
+    IntegerOption:
+      id: startframe
+      label: u"Cuadro incial"
+      section_variable: "video-startframe"
+      option_values: [0, 15000, 1]
+    IntegerOption:
+      id: endframe
+      label: u"Cuadro final"
+      section_variable: "video-endframe"
+      option_values: [0, 15000, 1]
+    IntegerOption:
+      label: u"Ancho de región"
+      section_variable: "walk-roiwidth"
+      option_values: [50, 250, 1]
+    IntegerOption:
+      label: u"Alto de región"
+      section_variable: "walk-roiheight"
+      option_values: [0, 50, 1]
+  # Visualizaión
+  Button:
+    text: "Procesar"
+    # on_release: root.show_video()
+  # Exploración
+  Button:
+    text: "Visualizar"
+    # on_release: root.run_explorer_thread()
+  # Progreso
+  GridLayout:
+    rows: 2
+    cols: 1
+    Label:
+      id: progresstext
+      text: 'Progreso'
+      valign: 'middle'
+      halign: 'left'
+      text_size: self.size
+    ProgressBar:
+      id: progressbar
+      value: 0
