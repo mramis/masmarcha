@@ -17,17 +17,15 @@
 
 
 <ConfigWidget>:
-  label: ""
-  key: None
-  value: None
   rows: 2
   row_force_default: True
   row_default_height: 35
   cols: 1
   col_force_default: True
   col_default_width: 200
+  config: app.config
 
-<ConfigOption1>:
+<BoolOption>:
   Label:
     id: label
     text: root.label
@@ -35,7 +33,7 @@
     text: "Desactivado/Activado"
     on_press: root.change_option()
 
-<ConfigOption2>:
+<IntegerOption>:
   Label:
     id: label
     text: root.label
@@ -43,9 +41,9 @@
     rows: 1
     cols: 2
     TextInput:
-      id: showvalue
+      id: input
       multiline: False
-      on_text_validate: root.change_option()
+      on_text_validate: root.validate_input()
     GridLayout:
       rows: 2
       cols: 1
@@ -57,7 +55,7 @@
         text: "Bajar"
         on_press: root.down_change_option()
 
-<ConfigOption4>:
+<listOption>:
   Label:
     id: label
     text: root.label

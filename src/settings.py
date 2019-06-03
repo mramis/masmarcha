@@ -48,20 +48,22 @@ session =
 walks =
 pics =
 
+[video]
+delay = .1
+endframe = 0
+startframe = 0
+framewidth = 640
+frameheight = 480
+extensions = mp4,avi
+
 [explorer]
 dilate = False
 threshold = 240
+emptyframelimit = 60
 
 [walk]
 roiwidth = 125
 roiheight = 35
-emptyframelimit = 60
-
-[video]
-delay = .1
-framewidth = 640
-frameheight = 480
-extensions = mp4,avi
 
 [camera]
 fps = 60

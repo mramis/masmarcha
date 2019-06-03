@@ -15,14 +15,20 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#:include src/uix/configwidgets.kv
+
+#:set minheight 35
 
 <VideoFrame>:
-  rows: 3
+  id: video
+  rows: 5
   cols: 1
-  spacing: 0, 2
-  row_force_default: True
-  row_default_height: 35
-  GridLayout:  # Apertura
+  spacing: 0, 4
+  row_default_height: minheight
+  row_force_default:True
+  rows_minimum: {1: 150}
+  # Apertura
+  GridLayout:
     rows: 1
     cols: 3
     Button:
@@ -37,9 +43,57 @@
       valign: 'middle'
       halign: 'left'
       text_size: self.size
+  # Configuración
+  GridLayout:
+    rows: 2
+    cols: 3
+    id: configwidget
+    FloatOption:
+      label: u"Demora en reproducción"
+      section_variable: "video-delay"
+      option_values: [0, 0.15, 0.01]
+    IntegerOption:
+      id: startframe
+      label: u"Cuadro incial"
+      section_variable: "video-startframe"
+      option_values: [0, 15000, 1]
+    IntegerOption:
+      id: endframe
+      label: u"Cuadro final"
+      section_variable: "video-endframe"
+      option_values: [0, 15000, 1]
+    IntegerOption:
+      label: u"Límite de cuadros"
+      section_variable: "explorer-emptyframelimit"
+      option_values: [0, 120, 1]
+    IntegerOption:
+      label: u"Umbral de blanco"
+      section_variable: "explorer-threshold"
+      option_values: [200, 255, 1]
+    BoolOption:
+      label: u"Expandir detección"
+      section_variable: "explorer-dilate"
+  # Visualizaión
   Button:
     text: "Reproducir"
     on_release: root.show_video()
+  # Exploración
+  Button:
+    text: "Explorar"
+    on_release: root.run_explorer_thread()
+  # Progreso
+  GridLayout:
+    rows: 2
+    cols: 1
+    Label:
+      id: progresstext
+      text: 'Progreso'
+      valign: 'middle'
+      halign: 'left'
+      text_size: self.size
+    ProgressBar:
+      id: progressbar
+      value: 0
 
 
 <LoadDialog>:
@@ -52,7 +106,7 @@
       rootpath: root.source
     BoxLayout:
       size_hint_y: None
-      height: 35
+      height: minheight
       Button:
         text: "Seleccionar"
         on_release: root.load(filechooser.selection)

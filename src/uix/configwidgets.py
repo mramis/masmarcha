@@ -19,112 +19,92 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-from kivy.properties import BooleanProperty, StringProperty, NumericProperty
+import logging
+
 from kivy.uix.gridlayout import GridLayout
+from kivy.properties import (BooleanProperty, StringProperty, NumericProperty,
+                             ListProperty)
 
 
 class ConfigWidget(GridLayout):
     u"""Clase base de widgets de configuración de variables de usuario."""
+    label = StringProperty("")
+    current_value = None
+    section_variable = StringProperty("")
 
-    def __init__(self, label, section, variable):
-        super().__init__()
-        self.section = section
-        self.variable = variable
-        self.ids.label.text = label
+    def on_label(self, instance, value):
+        self.ids.label.text = value
 
-    def build(self, config):
-        return NotImplemented
+    def on_section_variable(self, instance, value):
+        self.section, self.variable = value.split("-")
+        self.current_value = self.config.get(self.section, self.variable)
 
-
-class ConfigOption1(ConfigWidget):
+class BoolOption(ConfigWidget):
     u"""Widget para ajustes de configuración de tipo Boleano."""
     current_value = BooleanProperty(False)
-
-    def build(self, config):
-        self.config = config
-        self.current_value = config.getboolean(self.section, self.variable)
-        return self
-
-    def change_option(self):
-        self.current_value = not self.current_value
 
     def on_current_value(self, instance, value):
         self.config.set(self.section, self.variable, str(value))
 
-
-class ConfigOption2(ConfigWidget):
-    u"""Widget para ajustes de configuración Numérico de tipo entero."""
-    current_value = NumericProperty(0)
-
-    def build(self, config, min, max, dt):
-        self.config = config
-        self.interval = dt
-        self.minvalue = min
-        self.maxvalue = max
-        self.current_value = config.getint(self.section, self.variable)
-        return self
-
     def change_option(self):
+        self.current_value = not self.current_value
+
+
+class IntegerOption(ConfigWidget):
+    u"""Widget para ajustes de configuración Numérico de tipo entero."""
+    current_value = NumericProperty(1)
+    option_values = ListProperty([])
+
+    def on_current_value(self, instance, value):
+        self.config.set(self.section, self.variable, str(int(value)))
+        self.ids.input.text = "{:.2f}".format(self.current_value)
+
+    def on_option_values(self, instance, values):
+        self.minvalue, self.maxvalue, self.interval = values
+
+    def validate_input(self):
         try:
-            self.current_value = int(self.ids.showvalue.text)
+            self.change_option(int(self.ids.input.text))
         except ValueError:
             self.current_value = self.minvalue
+
+    def change_option(self, value):
+        if value <= self.minvalue:
+            self.current_value = self.minvalue
+            self.ids.input.text = "{:.2f}".format(self.current_value)
+        elif value > self.maxvalue:
+            self.current_value = self.maxvalue
+            self.ids.input.text = "{:.2f}".format(self.current_value)
+        else:
+            self.current_value = value
 
     def up_change_option(self):
         self.current_value += self.interval
 
     def down_change_option(self):
-        self.current_value -= self.interval
-
-    def validate(self, value):
-        if float(value) < self.minvalue:
-            self.up_change_option()
-        elif float(value) > self.maxvalue:
-            self.down_change_option()
-
-    def on_current_value(self, instance, value):
-        self.validate(value)
-        self.config.set(self.section, self.variable, str(value))
-        self.ids.showvalue.text = "{:.2f}".format(self.current_value)
+        self.current_value = abs(self.current_value - self.interval)
 
 
-class ConfigOption3(ConfigOption2):
+class FloatOption(IntegerOption):
     u"""Widget para ajustes de configuración Numérico de tipo flotante."""
 
-    def build(self, config, min, max, dt):
-        self.config = config
-        self.interval = dt
-        self.minvalue = min
-        self.maxvalue = max
-        self.current_value = config.getfloat(self.section, self.variable)
-        return self
+    def on_current_value(self, instance, value):
+        self.config.set(self.section, self.variable, str(float(value)))
+        self.ids.input.text = "{:.2f}".format(self.current_value)
 
-    def change_option(self):
+    def validate_input(self):
         try:
-            self.current_value = float(self.ids.showvalue.text)
-        except ValueError as error:
-            logging.error("Opción no válida [error]: %s" % error)
+            self.change_option(float(self.ids.input.text))
+        except ValueError:
             self.current_value = self.minvalue
 
 
-class ConfigOption4(ConfigWidget):
+class listOption(ConfigWidget):
     u"""Widget para ajustes de configuración de tipo opciones establecidas."""
     current_value = StringProperty("")
 
-    def build(self, config):
-        self.config = config
-        self.ids.optionsvalue.values = self.getVariables()
-        return self
-
-    def getVariables(self):
-        values = []
-        for variable in self.config[self.section]:
-            if variable.split('.')[0] == self.variable.split('.')[0]:
-                values.append(self.config[self.section][variable])
-        return values
+    def on_current_value(self, instance, value):
+        self.config.set(self.section, self.variable, str(value))
 
     def change_option(self):
         self.current_value = self.ids.optionsvalue.text
-
-    def on_current_value(self, instance, value):
-        self.config.set(self.section, self.variable, str(value))

@@ -19,23 +19,13 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from kivy.app import App
-from kivy.uix.popup import Popup
-from kivy.uix.gridlayout import GridLayout
-from kivy.uix.floatlayout import FloatLayout
-from kivy.properties import StringProperty, ObjectProperty
-
-from .settings import app_config  #, new_session, CONFIG_PATH
 
 # from kivy.uix.floatlayout import FloatLayout
 # from kivy.uix.popup import Popup
 
-from .video import Video, Pics
-# from .videoexplorer import Explorer
-
 # from .kinematics import Kinematics
 # from .representation import WalkPlot, SpatioTemporal, AnglePlot, ROM
 
-from .uix.configwidgets import *
 
 
 class NewMasMarchaApp(App):
@@ -43,46 +33,30 @@ class NewMasMarchaApp(App):
     def build(self):
         u"""Construye la interfaz gráfica."""
         self.config = app_config
-        main = VideoFrame()
-        return main
+        video = VideoFrame()
+        return video
 
+####### videoIwdgetFile.py ################
+import queue
+import time
+import threading
 
-class ConfigFrame(GridLayout):
-    u"""Para test."""
-    rows = 10
+from kivy.clock import mainthread
+from kivy.uix.popup import Popup
+from kivy.uix.gridlayout import GridLayout
+from kivy.uix.floatlayout import FloatLayout
+from kivy.properties import StringProperty, ObjectProperty
 
-    def buildConfigOptions(self):
-        u"""Construye los widgets de configuración de sección."""
-        widget = ConfigOption1("Dilatación", "explorer", "dilate")
-        widget.build(app_config)
-        self.add_widget(widget)
-
-        widget = ConfigOption1("FiltradoXduración", "kinematics", "filter_by_duration")
-        widget.build(app_config)
-        self.add_widget(widget)
-
-        widget = ConfigOption2("NumMarcadores", "schema", "n")
-        widget.build(app_config, 5, 14, 1)
-        self.add_widget(widget)
-
-        widget = ConfigOption3("Logitud Derecha", "kinematics", "leftlength")
-        widget.build(app_config, 0.15, 0.4, 0.01)
-        self.add_widget(widget)
-
-        widget = ConfigOption4("Cicladores", "kinematics", "cyclemarker.1")
-        widget.build(app_config)
-        self.add_widget(widget)
-
-
-class LoadDialog(FloatLayout):
-    load = ObjectProperty(None)
-    source = StringProperty(None)
+from .video import Video, explore_video
+from .settings import app_config
+from .uix.configwidgets import BoolOption, IntegerOption, FloatOption
 
 
 class VideoFrame(GridLayout):
     u"""Frame de control de video."""
     current_video = StringProperty(None, allownone=True)
-    paths = []
+    positions = []
+    walks = queue.Queue()
 
     def show_load(self):
         u"""Popup para buscar la ruta del video."""
@@ -104,21 +78,58 @@ class VideoFrame(GridLayout):
                 self.current_video = value
                 self.dismiss_popup()
 
+    def load_video(self):
+        """Carga el archivo de video."""
+        self.video = Video(app_config)
+        self.video.open(self.current_video)
+        self.ids.endframe.current_value = self.video.size
+        self.ids.startframe.current_value = 0
+
     def on_current_video(self, instance, value):
         u"""Agrega la ruta a la lista de rutas."""
         self.ids.show_file.text = value
-        self.paths.append(value)
+        self.load_video()
 
     def show_video(self):
         u"""Muestra el archivo de video seleccionado."""
-        video = Video(app_config)
-        video.open(self.current_video)
-        video.view("preview", delay=.0)
+        if self.current_video is None:
+            self.show_load()
+            return
+        self.video.view("preview")
 
-        #
-        # if self.sourcefile is None:
-        #     return
-        #     self.explorer.preview(self.config.getfloat('video', 'delay'))
+    def explore_video(self, queue):
+        u"""Realiza la exploración del video en busca de caminatas."""
+        if self.current_video is None:
+            self.show_load()
+            return
+        for walk, framepos in explore_video(self.video):
+            self.upload_progress(framepos)
+            queue.put(walk)
+        self.reset_progress()
+
+    def run_explorer_thread(self):
+        u"""Inicia la exploración en otro hilo."""
+        # NOTE: Por ahora el contenedor walks pertenece al widget de video.
+        threading.Thread(target=self.explore_video, args=(self.walks,)).start()
+
+    @mainthread
+    def upload_progress(self, progress):
+        u"""Actualiza el progreso de exploración de video."""
+        value = (progress / self.video.size) * 100
+        self.ids.progressbar.value = value
+        self.ids.progresstext.text = "Progreso {:.2f}%".format(value)
+
+    @mainthread
+    def reset_progress(self):
+        self.ids.progressbar.value = 0
+        self.ids.progresstext.text = "Progreso"
+
+
+class LoadDialog(FloatLayout):
+    load = ObjectProperty(None)
+    source = StringProperty(None)
+
+
 
     # def load_video(self):
     #     self.video = Video(self.config)
