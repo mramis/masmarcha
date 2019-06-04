@@ -20,14 +20,16 @@
 
 
 <WalksFrame>:
-  id: walks
+  id: walksframe
   rows: 5
   cols: 1
+  walks: app.walks_container
   spacing: 0, 4
-  row_default_height: minheight
-  row_force_default:True
   rows_minimum: {1: 150}
-  # Apertura
+  row_force_default:True
+  row_default_height: minheight
+  current_walk_index: 0
+  # Selección
   GridLayout:
     rows: 1
     cols: 5
@@ -35,23 +37,23 @@
     Button:
       text: "Seleccionar"
       size_hint_x: 0.4
-      # on_release: root.show_load()
+      on_release: root.show_selector()
     Button:
       text: "Atrás"
       size_hint_x: 0.2
-      # on_release: root.show_load()
+      on_release: root.select_backward()
     Label:
       text: "Caminata:"
       size_hint_x: 0.2
     Label:
       id: show_walk
       valign: 'middle'
-      halign: 'left'
+      halign: 'center'
       text_size: self.size
     Button:
       text: "Adelante"
       size_hint_x: 0.2
-      # on_release: root.show_load()
+      on_release: root.select_forward()
   # Configuración
   GridLayout:
     rows: 2
@@ -79,11 +81,11 @@
       label: u"Alto de región"
       section_variable: "walk-roiheight"
       option_values: [0, 50, 1]
-  # Visualizaión
+  # Procesamiento
   Button:
     text: "Procesar"
     # on_release: root.show_video()
-  # Exploración
+  # Visualizaión
   Button:
     text: "Visualizar"
     # on_release: root.run_explorer_thread()
@@ -100,3 +102,25 @@
     ProgressBar:
       id: progressbar
       value: 0
+
+
+<SelectionDialog>:
+  walks: app.walks_container
+  BoxLayout:
+    pos: root.pos
+    size: root.size
+    orientation: "vertical"
+    ScrollView:
+      do_scroll_x: False
+      GridLayout:
+        id: stack
+        cols: 1
+        spacing: 4
+        size_hint_y: None
+        height: self.minimum_height
+
+
+<WalkButton>:
+  wid: None
+  height: minheight
+  size_hint_y: None
