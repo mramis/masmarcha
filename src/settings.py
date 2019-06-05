@@ -49,7 +49,7 @@ walks =
 pics =
 
 [video]
-delay = .1
+delay = 0
 endframe = 0
 startframe = 0
 framewidth = 640
@@ -59,11 +59,13 @@ extensions = mp4,avi
 [explorer]
 dilate = False
 threshold = 240
-emptyframelimit = 60
+emptyframelimit = 0
 
 [walk]
+maxsize = 3000
 roiwidth = 125
 roiheight = 35
+verify=False
 
 [camera]
 fps = 60
@@ -88,7 +90,7 @@ r = 3
 leg = 3,4
 foot = 5,6
 tight = 1,2
-markersxroi = 0,1/2,3/4,5,6
+markersxroi = 2,2,3
 order_segments = tight,leg,foot
 order_joints = hip,knee,ankle
 

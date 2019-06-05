@@ -21,14 +21,14 @@
 
 <WalksFrame>:
   id: walksframe
-  rows: 5
+  rows: 4
   cols: 1
+  name: "Caminata"
   walks: app.walks_container
   spacing: 0, 4
   rows_minimum: {1: 150}
   row_force_default:True
   row_default_height: minheight
-  current_walk_index: 0
   # Selección
   GridLayout:
     rows: 1
@@ -58,7 +58,6 @@
   GridLayout:
     rows: 2
     cols: 3
-    id: configwidget
     FloatOption:
       label: u"Demora en reproducción"
       section_variable: "video-delay"
@@ -67,41 +66,34 @@
       id: startframe
       label: u"Cuadro incial"
       section_variable: "video-startframe"
-      option_values: [0, 15000, 1]
+      option_values: [0, 25000, 1]
     IntegerOption:
       id: endframe
       label: u"Cuadro final"
       section_variable: "video-endframe"
-      option_values: [0, 15000, 1]
+      option_values: [0, 25000, 1]
     IntegerOption:
+      id: roiwidth
       label: u"Ancho de región"
       section_variable: "walk-roiwidth"
       option_values: [50, 250, 1]
     IntegerOption:
+      id: roiheight
       label: u"Alto de región"
       section_variable: "walk-roiheight"
       option_values: [0, 50, 1]
+    BoolOption:
+      id: verify
+      label: u"Verificar centro de regiones"
+      section_variable: "walk-verify"
   # Procesamiento
   Button:
     text: "Procesar"
-    # on_release: root.show_video()
+    on_release: root.process()
   # Visualizaión
   Button:
     text: "Visualizar"
-    # on_release: root.run_explorer_thread()
-  # Progreso
-  GridLayout:
-    rows: 2
-    cols: 1
-    Label:
-      id: progresstext
-      text: 'Progreso'
-      valign: 'middle'
-      halign: 'left'
-      text_size: self.size
-    ProgressBar:
-      id: progressbar
-      value: 0
+    on_release: root.view()
 
 
 <SelectionDialog>:

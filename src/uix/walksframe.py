@@ -3,7 +3,7 @@
 
 """Docstring."""
 
-# Copyright (C) 2018  Mariano Ramis
+# Copyright (C) 2019  Mariano Ramis
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,49 +18,85 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from kivy.app import App
 from kivy.uix.popup import Popup
+from kivy.uix.button import Button
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.floatlayout import FloatLayout
-from kivy.properties import StringProperty, ObjectProperty
-
-from .settings import app_config
-
-from .video import Video, Pics
+from kivy.properties import NumericProperty, ObjectProperty, ListProperty
 
 
-class VideoFrame(GridLayout):
-    u"""Frame de control de video."""
-    current_video = StringProperty(None, allownone=True)
-    paths = []
+class WalksFrame(GridLayout):
+    current_walk_index = NumericProperty(None)
+    current_walk = None
 
-    def show_load(self):
-        u"""Popup para buscar la ruta del video."""
-        sourcedir = app_config.get("paths", "sourcedir")
-        self._content = LoadDialog(load=self.load, source=sourcedir)
-        self._popup = Popup(title='Seleccionar Video', content=self._content)
+    def show_selector(self):
+        u"""Popup para seleccionar la caminata."""
+        self._popup = Popup(title='Seleccionar Caminata',
+                            size_hint=(None, None),
+                            content=SelectionDialog(select=self.select),
+                            size=(250, 400))
         self._popup.open()
 
     def dismiss_popup(self):
-        u"""Destruye el popup de archivos."""
+        u"""Destruye el popup de selección de caminata."""
         self._popup.dismiss()
 
-    def load(self, filepath):
-        u"""Establece la ruta del archivo fuente de video en el sistema."""
-        value = filepath.pop(0) if filepath != [] else None
-        if value is not None:
-            ext = value.split('.')[-1]
-            if ext in app_config.get("video", "extensions").split(','):
-                self.current_video = value
-                self.dismiss_popup()
+    def select(self, button):
+        u"""Establece el índice(posición) en lista de la caminata."""
+        self.current_walk_index = button.wid
+        self.dismiss_popup()
 
-    def on_current_video(self, instance, value):
-        u"""Agrega la ruta a la lista de rutas."""
-        self.ids.show_file.text = value
-        self.paths.append(value)
+    def select_forward(self):
+        u"""Incrementa en uno el valor del índice de la caminata."""
+        if self.walks == []:
+            return
+        maxindex = len(self.walks) - 1
+        if self.current_walk_index < maxindex:
+            self.current_walk_index += 1
 
-    def show_video(self):
-        u"""Muestra el archivo de video seleccionado."""
-        video = Video(app_config)
-        video.open(self.current_video)
-        video.view("preview", delay=.0)
+    def select_backward(self):
+        u"""Decrementa en uno el valor del índice de la caminata."""
+        if self.walks == [] or self.current_walk_index == 0:
+            return
+        else:
+            self.current_walk_index -= 1
+
+# NOTE: DESDE ACA, MEJORAR LA ESTéTICA.
+    def on_current_walk_index(self, instance, value):
+        self.current_walk = self.walks[value]
+        if self.current_walk.processed is False:
+            self.current_walk.process()
+        label = "%s - %d FRAMES" % (self.current_walk, self.current_walk.lastfullrow)
+        self.ids.show_walk.text = label
+        self.get_walkconfiguration()
+
+    def get_walkconfiguration(self):
+        if self.current_walk.processed:
+            self.ids.startframe.change_option(self.current_walk.startframe)
+            self.ids.endframe.change_option(self.current_walk.endframe)
+            self.ids.roiwidth.change_option(self.current_walk.roiwidth)
+            self.ids.roiheight.change_option(self.current_walk.roiheight)
+            self.ids.verify.current_value = self.current_walk.verify
+
+    def process(self):
+        if self.current_walk is None:
+            return
+        self.current_walk.process()
+
+    def view(self):
+        pass
+
+
+class SelectionDialog(FloatLayout):
+    walks = ListProperty(None)
+    select = ObjectProperty(None)
+
+    def on_walks(self, instance, collection):
+        for e, walk in enumerate(collection):
+            btn = WalkButton(text=str(walk), on_release=self.select)
+            btn.wid = e
+            self.ids.stack.add_widget(btn)
+
+
+class WalkButton(Button):
+    pass

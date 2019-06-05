@@ -23,10 +23,12 @@
   id: video
   rows: 5
   cols: 1
+  name: "Video"
   spacing: 0, 4
   row_default_height: minheight
   row_force_default:True
   rows_minimum: {1: 150}
+  walks: app.walks_container
   # Apertura
   GridLayout:
     rows: 1
@@ -56,12 +58,12 @@
       id: startframe
       label: u"Cuadro incial"
       section_variable: "video-startframe"
-      option_values: [0, 15000, 1]
+      option_values: [0, 25000, 1]
     IntegerOption:
       id: endframe
       label: u"Cuadro final"
       section_variable: "video-endframe"
-      option_values: [0, 15000, 1]
+      option_values: [0, 25000, 1]
     IntegerOption:
       label: u"Límite de cuadros"
       section_variable: "explorer-emptyframelimit"

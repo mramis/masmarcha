@@ -49,7 +49,6 @@ class BoolOption(ConfigWidget):
     def change_option(self):
         self.current_value = not self.current_value
 
-
 class IntegerOption(ConfigWidget):
     u"""Widget para ajustes de configuración Numérico de tipo entero."""
     current_value = NumericProperty(1)

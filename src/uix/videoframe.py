@@ -36,7 +36,7 @@ class VideoFrame(GridLayout):
     u"""Frame de control de video."""
     current_video = StringProperty(None, allownone=True)
     positions = []
-    walks = queue.Queue()
+    walks = None
 
     def show_load(self):
         u"""Popup para buscar la ruta del video."""
@@ -77,14 +77,14 @@ class VideoFrame(GridLayout):
             return
         self.video.view("preview")
 
-    def explore_video(self, queue):
+    def explore_video(self, wlist):
         u"""Realiza la exploración del video en busca de caminatas."""
         if self.current_video is None:
             self.show_load()
             return
         for walk, framepos in explore_video(self.video):
             self.upload_progress(framepos)
-            queue.put(walk)
+            wlist.append(walk)
         self.reset_progress()
 
     def run_explorer_thread(self):

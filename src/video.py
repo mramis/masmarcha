@@ -24,17 +24,17 @@ from time import sleep
 import cv2
 import numpy as np
 
-from .settings import app_config
+from .settings import app_config as config
 from .walk import Walk
 
 
-NMARKERS = app_config.getint("schema", "n")
+NMARKERS = config.getint("schema", "n")
 
 def explore_video(video):
     u"""Encuentra las caminatas dentro de un video."""
     walking = False
     zerocount = 0
-    emptyframelimit = app_config.getint("explorer", "emptyframelimit")
+    emptyframelimit = config.getint("explorer", "emptyframelimit")
     while True:
         # Lectura de cuadro.
         ret, pos, frame = video.read_frame()
@@ -42,28 +42,24 @@ def explore_video(video):
             break
         # Búsqueda de contornos (marcadores).
         n, contours = video.contours(frame)
-        centers = video.centers(contours)
+        centers = video.centers(contours).flatten()
         # Algoritmo de decisión.
         fullschema = (n == NMARKERS)
         if not walking:
             if fullschema:
-                walk = Walk(app_config)
-                walk.append_centers(pos, fullschema, centers)
+                walk = Walk(config)
+                walk.insert(pos, fullschema, centers)
                 walking = True
         else:
-            if fullschema:
-                walk.append_centers(pos, fullschema, centers)
+            walk.insert(pos, fullschema, centers)
+            if n == 0:
+                zerocount += 1
+                if zerocount > emptyframelimit:
+                    walk.close()
+                    walking = False
+                    yield walk, pos
             else:
-                if n == 0:
-                    zerocount += 1
-                    walk.append_centers(pos, fullschema, centers)
-                    if zerocount > emptyframelimit:
-                        walk.append_stop()
-                        walking = False
-                        yield walk, pos
-                else:
-                    walk.append_centers(pos, fullschema, centers)
-                    zerocount = 0
+                zerocount = 0
 
 
 class Video(object):
