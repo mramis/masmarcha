@@ -20,7 +20,6 @@
 
 
 <WalksFrame>:
-  id: walksframe
   rows: 4
   cols: 1
   name: "Caminata"
@@ -93,7 +92,7 @@
   # Visualizaión
   Button:
     text: "Visualizar"
-    on_release: root.view()
+    on_release: root.view(app.config)
 
 
 <SelectionDialog>:

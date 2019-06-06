@@ -35,8 +35,6 @@ from .configwidgets import BoolOption, IntegerOption, FloatOption
 class VideoFrame(GridLayout):
     u"""Frame de control de video."""
     current_video = StringProperty(None, allownone=True)
-    positions = []
-    walks = None
 
     def show_load(self):
         u"""Popup para buscar la ruta del video."""
@@ -77,20 +75,19 @@ class VideoFrame(GridLayout):
             return
         self.video.view("preview")
 
-    def explore_video(self, wlist):
+    def explore_video(self, container):
         u"""Realiza la exploración del video en busca de caminatas."""
-        if self.current_video is None:
+        if self.current_video is not None:
+            for walk, framepos in explore_video(self.video):
+                self.upload_progress(framepos)
+                container.append(walk)
+            self.reset_progress()
+        else:
             self.show_load()
-            return
-        for walk, framepos in explore_video(self.video):
-            self.upload_progress(framepos)
-            wlist.append(walk)
-        self.reset_progress()
 
-    def run_explorer_thread(self):
+    def run_explorer_thread(self, walksdest):
         u"""Inicia la exploración en otro hilo."""
-        # NOTE: Por ahora el contenedor walks pertenece al widget de video.
-        threading.Thread(target=self.explore_video, args=(self.walks,)).start()
+        threading.Thread(target=self.explore_video, args=(walksdest,)).start()
 
     @mainthread
     def upload_progress(self, progress):

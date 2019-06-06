@@ -20,7 +20,6 @@
 #:set minheight 35
 
 <VideoFrame>:
-  id: video
   rows: 5
   cols: 1
   name: "Video"
@@ -28,7 +27,6 @@
   row_default_height: minheight
   row_force_default:True
   rows_minimum: {1: 150}
-  walks: app.walks_container
   # Apertura
   GridLayout:
     rows: 1
@@ -82,7 +80,7 @@
   # Exploración
   Button:
     text: "Explorar"
-    on_release: root.run_explorer_thread()
+    on_release: root.run_explorer_thread(app.walks_container)
   # Progreso
   GridLayout:
     rows: 2

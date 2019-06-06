@@ -43,8 +43,6 @@ class NewMasMarchaApp(App):
         worksection = WorkSection()
         worksection.widgets = [VideoFrame(), WalksFrame()]
         return worksection
-        # walksframe = WalksFrame()
-        # return walksframe
 
     @property
     def walks_container(self):

@@ -24,10 +24,12 @@ from kivy.uix.gridlayout import GridLayout
 from kivy.uix.floatlayout import FloatLayout
 from kivy.properties import NumericProperty, ObjectProperty, ListProperty
 
+from ..video import Video
 
 class WalksFrame(GridLayout):
     current_walk_index = NumericProperty(None)
-    current_walk = None
+    current_walk = ObjectProperty(None)
+    walks = []
 
     def show_selector(self):
         u"""Popup para seleccionar la caminata."""
@@ -43,48 +45,56 @@ class WalksFrame(GridLayout):
 
     def select(self, button):
         u"""Establece el índice(posición) en lista de la caminata."""
-        self.current_walk_index = button.wid
+        self.current_walk_index = button.id
         self.dismiss_popup()
 
     def select_forward(self):
         u"""Incrementa en uno el valor del índice de la caminata."""
-        if self.walks == []:
+        if self.walks == [] or self.current_walk_index is None:
             return
-        maxindex = len(self.walks) - 1
-        if self.current_walk_index < maxindex:
+        elif self.current_walk_index < len(self.walks) - 1:
             self.current_walk_index += 1
 
     def select_backward(self):
         u"""Decrementa en uno el valor del índice de la caminata."""
-        if self.walks == [] or self.current_walk_index == 0:
+        if self.walks == [] or self.current_walk_index is None:
             return
-        else:
+        elif self.current_walk_index != 0:
             self.current_walk_index -= 1
 
-# NOTE: DESDE ACA, MEJORAR LA ESTéTICA.
-    def on_current_walk_index(self, instance, value):
-        self.current_walk = self.walks[value]
-        if self.current_walk.processed is False:
-            self.current_walk.process()
-        label = "%s - %d FRAMES" % (self.current_walk, self.current_walk.lastfullrow)
-        self.ids.show_walk.text = label
-        self.get_walkconfiguration()
+    def on_current_walk(self, instance, walk):
+        u"""Procesa la caminata y/o actualiza los valores de procesamiento."""
+        if not walk.processed:
+            walk.process()
+        else:
+            self.get_walk_config(walk)
 
-    def get_walkconfiguration(self):
-        if self.current_walk.processed:
-            self.ids.startframe.change_option(self.current_walk.startframe)
-            self.ids.endframe.change_option(self.current_walk.endframe)
-            self.ids.roiwidth.change_option(self.current_walk.roiwidth)
-            self.ids.roiheight.change_option(self.current_walk.roiheight)
-            self.ids.verify.current_value = self.current_walk.verify
+    def on_current_walk_index(self, instance, index):
+        u"""Establece la caminata actual."""
+        label_mssg = "{} - {} FRAMES"
+        self.current_walk = self.walks[index]
+        self.ids.show_walk.text = label_mssg.format(
+            self.current_walk, self.current_walk.lastfullrow)
+
+    def get_walk_config(self, walk):
+        u"""Muestra los valores de configuración utilizados en la caminata."""
+        # Los widgets de configuración de cuadros.
+        self.ids.startframe.current_value = walk.startframe
+        self.ids.endframe.current_value = walk.endframe
+        # Los widgets de regiones.
+        self.ids.roiwidth.current_value = walk.roiwidth
+        self.ids.roiheight.current_value = walk.roiheight
 
     def process(self):
-        if self.current_walk is None:
-            return
-        self.current_walk.process()
+        u"""Dispara el procesiento de la caminata con la configuración actual."""
+        if self.current_walk is not None:
+            self.current_walk.process()
 
-    def view(self):
-        pass
+    def view(self, config):
+        if self.current_walk is not None:
+            self.video = Video(config)
+            self.video.open(config.get("session", "source"))
+            self.video.view("walk", self.current_walk)
 
 
 class SelectionDialog(FloatLayout):
@@ -93,10 +103,9 @@ class SelectionDialog(FloatLayout):
 
     def on_walks(self, instance, collection):
         for e, walk in enumerate(collection):
-            btn = WalkButton(text=str(walk), on_release=self.select)
-            btn.wid = e
+            btn = WalkButton(text=str(walk), on_release=self.select, id=e)
             self.ids.stack.add_widget(btn)
 
 
 class WalkButton(Button):
-    pass
+    id = NumericProperty(None)

@@ -43,10 +43,8 @@ app = {APP}
 normal = {NORMAL}
 sourcedir = {HOME}
 
-[current]
-session =
-walks =
-pics =
+[session]
+source =
 
 [video]
 delay = 0

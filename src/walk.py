@@ -178,7 +178,7 @@ class Walk(object):
         centers = [center(self.array[:, iroi]) for iroi in self.slregions]
         return np.array(centers)
 
-    def verifyRegions(self, stdscale=3):
+    def verifyRegions(self):
         u"""Verifica la posición (altura) en de los centros de las regiones."""
         ycenters = self.centerRegions()[:, 1]
         mean = np.mean(ycenters, axis=1)[:, np.newaxis]
@@ -213,6 +213,9 @@ class Walk(object):
 
     def markersRecovery(self):
         u"""Recupera datos intercambiados de cuadros no-fullschema."""
+
+        print("DEBUGGG walk.Walk.markersRecovery()!")
+
         toreplacecol = 2
         for (xmk, ymk), roi, nm in zip(self.slmarkers, self.slregions, self.nmxroi):
             xmin, ymin, xmax, ymax = self.array[np.newaxis, :, roi].transpose()
