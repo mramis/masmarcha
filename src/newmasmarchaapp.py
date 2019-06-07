@@ -52,6 +52,7 @@ class NewMasMarchaApp(App):
 class WorkSection(BoxLayout):
     widgets = ListProperty([])
     orientation = "vertical"
+    spacing = 50
 
     def on_widgets(self, instance, widgets):
         u"""Agrega los widgets de secciones de trabajo."""

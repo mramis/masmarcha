@@ -137,7 +137,6 @@ class Video(object):
 
     def draw_markers(self, frame, markers, colors=False):
         u"""Dibuja sobre el cuadro la posición de los marcadores."""
-        copy = np.reshape(markers, (NMARKERS, 2))
         if colors is False:
             colors = ((0,0,255) for __ in range(markers.shape[0]))
         else:
@@ -145,15 +144,13 @@ class Video(object):
             combination = [int(n) for n in markersxroi]
             variation = ((0, 0, 255), (0, 255, 0), (255, 0, 0))
             colors = [variation[i] for n in combination for i in range(n)]
-        for m, c in zip(copy, colors):
+        for m, c in zip(markers, colors):
             cv2.circle(frame, tuple(m), 10, c, -1)
 
     def draw_regions(self, frame, regions, condition):
         """Dibuja las regiones de marcadores sobre el cuadro"""
         color = {0: (0, 255, 0), 1: (0, 0, 255)}
-        copy = np.reshape(regions, (NREGIONS, 2, 2))
-        print(condition)
-        for (p0, p1), c in zip(copy, condition):
+        for (p0, p1), c in zip(regions, condition):
             cv2.rectangle(frame, tuple(p0), tuple(p1), color[c], 3)
 
     def draw_function(self, drawtype, frame, walk, pos):
@@ -162,14 +159,16 @@ class Video(object):
             self.draw_n(frame, n)
             self.draw_markers(frame, self.centers(conts))
         elif drawtype is "walk":
-            self.draw_markers(frame, walk.markers[pos], True)
-            self.draw_regions(frame, walk.regions[pos], walk.interpolatedframes[pos])
+            markers = np.reshape(walk.markers[pos], (NMARKERS, 2))
+            regions = np.reshape(walk.regions[pos], (NREGIONS, 2, 2))
+            self.draw_markers(frame, markers, True)
+            self.draw_regions(frame, regions, walk.interpolatedframes[pos])
 
     def view(self, drawtype, walk=None):
         u"""Se muestran los objetos detectados en el video."""
         win = self.new_window(self.source)
         # se establece el rango de cuadros
-        stpos = self.config.getint("video", "startframe") if walk is None else walk.startframe
+        stpos = self.config.getint("video", "startframe") if walk is None else walk.startframe - 1
         lspos = self.config.getint("video", "endframe") if walk is None else walk.endframe
         self.cap.set(cv2.CAP_PROP_POS_FRAMES, stpos)
         for pos in range(lspos - stpos):

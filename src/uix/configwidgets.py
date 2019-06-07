@@ -41,13 +41,17 @@ class ConfigWidget(GridLayout):
 
 class BoolOption(ConfigWidget):
     u"""Widget para ajustes de configuración de tipo Boleano."""
-    current_value = BooleanProperty(False)
+    current_value = BooleanProperty(None)
 
     def on_current_value(self, instance, value):
+        if not isinstance(value, bool):
+            value = True if value == "True" else False
         self.config.set(self.section, self.variable, str(value))
+        self.ids.toggle.state = "down" if value is True else "normal"
 
-    def change_option(self):
-        self.current_value = not self.current_value
+    def change_option(self, state):
+        self.current_value = True if state is "down" else False
+
 
 class IntegerOption(ConfigWidget):
     u"""Widget para ajustes de configuración Numérico de tipo entero."""

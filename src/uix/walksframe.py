@@ -64,6 +64,10 @@ class WalksFrame(GridLayout):
 
     def on_current_walk(self, instance, walk):
         u"""Procesa la caminata y/o actualiza los valores de procesamiento."""
+        mssg = "{} - {} FRAMES"
+        self.ids.show_walk.text = mssg.format(walk, walk.lastfullrow)
+        self.ids.startframe.current_value = walk.startframe
+        self.ids.endframe.current_value = walk.endframe
         if not walk.processed:
             walk.process()
         else:
@@ -71,17 +75,12 @@ class WalksFrame(GridLayout):
 
     def on_current_walk_index(self, instance, index):
         u"""Establece la caminata actual."""
-        label_mssg = "{} - {} FRAMES"
         self.current_walk = self.walks[index]
-        self.ids.show_walk.text = label_mssg.format(
-            self.current_walk, self.current_walk.lastfullrow)
 
     def get_walk_config(self, walk):
         u"""Muestra los valores de configuración utilizados en la caminata."""
-        # Los widgets de configuración de cuadros.
-        self.ids.startframe.current_value = walk.startframe
-        self.ids.endframe.current_value = walk.endframe
         # Los widgets de regiones.
+        self.ids.verify.current_value = walk.verify
         self.ids.roiwidth.current_value = walk.roiwidth
         self.ids.roiheight.current_value = walk.roiheight
 

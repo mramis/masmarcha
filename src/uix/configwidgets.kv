@@ -30,8 +30,9 @@
     id: label
     text: root.label
   ToggleButton:
+    id: toggle
     text: "Desactivado/Activado"
-    on_press: root.change_option()
+    on_press: root.change_option(self.state)
 
 <IntegerOption>:
   Label:

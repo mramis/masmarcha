@@ -159,37 +159,6 @@ class Walk(object):
             self.array[:, roi] = np.vstack((xmn, ymn, xmx, ymx)).transpose()
         logging.debug("%s - Regiones obtenidas" % self)
 
-    @property
-    def slregions(self):
-        u"""Generador(slice) de la subdivisión de regiones."""
-        i = COLITEMS[:2].sum()
-        for r in range(NREGIONS):
-            start, stop = (i + r * 4, i + (r + 1) * 4)
-            yield slice(start, stop)
-
-    def centerRegions(self):
-        u"""Se calcula los centros de las regiones de interés."""
-        def center(roi):
-            u"""Calcula el centro de la región de interés."""
-            xmin, ymin, xmax, ymax = roi.transpose()
-            xcenter = xmin + (xmax - xmin) * .5
-            ycenter = ymin + (ymax - ymin) * .5
-            return (xcenter, ycenter)
-        centers = [center(self.array[:, iroi]) for iroi in self.slregions]
-        return np.array(centers)
-
-    def verifyRegions(self):
-        u"""Verifica la posición (altura) en de los centros de las regiones."""
-        ycenters = self.centerRegions()[:, 1]
-        mean = np.mean(ycenters, axis=1)[:, np.newaxis]
-        std = np.std(ycenters, axis=1)[:, np.newaxis]
-        # Las regiones que son normales (o regulares).
-        normal = np.logical_and(mean - std < ycenters, ycenters < mean + std)
-        # Las regiones que no estan en el rango deben ser interpoladas.
-        wrongcenters = np.logical_or(*np.logical_not(normal))
-        self.array[wrongcenters, 1] = 0
-        logging.debug("%s - Verificación de posición de regiones." % self)
-
     def interpolateRegions(self):
         u"""Crea las regiones de interes de los cuadros incompletos"""
         fs = self.fullschema
@@ -213,28 +182,32 @@ class Walk(object):
 
     def markersRecovery(self):
         u"""Recupera datos intercambiados de cuadros no-fullschema."""
+        # Esto es una clausula de desarrollo, se va a remover.
+        print(np.count_nonzero(np.logical_not(self.fullschema)), len(self.nofullschemaarray))
+        def xymarkers(arr):
+            cols = 2
+            rows = int(arr.size / cols)
+            return arr.reshape(rows, cols).transpose()
 
-        print("DEBUGGG walk.Walk.markersRecovery()!")
-
-        toreplacecol = 2
-        for (xmk, ymk), roi, nm in zip(self.slmarkers, self.slregions, self.nmxroi):
-            xmin, ymin, xmax, ymax = self.array[np.newaxis, :, roi].transpose()
-            xmarkers = self.array[:, self.slxmarkers]
-            ymarkers = self.array[:, self.slymarkers]
-            xfound = np.logical_and(xmin < xmarkers, xmarkers < xmax)
-            yfound = np.logical_and(ymin < ymarkers, ymarkers < ymax)
-            # Coordenadas que coinsiden tanto en x como en y.
-            matched = np.logical_and(xfound, yfound)
-            rightcount = np.equal(np.count_nonzero(matched, axis=1), nm)
-            # los valores a reemplazar que cumplen con las coincidencias.
-            xreplace = xmarkers[rightcount][matched[rightcount]]
-            yreplace = ymarkers[rightcount][matched[rightcount]]
-            nrows = np.count_nonzero(rightcount)
-            self.array[rightcount, xmk] = xreplace.reshape(nrows, nm)
-            self.array[rightcount, ymk] = yreplace.reshape(nrows, nm)
-            # Se coloca en la columna de indicadores la región a interpolar.
-            self.array[:, toreplacecol] = np.logical_not(rightcount)
-            toreplacecol += 1
+        rows = np.arange(self.array.shape[0])[~self.fullschema]
+        for i, arr in zip(rows, self.nofullschemaarray):
+            toreplacecol = 2
+            xmarkers, ymarkers = xymarkers(arr)
+            for (x, y), roi, nm in zip(self.slmarkers, self.slregions, self.nmxroi):
+                xmin, ymin, xmax, ymax = self.array[np.newaxis, i, roi].transpose()
+                xfound = np.logical_and(xmin < xmarkers, xmarkers < xmax)
+                yfound = np.logical_and(ymin < ymarkers, ymarkers < ymax)
+                # Coordenadas que coinsiden tanto en x como en y.
+                matched = np.logical_and(xfound, yfound)
+                rightcount = np.equal(np.count_nonzero(matched), nm)
+                # los valores a reemplazar que cumplen con las coincidencias.
+                if rightcount:
+                    self.array[i, x] = xmarkers[matched]
+                    self.array[i, y] = ymarkers[matched]
+                # Se coloca en la columna de indicadores la región a interpolar.
+                else:
+                    self.array[i, toreplacecol] = 1
+                toreplacecol += 1
         logging.debug("%s - Datos recuperados" % self)
 
     def sortingFoot1(self):
@@ -267,9 +240,6 @@ class Walk(object):
 
     def process(self):
         self.calculateRegions()
-        self.verify = config.getboolean("walk", "verify")
-        if self.verify:
-            self.verifyRegions()
         self.interpolateRegions()
         self.markersRecovery()
         self.sortingFoot1()
