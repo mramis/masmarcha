@@ -63,7 +63,6 @@ emptyframelimit = 0
 maxsize = 3000
 roiwidth = 125
 roiheight = 35
-verify=True
 
 [camera]
 fps = 60

@@ -25,7 +25,7 @@
   name: "Caminata"
   walks: app.walks_container
   spacing: 0, 4
-  rows_minimum: {1: 150}
+  rows_minimum: {1: 75}
   row_force_default:True
   row_default_height: minheight
   # Selección
@@ -55,22 +55,23 @@
       on_release: root.select_forward()
   # Configuración
   GridLayout:
-    rows: 2
+    rows: 1
     cols: 3
     FloatOption:
       label: u"Demora en reproducción"
       section_variable: "video-delay"
       option_values: [0, 0.15, 0.01]
-    IntegerOption:
-      id: startframe
-      label: u"Cuadro incial"
-      section_variable: "video-startframe"
-      option_values: [0, 25000, 1]
-    IntegerOption:
-      id: endframe
-      label: u"Cuadro final"
-      section_variable: "video-endframe"
-      option_values: [0, 25000, 1]
+    # SE QUITAN MOMENTANEAMENTE HASTA RESOLVER LA CLASE VIDEO.
+    # IntegerOption:
+    #   id: startframe
+    #   label: u"Cuadro incial"
+    #   section_variable: "video-startframe"
+    #   option_values: [0, 25000, 1]
+    # IntegerOption:
+    #   id: endframe
+    #   label: u"Cuadro final"
+    #   section_variable: "video-endframe"
+    #   option_values: [0, 25000, 1]
     IntegerOption:
       id: roiwidth
       label: u"Ancho de región"
@@ -81,10 +82,6 @@
       label: u"Alto de región"
       section_variable: "walk-roiheight"
       option_values: [0, 50, 1]
-    BoolOption:
-      id: verify
-      label: u"Verificar centro de regiones"
-      section_variable: "walk-verify"
   # Procesamiento
   Button:
     text: "Procesar"

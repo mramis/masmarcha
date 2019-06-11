@@ -66,24 +66,25 @@ class VideoFrame(GridLayout):
     def on_current_video(self, instance, value):
         u"""Agrega la ruta a la lista de rutas."""
         self.ids.show_file.text = value
-        self.load_video()
 
     def show_video(self):
         u"""Muestra el archivo de video seleccionado."""
         if self.current_video is None:
-            self.show_load()
             return
-        self.video.view("preview")
+        # self.load_video()
+        # self.video.view("preview")
+        # NOTE: Nuevo desarrollo para visualizar video dentro de la app
+        self.display.capture_name = self.current_video
 
     def explore_video(self, container):
         u"""Realiza la exploración del video en busca de caminatas."""
-        if self.current_video is not None:
-            for walk, framepos in explore_video(self.video):
-                self.upload_progress(framepos)
-                container.append(walk)
-            self.reset_progress()
-        else:
-            self.show_load()
+        if self.current_video is None:
+            return
+        self.load_video()
+        for walk, framepos in explore_video(self.video):
+            self.upload_progress(framepos)
+            container.append(walk)
+        self.reset_progress()
 
     def run_explorer_thread(self, walksdest):
         u"""Inicia la exploración en otro hilo."""

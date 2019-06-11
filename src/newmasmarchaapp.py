@@ -21,7 +21,7 @@
 from kivy.app import App
 from kivy.properties import ListProperty
 from kivy.uix.boxlayout import BoxLayout
-from kivy.properties import BooleanProperty
+from kivy.properties import BooleanProperty, ObjectProperty
 
 # from kivy.uix.floatlayout import FloatLayout
 # from kivy.uix.popup import Popup
@@ -32,17 +32,25 @@ from kivy.properties import BooleanProperty
 from .settings import app_config as config
 from .uix.videoframe import VideoFrame
 from .uix.walksframe import WalksFrame
+from .uix.displayframe import DisplayFrame
 
 
 class NewMasMarchaApp(App):
     data_container = {"walks": []}
+    display = ObjectProperty(None)
 
     def build(self):
         self.config = config
         u"""Construye la interfaz gráfica."""
+        root = BoxLayout()
+
+        self.display = DisplayFrame()  # NUEVO DESARROLLO
         worksection = WorkSection()
         worksection.widgets = [VideoFrame(), WalksFrame()]
-        return worksection
+
+        root.add_widget(worksection)
+        root.add_widget(self.display)
+        return root
 
     @property
     def walks_container(self):
@@ -50,8 +58,8 @@ class NewMasMarchaApp(App):
 
 
 class WorkSection(BoxLayout):
-    widgets = ListProperty([])
     orientation = "vertical"
+    widgets = ListProperty([])
     spacing = 50
 
     def on_widgets(self, instance, widgets):
@@ -60,6 +68,10 @@ class WorkSection(BoxLayout):
             self.add_widget(w)
 
 
+############### >> NEW CLASS IMAGE-VIDEO >>
+
+
+#### END CLASS <<<<<<<<<<<<<<<<<<<<<<<<<<<<
  # class PlotsControl(GridLayout):
 #     cids = []
 #

@@ -39,7 +39,7 @@ def explore_video(video):
     emptyframelimit = config.getint("explorer", "emptyframelimit")
     while True:
         # Lectura de cuadro.
-        ret, pos, frame = video.read_frame()
+        ret, pos, frame = video.read()
         if not ret:
             break
         # Búsqueda de contornos (marcadores).
@@ -67,24 +67,24 @@ def explore_video(video):
 class Video(object):
 
     def __init__(self, config):
-        self.cap = None
+        self.capture = None
         self.config = config
         self._dilate = config.getboolean('explorer', 'dilate')
         self._threshold = config.getfloat('explorer', 'threshold')
 
     def __del__(self):
-        if self.cap is not None and self.cap.isOpened():
-            self.cap.release()
+        if self.capture is not None and self.capture.isOpened():
+            self.capture.release()
             cv2.destroyAllWindows()
 
     def open(self, path=0):
         """Inicializa la captura de video."""
         self.source = path
-        self.cap = cv2.VideoCapture(path)
-        self.fps = int(self.cap.get(cv2.CAP_PROP_FPS))
-        self.size = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        self.capture = cv2.VideoCapture(path)
+        self.fps = int(self.capture.get(cv2.CAP_PROP_FPS))
+        self.size = int(self.capture.get(cv2.CAP_PROP_FRAME_COUNT))
         self.config.set("session", "source", path)
-        return self.cap, self.fps
+        return self.capture, self.fps
 
     def centers(self, contours):
         u"""Obtiene los centros de los contornos como un arreglo de numpy."""
@@ -116,11 +116,11 @@ class Video(object):
         correction = self.config.getfloat('camera', 'fpscorrection')
         return self.fps * correction
 
-    def read_frame(self):
+    def read(self):
         u"""Lectura de cuadro de video."""
-        ret, frame = self.cap.read()
-        self.currentframe = int(self.cap.get(cv2.CAP_PROP_POS_FRAMES))
-        return ret, self.currentframe, frame
+        ret, frame = self.capture.read()
+        posframe = int(self.capture.get(cv2.CAP_PROP_POS_FRAMES))
+        return ret, posframe, frame
 
     def new_window(self, name, extra=''):
         width = self.config.getint('video', 'framewidth')
@@ -170,9 +170,9 @@ class Video(object):
         # se establece el rango de cuadros
         stpos = self.config.getint("video", "startframe") if walk is None else walk.startframe - 1
         lspos = self.config.getint("video", "endframe") if walk is None else walk.endframe
-        self.cap.set(cv2.CAP_PROP_POS_FRAMES, stpos)
+        self.capture.set(cv2.CAP_PROP_POS_FRAMES, stpos)
         for pos in range(lspos - stpos):
-            ret, __, frame = self.read_frame()
+            ret, __, frame = self.read()
             # obtienen y dibujan los marcadores
             self.draw_function(drawtype, frame, walk, pos)
             cv2.imshow(win, frame)
@@ -180,6 +180,14 @@ class Video(object):
                 break
             sleep(self.config.getfloat("video", "delay"))
         cv2.destroyAllWindows()
+
+    def flip_and_resize(self, frame):
+        width = self.config.getint("video", "framewidth")
+        height = self.config.getint("video", "frameheight")
+        return width, height, cv2.flip(cv2.resize(frame, (width, height)), 0)
+
+
+
 
 
 class Pics(Video):
@@ -206,7 +214,7 @@ class Pics(Video):
 
     def calc_xcenter(self, walk, pos):
         center = np.mean(walk.markers[pos, np.arange(0, 14, 2)])
-        return int(center * self.width / self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        return int(center * self.width / self.capture.get(cv2.CAP_PROP_FRAME_WIDTH))
 
     def cut_frame(self, frame, xcenter):
         d0 = (xcenter - 100) if xcenter > 100 else 0
@@ -220,8 +228,8 @@ class Pics(Video):
 
     def frame_from_cycle(self, posframe):
         u"""Devuelve el cuadro (imagen) en la posción que se le indica."""
-        self.cap.set(cv2.CAP_PROP_POS_FRAMES, posframe)
-        frame = cv2.resize(self.cap.read()[1], (self.width, self.height))
+        self.capture.set(cv2.CAP_PROP_POS_FRAMES, posframe)
+        frame = cv2.resize(self.capture.read()[1], (self.width, self.height))
         return frame
 
     def build_pic(self, cframes):

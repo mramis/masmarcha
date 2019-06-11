@@ -66,8 +66,8 @@ class WalksFrame(GridLayout):
         u"""Procesa la caminata y/o actualiza los valores de procesamiento."""
         mssg = "{} - {} FRAMES"
         self.ids.show_walk.text = mssg.format(walk, walk.lastfullrow)
-        self.ids.startframe.current_value = walk.startframe
-        self.ids.endframe.current_value = walk.endframe
+        # self.ids.startframe.current_value = walk.startframe
+        # self.ids.endframe.current_value = walk.endframe
         if not walk.processed:
             walk.process()
         else:
@@ -80,7 +80,6 @@ class WalksFrame(GridLayout):
     def get_walk_config(self, walk):
         u"""Muestra los valores de configuración utilizados en la caminata."""
         # Los widgets de regiones.
-        self.ids.verify.current_value = walk.verify
         self.ids.roiwidth.current_value = walk.roiwidth
         self.ids.roiheight.current_value = walk.roiheight
 

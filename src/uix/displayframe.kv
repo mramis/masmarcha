@@ -15,7 +15,21 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#:include src/uix/configwidgets.kv
-#:include src/uix/displayframe.kv
-#:include src/uix/videoframe.kv
-#:include src/uix/walksframe.kv
+#:import config src.settings.app_config
+#:set minheight 35
+
+<DisplayFrame>:
+  rows: 2
+  cols: 1
+  padding: 10
+  spacing: 0, 10
+  rows_minimum: {0: config.getint("video", "frameheight") + 50}
+  default_image: "/home/mariano/Imágenes/logo.png"
+  row_force_default:True
+  row_default_height: minheight
+  Image:
+    id: display
+    source: root.default_image
+  Button:
+    text: "Parar"
+    on_press: root.stop()
