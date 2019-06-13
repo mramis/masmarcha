@@ -15,7 +15,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#:import config src.settings.app_config
 #:set minheight 35
 
 <DisplayFrame>:
@@ -23,7 +22,7 @@
   cols: 1
   padding: 10
   spacing: 0, 10
-  rows_minimum: {0: config.getint("video", "frameheight") + 50}
+  rows_minimum: {0: app.core.config.getint("video", "frameheight") + 50}
   default_image: "/home/mariano/Imágenes/logo.png"
   row_force_default:True
   row_default_height: minheight

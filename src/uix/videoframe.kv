@@ -23,8 +23,8 @@
   rows: 5
   cols: 1
   name: "Video"
+  core: app.core
   spacing: 0, 4
-  display: app.display
   row_default_height: minheight
   row_force_default:True
   rows_minimum: {1: 150}
@@ -81,7 +81,7 @@
   # Exploración
   Button:
     text: "Explorar"
-    on_release: root.run_explorer_thread(app.walks_container)
+    on_release: root.run_explorer_thread()
   # Progreso
   GridLayout:
     rows: 2

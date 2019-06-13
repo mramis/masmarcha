@@ -26,8 +26,5 @@ logging.basicConfig(level=logging.INFO)
 app = App.NewMasMarchaApp()
 
 
-# def test_config_options():
-#     app.run()
-
 def test_video():
     app.run()

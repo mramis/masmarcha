@@ -23,38 +23,27 @@ from kivy.properties import ListProperty
 from kivy.uix.boxlayout import BoxLayout
 from kivy.properties import BooleanProperty, ObjectProperty
 
-# from kivy.uix.floatlayout import FloatLayout
-# from kivy.uix.popup import Popup
 
-# from .kinematics import Kinematics
-# from .representation import WalkPlot, SpatioTemporal, AnglePlot, ROM
-
-from .settings import app_config as config
+from .core.main import Core
 from .uix.videoframe import VideoFrame
-from .uix.walksframe import WalksFrame
+# from .uix.walksframe import WalksFrame
 from .uix.displayframe import DisplayFrame
 
 
 class NewMasMarchaApp(App):
-    data_container = {"walks": []}
-    display = ObjectProperty(None)
+    core = Core()
 
     def build(self):
-        self.config = config
         u"""Construye la interfaz gráfica."""
         root = BoxLayout()
 
-        self.display = DisplayFrame()  # NUEVO DESARROLLO
+        display = DisplayFrame()
         worksection = WorkSection()
-        worksection.widgets = [VideoFrame(), WalksFrame()]
+        worksection.widgets = [VideoFrame(),]#, WalksFrame()]
 
         root.add_widget(worksection)
-        root.add_widget(self.display)
+        root.add_widget(display)
         return root
-
-    @property
-    def walks_container(self):
-        return self.data_container["walks"]
 
 
 class WorkSection(BoxLayout):

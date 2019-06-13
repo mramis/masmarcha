@@ -24,9 +24,6 @@ from kivy.properties import StringProperty
 from kivy.core.image import Image
 from kivy.clock import Clock
 
-from ..video import Video
-from ..settings import app_config as config
-
 
 class DisplayFrame(GridLayout):
     capture_name = StringProperty(None)

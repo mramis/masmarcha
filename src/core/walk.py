@@ -22,12 +22,11 @@ import os
 import logging
 import numpy as np
 
-from .settings import app_config as config
+from .settings import SCHEMA as schema
 
-WALKMAXSIZE = config.getint("walk", "maxsize")
-NINDICATORS = 5  # NOTE: Ver las primeras 5 columnas en el diagrama
-NMARKERS = config.getint("schema", "n")
-NREGIONS = config.getint("schema", "r")
+NINDICATORS = 5
+NMARKERS = schema["n"]
+NREGIONS = schema["r"]
 COLITEMS = np.array((NINDICATORS, NMARKERS * 2, NREGIONS * 4))
 
 
@@ -38,7 +37,8 @@ class Walk(object):
         Walk.__counter += 1
         self.id = Walk.__counter
         self.row = 0
-        self.array = np.zeros((WALKMAXSIZE, COLITEMS.sum()), dtype="int16")
+        self.array = np.zeros((config.getint("walk", "maxsize"), COLITEMS.sum()), dtype="int16")
+        self.config = config
         self.colitems = COLITEMS
         self.insertend = COLITEMS[:2].sum()
         self.insertstart = COLITEMS[:1].sum()
@@ -95,12 +95,13 @@ class Walk(object):
 
     def insert(self, posframe, fullschema, xymarkers):
         """Ingresa datos de la exploración del cuadro de video al arreglo."""
+        markers = xymarkers.flatten()
         self.array[self.row, 0] = posframe
         self.array[self.row, 1] = fullschema
         if fullschema:
-            self.array[self.row, self.insertstart: self.insertend] = xymarkers
+            self.array[self.row, self.insertstart: self.insertend] = markers
         else:
-            self.nofullschemaarray.append(xymarkers)
+            self.nofullschemaarray.append(markers)
         self.row += 1
         self.lastfullrow = self.row if fullschema else self.lastfullrow
 
@@ -123,10 +124,14 @@ class Walk(object):
         # with h5py.File("masmarcha.hdf5", "a") as fh:
         #     fh.create_dataset(refpath.format(session, self.id), data=self.array)
 
+    def posframe(self, posframe):
+        u"""La fila de datos que se corresponde con el cuadro de video posframe."""
+        return np.where(self.array[:, 0] == posframe)[0]
+
     @property
     def nmxroi(self):
         u"""Número de marcadores por región de interés."""
-        return np.intp(config.get("schema", "markersxroi").split(','))
+        return np.intp(schema["markersxroi"])
 
     @property
     def slmarkers(self):
@@ -149,8 +154,8 @@ class Walk(object):
 
     def calculateRegions(self):
         u"""Calcula las regiones de interés según el esquema de marcadores."""
-        self.roiwidth = config.getint('walk', 'roiwidth')
-        self.roiheight = config.getint('walk', 'roiheight')
+        self.roiwidth = self.config.getint('walk', 'roiwidth')
+        self.roiheight = self.config.getint('walk', 'roiheight')
         for (slx, sly), roi in zip(self.slmarkers, self.slregions):
             xmn = np.min(self.array[:, slx], axis=1) - self.roiwidth
             xmx = np.max(self.array[:, slx], axis=1) + self.roiwidth
@@ -183,7 +188,6 @@ class Walk(object):
     def markersRecovery(self):
         u"""Recupera datos intercambiados de cuadros no-fullschema."""
         # Esto es una clausula de desarrollo, se va a remover.
-        print(np.count_nonzero(np.logical_not(self.fullschema)), len(self.nofullschemaarray))
         def xymarkers(arr):
             cols = 2
             rows = int(arr.size / cols)
