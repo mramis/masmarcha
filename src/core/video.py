@@ -18,6 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import logging
+
 import cv2
 import numpy as np
 
@@ -79,7 +81,6 @@ class Video(object):
             raise Exception(u"Extensión no valiada.")
 
         self.capture = cv2.VideoCapture(filepath)
-        self.config.set("session", "source", filepath)
         self.config.set("video", "startframe", "0")
         self.config.set("video", "endframe", str(self.duration))
         return self
@@ -149,6 +150,8 @@ class Frame(object):
         self._frame = frame
         self.config = config
         self.position = position
+        self.width = None
+        self.height = None
 
     @property
     def frame(self):
@@ -170,7 +173,7 @@ class Frame(object):
     def drawRegions(self, regions, condition):
         u"""Dibuja las regiones de marcadores sobre el cuadro"""
         cmap = tuple(colormap(3))
-        color = {0: cmap[2], 1: cmap[0]}
+        color = {0: cmap[0], 1: cmap[2]}
         for (p0, p1), c in zip(regions, condition):
             cv2.rectangle(self._frame, tuple(p0), tuple(p1), color[c], 3)
 
@@ -185,14 +188,16 @@ class Frame(object):
 
     def resize(self):
         u"""Modifica el tamaño del cuadro."""
-        width = self.config.getint("video", "framewidth")
-        height = self.config.getint("video", "frameheight")
-        self._frame = cv2.resize(self._frame, (width, height))
-        return self._frame, width, height
+        if self.config.getboolean("video", "resize"):
+            self.width = self.config.getint("video", "framewidth")
+            self.height = self.config.getint("video", "frameheight")
+            self._frame = cv2.resize(self._frame, (self.width, self.height))
+        return self._frame, self.width, self.height
 
     def vflip(self):
         u"""Volteo vertical del cuadro."""
-        self._frame = cv2.flip(self._frame, 0)
+        if self.config.getboolean("video", "flip"):
+            self._frame = cv2.flip(self._frame, 0)
         return self._frame
 
 
@@ -202,12 +207,12 @@ class View(object):
         self.config = config
         self.schema = schema
 
-    def play(self, video, walk=None, cycle=None):
+    def player(self, video, walk=None, cycle=None):
         u"""Generador de cuadros de video."""
         start = self.config.getint("video", "startframe")
         end = self.config.getint("video", "endframe")
         video.setPosition(start)
-        for __ in range(end - start + 1):
+        for __ in range(end - start):
             ret, pos, frame = video.read()
             if not ret:
                 break
@@ -217,6 +222,8 @@ class View(object):
                 self.drawWalkMarkers(frame, walk)
             else:
                 self.drawUnidentifiedMarkers(frame)
+            frame.resize()
+            frame.vflip()
             yield frame
 
     def drawUnidentifiedMarkers(self, frame):
@@ -228,11 +235,15 @@ class View(object):
 
     def drawWalkMarkers(self, frame, walk):
         u"""Dibuja los marcadores identificados y las regiones sobre el cuadro."""
-        pos = walk.posframe(frame.position)
-        markers = np.reshape(walk.markers[pos], (self.schema["n"], 2))
-        regions = np.reshape(walk.regions[pos], (self.schema["r"], 2, 2))
-        frame.drawMarkers(markers, markers_colors())
-        frame.drawRegions(regions, walk.interpolatedframes[pos].flatten())
+        try:
+            pos = walk.posframe(frame.position)
+            markers = np.reshape(walk.markers[pos], (self.schema["n"], 2))
+            regions = np.reshape(walk.regions[pos], (self.schema["r"], 2, 2))
+            frame.drawMarkers(markers, markers_colors())
+            frame.drawRegions(regions, walk.interpolatedframes[pos].flatten())
+        except ValueError:
+            mssg = "Caminata fuera de cuadro."
+            logging.warning(mssg)
         return frame
 
     def drawCycleMarkers(self, frame, cycle):

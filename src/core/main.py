@@ -33,7 +33,6 @@ class Core(object):
     __current = {"video": None, "walk": None, "cycle": None}
 
     def __init__(self):
-        # Se crea/carga el archivo de configuración.
         self.paths = paths
         self.schema = SCHEMA
         self.config = configparser.ConfigParser()
@@ -59,11 +58,23 @@ class Core(object):
     def parameters(self):
         return self.__data_container["parameters"]
 
+    @property
+    def walk(self):
+        return self.__current["walk"]
+
+    @walk.setter
+    def walk(self, walk):
+        self.__current["walk"] = walk
+
+    def reset(self):
+        u"""Se reinicia la clase."""
+        self = Core()
+
     def loadVideo(self, filepath):
         u"""Carga el video."""
         try:
             self.video.open(filepath)
-            self.__current["video"] = filepath
+            self.__current["video"] = self.video
         except Exception as error:
             logging.error(error)
             raise Exception(error)
@@ -79,5 +90,6 @@ class Core(object):
         if fupdate is not None:
             fupdate(-1)
 
-    def play(self, **kwargs):
-        self.view.play(self.video, **kwargs)
+    def videoPlayer(self, **kwargs):  # Note ver como se le agregan los kwargs..
+        u"""Devuelve el generador de cuadros de video."""
+        return self.view.player(self.video, walk=self.walk)

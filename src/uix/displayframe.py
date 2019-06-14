@@ -20,39 +20,49 @@
 
 from kivy.graphics.texture import Texture
 from kivy.uix.gridlayout import GridLayout
-from kivy.properties import StringProperty
+from kivy.properties import BooleanProperty
 from kivy.core.image import Image
 from kivy.clock import Clock
 
 
 class DisplayFrame(GridLayout):
-    capture_name = StringProperty(None)
-    refresh = None
-
-    def on_capture_name(self, instance, value):
-        u"""Inicia la visualización."""
-        self.video = Video(config)
-        self.video.open(value)
-        self.refresh = Clock.schedule_interval(
-            self.update, config.getfloat("video", "delay"))
+    play = BooleanProperty(None)
+    buffer = None
+    schedule = None
 
     @property
     def default_texture(self):
+        u"""Muestra la imagen por defecto del reproductor."""
         return Image(self.default_image).texture
 
-    def update(self, dt):
-        ret, posframe, frame = self.video.read()
-        if ret:
-            # convert it to texture
-            w, h, buf =  self.video.flip_and_resize(frame)
-            text = Texture.create(size=(w, h), colorfmt="bgr")
-            text.blit_buffer(buf.tostring(), colorfmt='bgr', bufferfmt='ubyte')
-            self.ids.display.texture = text
+    def on_play(self, instance, value):
+        u"""Determina la acción del widget: Reproducir o detenerse."""
+        if value is True:
+            self.player_video()
+        else:
+            self.stop_playing()
 
-    def stop(self):
-        if self.refresh is None:
+    def player_video(self):
+        u"""Reproduce el video."""
+        self.buffer = self.core.videoPlayer()
+        self.schedule = Clock.schedule_interval(
+            self.update, self.core.config.getfloat("video", "delay"))
+
+    def update(self, dt):
+        u"""Presenta la imagen de video en el display."""
+        try:
+            buf = next(self.buffer)
+            text = Texture.create(size=(buf.width, buf.height), colorfmt="bgr")
+            text.blit_buffer(
+                buf.frame.tostring(), colorfmt='bgr', bufferfmt='ubyte')
+            self.ids.display.texture = text
+        except StopIteration:
+            self.play = False
+
+    def stop_playing(self):
+        u"""Detiene la reproducción del video."""
+        if self.schedule is None:
             return
-        Clock.unschedule(self.refresh)
-        self.video.capture.release()
-        self.refresh = None
+        Clock.unschedule(self.schedule)
+        self.schedule = None
         self.ids.display.texture = self.default_texture

@@ -25,6 +25,7 @@
   name: "Video"
   core: app.core
   spacing: 0, 4
+  appplayer: app.player
   row_default_height: minheight
   row_force_default:True
   rows_minimum: {1: 150}
@@ -75,9 +76,15 @@
       label: u"Expandir detección"
       section_variable: "explorer-dilate"
   # Visualizaión
-  Button:
-    text: "Reproducir"
-    on_release: root.show_video()
+  GridLayout:
+    rows: 1
+    cols: 2
+    Button:
+      text: "Reproducir"
+      on_release: root.play()
+    Button:
+      text: "Detener"
+      on_release: root.stop()
   # Exploración
   Button:
     text: "Explorar"

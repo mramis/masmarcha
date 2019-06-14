@@ -52,13 +52,12 @@ if not os.path.isdir(SESSIONS_DIR):
 
 # Configuración.
 DEFAULTCONFIG = """
-[session]
-source =
-
 [video]
 delay = 0
 endframe = 0
 startframe = 0
+flip = True
+resize = True
 framewidth = 640
 frameheight = 480
 extensions = mp4-avi

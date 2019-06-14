@@ -18,8 +18,9 @@
 #:set minheight 35
 
 <DisplayFrame>:
-  rows: 2
+  rows: 1
   cols: 1
+  core: app.core
   padding: 10
   spacing: 0, 10
   rows_minimum: {0: app.core.config.getint("video", "frameheight") + 50}
@@ -29,6 +30,3 @@
   Image:
     id: display
     source: root.default_image
-  Button:
-    text: "Parar"
-    on_press: root.stop()

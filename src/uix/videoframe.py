@@ -69,11 +69,11 @@ class VideoFrame(GridLayout):
         u"""Muestra el archivo de video seleccionado."""
         if self.current_video is None:
             return
-        # NOTE: COMPLETAR ESTO ...
-        # self.display.capture_name = self.current_video
+        self.appplayer.play = True
 
     def stop(self):
-        pass
+        u"""Detiene la reproducción."""
+        self.appplayer.play = False
 
     def run_explorer_thread(self):
         u"""Inicia la exploración en otro hilo."""

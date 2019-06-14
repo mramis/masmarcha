@@ -24,12 +24,10 @@ from kivy.uix.gridlayout import GridLayout
 from kivy.uix.floatlayout import FloatLayout
 from kivy.properties import NumericProperty, ObjectProperty, ListProperty
 
-from ..video import Video
 
 class WalksFrame(GridLayout):
     current_walk_index = NumericProperty(None)
     current_walk = ObjectProperty(None)
-    walks = []
 
     def show_selector(self):
         u"""Popup para seleccionar la caminata."""
@@ -50,14 +48,14 @@ class WalksFrame(GridLayout):
 
     def select_forward(self):
         u"""Incrementa en uno el valor del índice de la caminata."""
-        if self.walks == [] or self.current_walk_index is None:
+        if self.core.walks == [] or self.current_walk_index is None:
             return
-        elif self.current_walk_index < len(self.walks) - 1:
+        elif self.current_walk_index < len(self.core.walks) - 1:
             self.current_walk_index += 1
 
     def select_backward(self):
         u"""Decrementa en uno el valor del índice de la caminata."""
-        if self.walks == [] or self.current_walk_index is None:
+        if self.core.walks == [] or self.current_walk_index is None:
             return
         elif self.current_walk_index != 0:
             self.current_walk_index -= 1
@@ -65,17 +63,18 @@ class WalksFrame(GridLayout):
     def on_current_walk(self, instance, walk):
         u"""Procesa la caminata y/o actualiza los valores de procesamiento."""
         mssg = "{} - {} FRAMES"
-        self.ids.show_walk.text = mssg.format(walk, walk.lastfullrow)
-        # self.ids.startframe.current_value = walk.startframe
-        # self.ids.endframe.current_value = walk.endframe
+        self.core.walk = walk
         if not walk.processed:
             walk.process()
         else:
             self.get_walk_config(walk)
+        self.ids.show_walk.text = mssg.format(walk, walk.lastfullrow)
+        self.ids.startframe.current_value = walk.startframe
+        self.ids.endframe.current_value = walk.endframe
 
     def on_current_walk_index(self, instance, index):
         u"""Establece la caminata actual."""
-        self.current_walk = self.walks[index]
+        self.current_walk = self.core.walks[index]
 
     def get_walk_config(self, walk):
         u"""Muestra los valores de configuración utilizados en la caminata."""
@@ -88,11 +87,14 @@ class WalksFrame(GridLayout):
         if self.current_walk is not None:
             self.current_walk.process()
 
-    def view(self, config):
+    def play(self):
+        u"""Muestra el archivo de video seleccionado."""
         if self.current_walk is not None:
-            self.video = Video(config)
-            self.video.open(config.get("session", "source"))
-            self.video.view("walk", self.current_walk)
+            self.appplayer.play = True
+
+    def stop(self):
+        u"""Detiene la reproducción."""
+        self.appplayer.play = False
 
 
 class SelectionDialog(FloatLayout):

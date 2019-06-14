@@ -26,7 +26,7 @@ from kivy.properties import BooleanProperty, ObjectProperty
 
 from .core.main import Core
 from .uix.videoframe import VideoFrame
-# from .uix.walksframe import WalksFrame
+from .uix.walksframe import WalksFrame
 from .uix.displayframe import DisplayFrame
 
 
@@ -37,12 +37,12 @@ class NewMasMarchaApp(App):
         u"""Construye la interfaz gráfica."""
         root = BoxLayout()
 
-        display = DisplayFrame()
-        worksection = WorkSection()
-        worksection.widgets = [VideoFrame(),]#, WalksFrame()]
+        self.player = DisplayFrame()
+        self.worksection = WorkSection()
+        self.worksection.widgets = [VideoFrame(), WalksFrame()]
 
-        root.add_widget(worksection)
-        root.add_widget(display)
+        root.add_widget(self.worksection)
+        root.add_widget(self.player)
         return root
 
 
@@ -57,11 +57,7 @@ class WorkSection(BoxLayout):
             self.add_widget(w)
 
 
-############### >> NEW CLASS IMAGE-VIDEO >>
-
-
-#### END CLASS <<<<<<<<<<<<<<<<<<<<<<<<<<<<
- # class PlotsControl(GridLayout):
+# class PlotsControl(GridLayout):
 #     cids = []
 #
 #     def get_params(self):
