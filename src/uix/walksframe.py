@@ -64,11 +64,15 @@ class WalksFrame(GridLayout):
         u"""Procesa la caminata y/o actualiza los valores de procesamiento."""
         mssg = "{} - {} FRAMES"
         self.core.walk = walk
-        if not walk.processed:
-            walk.process()
+        if not walk.processed_flag:
+            ### SE TIENE QUE CREAR UNA FUNCIÓN QUE PUEDA INFORMAR SI SE PROCESA O NO,
+            try:
+                walk.process()
+            except:
+                return
         else:
             self.get_walk_config(walk)
-        self.ids.show_walk.text = mssg.format(walk, walk.lastfullrow)
+        self.ids.show_walk.text = mssg.format(walk, walk.duration)
         self.ids.startframe.current_value = walk.startframe
         self.ids.endframe.current_value = walk.endframe
 

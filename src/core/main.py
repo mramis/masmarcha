@@ -18,12 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
 import logging
-import configparser
 
-
-from .settings import SCHEMA, DEFAULTCONFIG, paths
 from .video import Video, View
 
 
@@ -32,19 +28,11 @@ class Core(object):
     __data_container = {"walks": [], "cycles": [], "parameters": []}
     __current = {"video": None, "walk": None, "cycle": None}
 
-    def __init__(self):
-        self.paths = paths
-        self.schema = SCHEMA
-        self.config = configparser.ConfigParser()
-        if os.path.isfile(paths["config"]):
-            with open(paths["config"]) as fh:
-                self.config.read_file(fh)
-        else:
-            with open(paths["config"], "w") as fh:
-                self.config.read_string(DEFAULTCONFIG)
-                self.config.write(fh)
-        self.view = View(self.config, self.schema)
-        self.video = Video(self.config)
+    def __init__(self, config, schema):
+        self.view = View(config, schema)
+        self.video = Video(config, schema)
+        self.schema = schema
+        self.config = config
 
     @property
     def walks(self):
@@ -90,6 +78,6 @@ class Core(object):
         if fupdate is not None:
             fupdate(-1)
 
-    def videoPlayer(self, **kwargs):  # Note ver como se le agregan los kwargs..
+    def videoPlayer(self):
         u"""Devuelve el generador de cuadros de video."""
         return self.view.player(self.video, walk=self.walk)

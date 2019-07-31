@@ -4,3 +4,5 @@
 *.ini
 .pytest_cache/
 *.config
+.coverage
+htmlcov

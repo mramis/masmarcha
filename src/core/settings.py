@@ -17,6 +17,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+import configparser
+
 
 # las rutas de la aplicación.
 CORE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -35,9 +37,9 @@ if HOME_DIR is None:
 
 paths = {
     "app": APPLICATION_DIR,
+    "home": HOME_DIR,
     "config": CONFIGFILE,
     "database": DATABASEFILE,
-    "home": HOME_DIR,
     "sessions": SESSIONS_DIR
 }
 
@@ -52,14 +54,21 @@ if not os.path.isdir(SESSIONS_DIR):
 
 # Configuración.
 DEFAULTCONFIG = """
+[paths]
+app = {app}
+home = {home}
+config = {config}
+database = {database}
+sessions = {sessions}
+
 [video]
 delay = 0
 endframe = 0
 startframe = 0
 flip = True
 resize = True
-framewidth = 640
-frameheight = 480
+framewidth = 768
+frameheight = 432
 extensions = mp4-avi
 
 [explorer]
@@ -69,9 +78,11 @@ clearwalks = True
 emptyframelimit = 0
 
 [walk]
-maxsize = 3000
+maxsize = 300
 roiwidth = 125
 roiheight = 35
+centererror = 2
+surfaceerror = 2
 
 [camera]
 fps = 60
@@ -103,6 +114,15 @@ standardeviation = 2
 cell_index_width = 0.3
 cell_normal_width = 0.25
 """
+
+config = configparser.ConfigParser()
+if os.path.isfile(paths["config"]):
+    with open(paths["config"]) as fh:
+        config.read_file(fh)
+else:
+    with open(paths["config"], "w") as fh:
+        config.read_string(DEFAULTCONFIG.format(**paths))
+        config.write(fh)
 
 # El esquema de marcadores:
 SCHEMA = {

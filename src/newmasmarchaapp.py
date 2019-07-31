@@ -19,19 +19,22 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from kivy.app import App
-from kivy.properties import ListProperty
+from kivy.properties import ListProperty, BooleanProperty, ObjectProperty
+from kivy.core.window import Window
 from kivy.uix.boxlayout import BoxLayout
-from kivy.properties import BooleanProperty, ObjectProperty
-
 
 from .core.main import Core
+from .core.settings import config, SCHEMA as schema
 from .uix.videoframe import VideoFrame
 from .uix.walksframe import WalksFrame
 from .uix.displayframe import DisplayFrame
 
 
+Window.size = (1600, 700)
+
+
 class NewMasMarchaApp(App):
-    core = Core()
+    core = Core(config, schema)
 
     def build(self):
         u"""Construye la interfaz gráfica."""

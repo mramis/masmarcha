@@ -35,29 +35,25 @@ class DisplayFrame(GridLayout):
         u"""Muestra la imagen por defecto del reproductor."""
         return Image(self.default_image).texture
 
+    def frame_texture(self):
+        u"""Devuelve el cuadro de video como una textura."""
+        buf = next(self.buffer)
+        text = Texture.create(size=(buf.width, buf.height), colorfmt="bgr")
+        text.blit_buffer(buf.frame.tostring(), colorfmt='bgr', bufferfmt='ubyte')
+        return text
+
+    def player_video(self):
+        u"""Reproduce el video."""
+        delay = self.core.config.getfloat("video", "delay")
+        self.buffer = self.core.videoPlayer()
+        self.schedule = Clock.schedule_interval(self.update, delay)
+
     def on_play(self, instance, value):
         u"""Determina la acción del widget: Reproducir o detenerse."""
         if value is True:
             self.player_video()
         else:
             self.stop_playing()
-
-    def player_video(self):
-        u"""Reproduce el video."""
-        self.buffer = self.core.videoPlayer()
-        self.schedule = Clock.schedule_interval(
-            self.update, self.core.config.getfloat("video", "delay"))
-
-    def update(self, dt):
-        u"""Presenta la imagen de video en el display."""
-        try:
-            buf = next(self.buffer)
-            text = Texture.create(size=(buf.width, buf.height), colorfmt="bgr")
-            text.blit_buffer(
-                buf.frame.tostring(), colorfmt='bgr', bufferfmt='ubyte')
-            self.ids.display.texture = text
-        except StopIteration:
-            self.play = False
 
     def stop_playing(self):
         u"""Detiene la reproducción del video."""
@@ -66,3 +62,10 @@ class DisplayFrame(GridLayout):
         Clock.unschedule(self.schedule)
         self.schedule = None
         self.ids.display.texture = self.default_texture
+
+    def update(self, dt):
+        u"""Presenta la imagen de video en el display."""
+        try:
+            self.ids.display.texture = self.frame_texture()
+        except StopIteration:
+            self.play = False

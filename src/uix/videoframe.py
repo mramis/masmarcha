@@ -36,7 +36,7 @@ class VideoFrame(GridLayout):
 
     def show_load(self):
         u"""Popup para buscar la ruta del video."""
-        sourcedir = self.core.paths["home"]
+        sourcedir = self.core.config.get("paths", "home")
         self._content = LoadDialog(load=self.load, source=sourcedir)
         self._popup = Popup(title='Seleccionar Video', content=self._content)
         self._popup.open()

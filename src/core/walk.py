@@ -54,6 +54,10 @@ class Walk(object):
     def num_of_walks(cls):
         return cls.__counter
 
+    @classmethod
+    def restart(cls):
+        cls.__counter = 0
+
     @property
     def fullschema(self):
         u"""Arreglo booleano que indica la cantidad de datos completos."""
@@ -118,11 +122,6 @@ class Walk(object):
 
     def save(self, session=None):
         NotImplemented
-        # refpath = '/{0}/walks/walk{1}'
-        # if not session:
-        #     session = os.path.basename(self.config.get("current", "session")).split('.')[0]
-        # with h5py.File("masmarcha.hdf5", "a") as fh:
-        #     fh.create_dataset(refpath.format(session, self.id), data=self.array)
 
     def posframe(self, posframe):
         u"""La fila de datos que se corresponde con el cuadro de video posframe."""
@@ -187,7 +186,6 @@ class Walk(object):
 
     def markersRecovery(self):
         u"""Recupera datos intercambiados de cuadros no-fullschema."""
-        # Esto es una clausula de desarrollo, se va a remover.
         def xymarkers(arr):
             cols = 2
             rows = int(arr.size / cols)
@@ -208,6 +206,7 @@ class Walk(object):
                 if rightcount:
                     self.array[i, x] = xmarkers[matched]
                     self.array[i, y] = ymarkers[matched]
+                    self.array[i, toreplacecol] = 0
                 # Se coloca en la columna de indicadores la región a interpolar.
                 else:
                     self.array[i, toreplacecol] = 1
@@ -243,20 +242,17 @@ class Walk(object):
         logging.debug("%s - Marcadores interpoladas" % self)
 
     def process(self):
-        self.calculateRegions()
-        self.interpolateRegions()
-        self.markersRecovery()
-        self.sortingFoot1()
-        self.interpolateMarkers()
-        self.save()
-        self.processed = True
-        logging.info("%s - Procesada" % self)
-
-
-
-class CycleArray(object):
-    pass
-
-
-class ParametersArray(object):
-    pass
+        try:
+            self.calculateRegions()
+            self.interpolateRegions()
+            self.markersRecovery()
+            self.sortingFoot1()
+            self.interpolateMarkers()
+            self.save()
+            self.processed = True
+            logging.info("%s - Procesada" % self)
+        except:
+            ### CAMBIAR POR EXCEPCIONES PROPIAS.
+            mssg = "%s - No se pudo procesar" % self
+            raise Exception(mssg)
+            logging.error(mssg)

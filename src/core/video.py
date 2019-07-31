@@ -24,7 +24,7 @@ import cv2
 import numpy as np
 
 from .settings import SCHEMA as schema
-from .walk import Walk
+from .walkII import Walk
 
 
 def contours(frame, threshold, dilate):
@@ -59,15 +59,16 @@ def colormap(n):
         count += 1
 
 
-def markers_colors():
+def markers_colors(schema):
     u"""Colores de markadores por región."""
     return [c for n in schema["markersxroi"] for c in colormap(n)]
 
 
 class Video(object):
 
-    def __init__(self, config):
+    def __init__(self, config, schema):
         self.config = config
+        self.schema = schema
         self.capture = None
 
     def __del__(self):
@@ -100,10 +101,6 @@ class Video(object):
         if self.capture.isOpened():
             return int(self.capture.get(cv2.CAP_PROP_FRAME_COUNT))
 
-    @property
-    def emptyframelimit(self):
-        return self.config.getint("explorer", "emptyframelimit")
-
     def read(self):
         u"""Lectura de cuadro de video."""
         ret, framearray = self.capture.read()
@@ -116,32 +113,86 @@ class Video(object):
 
     def searchForWalks(self):
         u"""Busca las caminatas dentro de un video."""
-        # FLAGS
-        walking = False
-        zerocount = 0
-        # Lectura de cuadro.
-        ret, pos, frame = self.read()
+        VideoExplorer.restart()
+        explorer = VideoExplorer(self.config)
+
+        self.setPosition(0)
+        ret, posframe, frame = self.read()
         while ret:
-            n, centers = frame.getMarkersPositions()
-            fullschema = (n == schema["n"])
-            # Algoritmo de decisión.
-            if not walking:
-                if fullschema:
-                    walk = Walk(self.config)
-                    walk.insert(pos, fullschema, centers)
-                    walking = True
+            nmarkers, centers = frame.getMarkersPositions()
+            isfullschema = (nmarkers == self.schema["n"])
+            if isfullschema is True and explorer.walking is False:
+                explorer.startWalking()
             else:
-                walk.insert(pos, fullschema, centers)
-                if n == 0:
-                    zerocount += 1
-                    if zerocount > self.emptyframelimit:
-                        # Termina la caminata.
-                        walk.close()
-                        walking = False
-                        yield pos, walk
-                else:
-                    zerocount = 0
-            ret, pos, frame = self.read()
+                if explorer.walkGetEnd(nmarkers) is True:
+                    yield posframe, explorer.walk
+            explorer.walkInsert(isfullschema, posframe, centers)
+            ret, posframe, frame = self.read()
+
+
+class VideoExplorer(object):
+    u"""Explorador de video. Busca caminatas en el mismo."""
+    walk = None
+    walking = False
+
+    def __init__(self, config):
+        self.config = config
+        self.stopflag = StopObserver(config)
+
+    @classmethod
+    def restart(cls):
+        Walk.restart()
+        cls.walk = None
+        cls.walking = False
+
+    def startWalking(self):
+        u"""Comienza una caminata y el proceso de agregar datos."""
+        self.walk = Walk(self.config, schema)
+        self.walking = True
+
+    def walkInsert(self, *args):
+        u"""Agrega datos a la caminata."""
+        if self.walking:
+            self.walk.insert(*args)
+
+    def stopWalking(self):
+        u"""Detiene el proceso de agregar datos a la caminata."""
+        self.walk.stop()
+        self.walking = False
+
+    def walkGetEnd(self, nmarkers):
+        u"""Decide el estado de la caminata."""
+        if nmarkers == 0 and self.walking is True:
+            return self.shouldStop()
+        else:
+            self.stopflag.setZero()
+
+    def shouldStop(self):
+        u"""Retorna el valor que decide si se detiene la búsqueda."""
+        try:
+            self.stopflag.increment()
+            return False
+        except Exception:
+            self.stopWalking()
+            return True
+
+
+class StopObserver(object):
+    u"""Detiene el proceso de agreagar datos a la caminata."""
+
+    def __init__(self, config):
+        self.emptycount = 0
+        self.emptyframelimit = config.getint("explorer", "emptyframelimit")
+
+    def increment(self):
+        u"""Incrementa el valor de la bandera de control."""
+        self.emptycount += 1
+        if self.emptycount > self.emptyframelimit:
+            raise Exception("Fin de la caminata.")
+
+    def setZero(self):
+        u"""Reinicia el valor de bandera."""
+        self.emptycount = 0
 
 
 class Frame(object):
@@ -192,13 +243,11 @@ class Frame(object):
             self.width = self.config.getint("video", "framewidth")
             self.height = self.config.getint("video", "frameheight")
             self._frame = cv2.resize(self._frame, (self.width, self.height))
-        return self._frame, self.width, self.height
 
     def vflip(self):
         u"""Volteo vertical del cuadro."""
         if self.config.getboolean("video", "flip"):
             self._frame = cv2.flip(self._frame, 0)
-        return self._frame
 
 
 class View(object):
@@ -236,11 +285,11 @@ class View(object):
     def drawWalkMarkers(self, frame, walk):
         u"""Dibuja los marcadores identificados y las regiones sobre el cuadro."""
         try:
-            pos = walk.posframe(frame.position)
-            markers = np.reshape(walk.markers[pos], (self.schema["n"], 2))
-            regions = np.reshape(walk.regions[pos], (self.schema["r"], 2, 2))
-            frame.drawMarkers(markers, markers_colors())
-            frame.drawRegions(regions, walk.interpolatedframes[pos].flatten())
+            pos = walk.getStartPos(frame.position)
+            markers = np.reshape(walk.markersView[pos], (self.schema["n"], 2))
+            regions = np.reshape(walk.regionsView[pos], (self.schema["r"], 2, 2))
+            frame.drawMarkers(markers, markers_colors(self.schema))
+            frame.drawRegions(regions, walk.interpolation_indicators[int(pos)])
         except ValueError:
             mssg = "Caminata fuera de cuadro."
             logging.warning(mssg)
