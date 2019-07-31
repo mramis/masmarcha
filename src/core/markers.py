@@ -98,7 +98,7 @@ class MarkersIdentifier(object):
         reshaped =  markers.reshape(dest_shape)
         self.warray.array[rows, dest_cols_by_region] = reshaped
 
-    def regionIdentifier(self, region, rows, markers):
+    def identifyByRegion(self, region, rows, markers):
         u"""Identifica los marcadores que pertenecen a la región."""
         p0, p1 = self.getBreakRegions(region, rows)
         inside_mask = self.getMaskMarkersInsideRegionPoints(markers, p0, p1)
@@ -112,57 +112,53 @@ class MarkersIdentifier(object):
         rows = self.getBreakArrayRows()
         markers = self.getBreakMarkers(rows)
         for r in self.fields.regions:
-            self.regionIdentifier(r, rows, markers)
-
-
+            self.identifyByRegion(r, rows, markers)
 
 
 class MarkersFootSorter(object):
 
     def __init__(self, warray):
         self.warray = warray
+        self.fields = warray.fieldsparser
 
-    @property
-    def foot(self):
-        columns = self.warray.m_coordinates_cols_by_roi[-1]
-        return self.warray.primary[:, columns]
-
-    @foot.setter
-    def foot(self, markers):
-        columns = self.warray.m_coordinates_cols_by_roi[-1]
-        self.warray.primary[:, columns] = markers
+    def getFoot(self):
+        u"""Las coordenadas de los marcadores de pie."""
+        m5_slice = self.fields.get(["markers", "region2", "m5"])
+        m6_slice = self.fields.get(["markers", "region2", "m6"])
+        return (
+            self.warray.array[:, m5_slice],
+            self.warray.array[:, m6_slice]
+        )
 
     def footMaskDirection(self, m5, m6):
         u"""Compara la dirección del pié con el de la caminata."""
         return np.logical_not(
             np.equal(
                 np.sign((m6 - m5)[:, 0]),
-                np.repeat(self.warray.direction, self.warray.size)
+                np.repeat(self.warray.direction, self.warray.nrows)
             )
         )
 
-    def swap(self, mask, first, second):
+    def swapMarkers(self, mask, first, second):
         u"""Intercambia la posición de los marcadores según "mask"."""
         temp = first.copy()
         first[mask] = second[mask]
         second[mask] = temp[mask]
         return (first, second)
 
-    def splitFoot(self):
-        u"""Divide el grupo de pie en los marcadores correspondientes."""
-        return self.foot[:, -4: -2], self.foot[:, -2:]
-
-    def joinFoot(self, m5, m6):
-        u"""Ensambla los marcadores de pié ya ordenados en el arreglo principal."""
-        m4 = self.foot[:, -6: -4]
-        self.foot = np.block([m4, m5, m6])
+    def setFoot(self, m5, m6):
+        u"""Establece los valores corregidos de los marcadores."""
+        m5_slice = self.fields.get(["markers", "region2", "m5"])
+        m6_slice = self.fields.get(["markers", "region2", "m6"])
+        self.warray.array[:, m5_slice] = m5
+        self.warray.array[:, m6_slice] = m6
 
     def sort(self):
         u"""Ordena los marcadores del pie."""
-        m5, m6 = self.splitFoot()
+        m5, m6 = self.getFoot()
         mask = self.footMaskDirection(m5, m6)
-        m5, m6 = self.swap(mask, m5, m6)
-        self.joinFoot(m5, m6)
+        swapped_m5, swapped_m6 = self.swapMarkers(mask, m5, m6)
+        self.setFoot(swapped_m5, swapped_m6)
 
 
 class MarkersInterpolator(object):

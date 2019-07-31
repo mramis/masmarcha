@@ -27,6 +27,7 @@ WALKSHAPE = (300, 59)
 WALKFIELDS = {
     "framepos": 0,
     "indicators": {
+        "all": slice(1, 5),
         "initial": 1,
         "regions": slice(2, 5),
         "region0": 2,
@@ -178,7 +179,8 @@ class Inserter(object):
         u"""Inserta el dato de "Esquema Completo"."""
         col = self.fields.get(["indicators", "initial"])
         self.constructor.array[self.row.index, col] = fullschema
-        self.last_fullschema_row = self.row.index
+        if fullschema:
+            self.last_fullschema_row = self.row.index
 
     def setCoordinates(self, fullschema, markerscoordinates):
         u"""Inserta los centros de los contornos de marcadores."""
@@ -206,6 +208,7 @@ class Inserter(object):
         ingresado con esquema completo.
         """
         row = self.last_fullschema_row + 1
+        print(row)
         self.constructor.array = self.constructor.array[:row]
 
 
@@ -223,7 +226,13 @@ class WalkArray(object):
 
     @property
     def nrows(self):
-        return self.constructor.array.shape[0]
+        return self.array.shape[0]
+
+    @property
+    def direction(self):
+        field = self.fieldsparser.get(["markers", "region0", "m0"])
+        direction = self.array[-1, field] - self.array[0, field]
+        return np.sign(direction)[0]  # X coord
 
     def addFrameData(self, frame_data):
         u"""inserta los datos del cuadro de video en el arreglo."""

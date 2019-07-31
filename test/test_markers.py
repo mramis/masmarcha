@@ -87,4 +87,34 @@ def test_markers_identifier():
     plt.show()
     plt.close()
 
-    # print(warray.getView(["indicators", "regions"]))
+    print(warray.getView(["indicators", "all"]))
+
+
+def test_sort_foot():
+    print()
+
+    warray = WalkArray()
+    insert_random(warray, data)
+    warray.close()
+
+    sorter = MarkersFootSorter(warray)
+    sorter.sort()
+
+    print(warray.getView(["indicators", "all"]))
+
+
+def test_markers_interpolation():
+    print()
+
+    warray = WalkArray()
+    insert_random(warray, data)
+    warray.close()
+
+    regions = Regions(warray, config)
+    regions.build()
+
+    identifier = MarkersIdentifier(warray)
+    identifier.identify()
+
+    interpolator = MarkersInterpolator(warray)
+    interpolator.interpolate()

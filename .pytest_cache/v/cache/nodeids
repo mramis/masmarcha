@@ -1,3 +1,4 @@
 [
-  "test/test_markers.py::test_markers_identifier"
+  "test/test_markers.py::test_markers_identifier",
+  "test/test_markers.py::test_sort_foot"
 ]
