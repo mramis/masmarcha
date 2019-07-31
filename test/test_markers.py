@@ -63,7 +63,6 @@ def insert_random(array, data):
 
 
 def test_markers_identifier():
-    print()
 
     warray = WalkArray()
     insert_random(warray, data)
@@ -87,11 +86,8 @@ def test_markers_identifier():
     plt.show()
     plt.close()
 
-    print(warray.getView(["indicators", "all"]))
-
 
 def test_sort_foot():
-    print()
 
     warray = WalkArray()
     insert_random(warray, data)
@@ -100,11 +96,8 @@ def test_sort_foot():
     sorter = MarkersFootSorter(warray)
     sorter.sort()
 
-    print(warray.getView(["indicators", "all"]))
-
 
 def test_markers_interpolation():
-    print()
 
     warray = WalkArray()
     insert_random(warray, data)
@@ -113,8 +106,35 @@ def test_markers_interpolation():
     regions = Regions(warray, config)
     regions.build()
 
+    plt.plot(*warray.getView(["markers", "region0", "m1"]).transpose(), "ro")
+    plt.plot(*warray.getView(["regions", "region0", "p0"]).transpose(), "bs")
+    plt.plot(*warray.getView(["regions", "region0", "p1"]).transpose(), "gs")
+
     identifier = MarkersIdentifier(warray)
     identifier.identify()
 
     interpolator = MarkersInterpolator(warray)
     interpolator.interpolate()
+
+    plt.plot(*warray.getView(["markers", "region0", "m1"]).transpose(), "k<")
+
+    plt.show()
+    plt.close()
+
+
+def test_markers():
+
+    warray = WalkArray()
+    insert_random(warray, data)
+    warray.close()
+
+    regions = Regions(warray, config)
+    regions.build()
+    
+    markers = Markers(warray)
+    markers.fix()
+
+    plt.plot(*warray.getView(["markers", "region0", "m1"]).transpose(), "k<")
+
+    plt.show()
+    plt.close()

@@ -208,7 +208,6 @@ class Inserter(object):
         ingresado con esquema completo.
         """
         row = self.last_fullschema_row + 1
-        print(row)
         self.constructor.array = self.constructor.array[:row]
 
 

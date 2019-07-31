@@ -162,7 +162,36 @@ class MarkersFootSorter(object):
 
 
 class MarkersInterpolator(object):
-    pass
+
+    def __init__(self, warray):
+        self.warray = warray
+        self.fields = warray.fieldsparser
+
+    @staticmethod
+    def interpolation2D(arr, xinterp, xvalues, ycolumns):
+        u"""Genera los valores de interpolación."""
+        for c in ycolumns:
+            arr[xinterp, c] = np.interp(xinterp, xvalues, arr[xvalues, c])
+
+    def interpolateByRegion(self, r, x, initial_indicators):
+        u"""."""
+        r = "region{}".format(r)
+        region_indicators = self.warray.getView(["indicators", r])
+
+        fs = np.logical_or(initial_indicators, region_indicators)
+        nofs = np.logical_not(fs)
+        field = self.fields.get(["markers", r, "all"])
+        columns = self.fields.sliceToRange(field)
+        self.interpolation2D(self.warray.array, x[nofs], x[fs], columns)
+
+    def interpolate(self):
+        u"""Realiza la interpolación de las regiones de cuadros incompletos en
+        el arreglo (in-place).
+        """
+        x = np.arange(self.warray.nrows)
+        initial_indicator = self.warray.getView(["indicators", "initial"])
+        for r in self.fields.regions:
+            self.interpolateByRegion(r, x, initial_indicator)
 
 
 class Markers(object):

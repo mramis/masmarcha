@@ -1,4 +1,6 @@
 [
   "test/test_markers.py::test_markers_identifier",
-  "test/test_markers.py::test_sort_foot"
+  "test/test_markers.py::test_sort_foot",
+  "test/test_markers.py::test_markers_interpolation",
+  "test/test_markers.py::test_markers"
 ]
