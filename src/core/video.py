@@ -24,7 +24,7 @@ import cv2
 import numpy as np
 
 from .settings import SCHEMA as schema
-from .walkII import Walk
+from .walk import Walk
 
 
 def contours(frame, threshold, dilate):
@@ -45,7 +45,7 @@ def centers(contours):
         x, y, w, h = cv2.boundingRect(contour)
         return x + w/2, y + h/2
     ccenters = [contour_center(c) for c in contours]
-    return len(ccenters), np.array(ccenters, dtype=np.int16)[::-1]
+    return len(ccenters), (np.array(ccenters, dtype=np.int16)[::-1]).ravel()
 
 
 def colormap(n):
@@ -126,73 +126,107 @@ class Video(object):
             else:
                 if explorer.walkGetEnd(nmarkers) is True:
                     yield posframe, explorer.walk
-            explorer.walkInsert(isfullschema, posframe, centers)
+            explorer.walkInsert(posframe, isfullschema, centers)
             ret, posframe, frame = self.read()
 
 
-class VideoExplorer(object):
-    u"""Explorador de video. Busca caminatas en el mismo."""
-    walk = None
+class WalkMonitor(object):
     walking = False
+    empty_count = 0
 
-    def __init__(self, config):
-        self.config = config
-        self.stopflag = StopObserver(config)
+    def __init__(self, explorer, config):
+        self.explorer = explorer
+        self.empty_limit = config.getint("explorer", "emptyframelimit")
+        self.expected_count = config.getint("explorer", "expectedmarkerscount")
 
-    @classmethod
-    def restart(cls):
-        Walk.restart()
-        cls.walk = None
-        cls.walking = False
-
-    def startWalking(self):
-        u"""Comienza una caminata y el proceso de agregar datos."""
-        self.walk = Walk(self.config, schema)
+    def activeWalk(self):
+        u"""Activa el estado de caminata."""
         self.walking = True
+        self.explorer.newWalk()
 
-    def walkInsert(self, *args):
-        u"""Agrega datos a la caminata."""
-        if self.walking:
-            self.walk.insert(*args)
-
-    def stopWalking(self):
-        u"""Detiene el proceso de agregar datos a la caminata."""
-        self.walk.stop()
+    def deactivateWalk(self):
+        u"""Desactiva el estado de caminta."""
         self.walking = False
+        self.explorer.stopWalk()
 
-    def walkGetEnd(self, nmarkers):
-        u"""Decide el estado de la caminata."""
-        if nmarkers == 0 and self.walking is True:
-            return self.shouldStop()
+    def incrementEmptyCount(self):
+        u"""Incrementa el contador de cuadros vacios."""
+        self.empty_count += 1
+
+    def clearEmptyCount(self):
+        u"""Reinicia el contador de cuadros vacios."""
+        self.empty_count = 0
+
+    def checkWalkGettingStarted(self, markers_count):
+        u"""Verifica si debe comenzar la camianta."""
+        if markers_count == self.expected_count:
+            self.activeWalk()
+
+    def checkForBreak(self):
+        u"""Verifica la condición de finalización de caminata."""
+        if self.empty_count == self.empty_limit:
+            self.deactivateWalk()
         else:
-            self.stopflag.setZero()
+            self.incrementEmptyCount()
 
-    def shouldStop(self):
-        u"""Retorna el valor que decide si se detiene la búsqueda."""
-        try:
-            self.stopflag.increment()
-            return False
-        except Exception:
-            self.stopWalking()
-            return True
+    def checkWalkGettingEnded(self, markers_count):
+        u"""Verifica si debe finalizar la caminata."""
+        if markers_count == 0:
+            self.checkForBreak()
+        else:
+            self.clearEmptyCount()
+
+    def statusMonitoring(self, markers_count):
+        u"""Monitorea la creación y finalización de caminatas."""
+        if self.walking:
+            self.checkWalkGettingEnded(markers_count)
+        else:
+            self.checkWalkGettingStarted(markers_count)
 
 
-class StopObserver(object):
-    u"""Detiene el proceso de agreagar datos a la caminata."""
+class Explorer(object):
+    current_walk = None
 
-    def __init__(self, config):
-        self.emptycount = 0
-        self.emptyframelimit = config.getint("explorer", "emptyframelimit")
+    def __init__(self, config, container=[]):
+        self.config = config
+        self.monitor = WalkMonitor(self, config)
+        self.container = container
 
-    def increment(self):
-        u"""Incrementa el valor de la bandera de control."""
-        self.emptycount += 1
-        if self.emptycount > self.emptyframelimit:
-            raise Exception("Fin de la caminata.")
+    def newWalk(self):
+        u"""Inicializa una nueva caminata."""
+        self.current_walk = Walk(self.config)
+        self.container.append(self.current_walk)
 
-    def setZero(self):
-        u"""Reinicia el valor de bandera."""
-        self.emptycount = 0
+    def stopWalk(self):
+        u"""Finaliza la caminata corriente."""
+        self.current_walk.stop()
+        self.current_walk = None
+
+    def walkIsActive(self):
+        u"""Devuelve el estado de caminata."""
+        return self.monitor.walking
+
+    def monitoring(self, nmarkers):
+        u"""Monitorea la actividad de caminata."""
+        self.monitor.statusMonitoring(nmarkers)
+
+    def tryAddData(self, data):
+        u"""Intenta agregar datos de cuadro de video. Caminata debe estar activa."""
+        if self.walkIsActive():
+            self.current_walk.insert(*data)
+
+    def explore(self, video):
+        u"""Explora el video en búsqueda de caminatas."""
+        video.setPosition(0)
+        expected_count = self.config.getint("explorer", "expectedmarkerscount")
+        ret, posframe, frame = video.read()
+        while ret:
+            nmarkers, markers = frame.getMarkersPositions()
+            fullschema = (nmarkers == expected_count)
+
+            self.monitoring(nmarkers)
+            self.tryAddData(posframe, fullschema, markers)
+            ret, posframe, frame = self.read()
 
 
 class Frame(object):

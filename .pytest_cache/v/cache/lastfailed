@@ -2,5 +2,6 @@
   "test/test_repr.py": true,
   "test/test_uix.py::test_main": true,
   "test/test_uix.py::test_sections": true,
+  "test/test_uix.py::test_video": true,
   "test/test_video.py::test_markers": true
 }
