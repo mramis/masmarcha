@@ -210,7 +210,7 @@ class Explorer(object):
         u"""Monitorea la actividad de caminata."""
         self.monitor.statusMonitoring(nmarkers)
 
-    def tryAddData(self, data):
+    def addData(self, data):
         u"""Intenta agregar datos de cuadro de video. Caminata debe estar activa."""
         if self.walkIsActive():
             self.current_walk.insert(*data)
@@ -225,7 +225,7 @@ class Explorer(object):
             fullschema = (nmarkers == expected_count)
 
             self.monitoring(nmarkers)
-            self.tryAddData(posframe, fullschema, markers)
+            self.addData(posframe, fullschema, markers)
             ret, posframe, frame = self.read()
 
 
@@ -253,7 +253,8 @@ class Frame(object):
         if colors == []:
             colors = ((0,0,255) for __ in range(markers.shape[0]))
         for m, c in zip(markers, colors):
-            cv2.circle(self._frame, tuple(m), 10, c, -1)
+            print(m, c)
+            cv2.circle(self.frame, tuple(m), 10, c, -1)
 
     def drawRegions(self, regions, condition):
         u"""Dibuja las regiones de marcadores sobre el cuadro"""
