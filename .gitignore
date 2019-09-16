@@ -1,8 +1,7 @@
 *.pyc
 *.png
 *.npz
-*.ini
 .pytest_cache/
-*.config
 .coverage
-htmlcov
+__pychache__/
+htmlcov/
