@@ -15,49 +15,88 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#:set row_height 50
 
 <VideoImageMaster@GridLayout>:  # video-image widget
-    rows: 3
+    rows: 4
     cols: 1
 
-    GridLayout:  # video-image filepath (to read or to write)
-        rows: 2
-        cols: 1
-        GridLayout:  # buttons to read or to write filepath
-            rows: 1
-            cols: 2
-            Button:
-                text: "entry"
-            Button:
-                text: "load file"
-        GridLayout:  # entry or show-load field filepath
-            id: entryshowload
-            rows: 1
-            cols: 1
-            # solo por ahora voy a poner una celda de texto.
-            Label:
-                text: "acá va un texto que muestra la ruta del archivo"
+    Label:
+        size_hint_y: 0.1
+        text: "acá va un texto que muestra la ruta del archivo"
 
-    GridLayout:  # display-status image widget
-        rows: 2
-        cols: 1
-        GridLayout:  # display widget
-            rows: 1
-            cols: 1
-        GridLayout:  # status progress bar
-            rows: 1
-            cols: 1
+    Image:  # display image widget
+        source: "static/images/mmarcha.png"
+        pos_hint: {"center_x": 0.5, "center_y": 0.5}
+        size_hint_y: 0.8
+
+    ProgressBar: # status progress bar
+    # Slider:
+        size_hint_y: 0.05
 
     GridLayout:  # video - image command buttons
         rows: 1
         cols: 5
-        Button:
-            text: "play"
+        spacing: 5
+        size_hint_y: 0.05
+        row_force_default: True
+        row_default_height: row_height
+
         Button:
             text: "record"
+        Button:
+            text: "play"
         Button:
             text: "stop"
         Button:
             text: "next"
         Button:
             text: "back"
+
+
+<VideoConsole@GridLayout>:
+    # Necesita una función que abra un popup para buscar los archivos de video.
+
+    # Necesita una función que ligue el nombre del archivo a la etiqueta del
+    # visualizador de videos e imágenes.
+
+    # Necesita una función que genere nuevos nombres aleatorios para
+    # los videos: "".join([str(random.randint(0, 9)) for i in range(25)])
+
+    rows: 2
+    cols: 1
+    spacing: 5
+
+    GridLayout: # Layout de bottones de comando
+        rows: 3
+        cols: 1
+        spacing: 5
+        size_hint_y: 0.3
+        row_force_default: True
+        row_default_height: row_height
+        # La etiqueta que nombra la sección.
+        Label:
+            text: "Video Commands"
+        # El campo para ingresar el nombre del archivo de video.
+        TextInput:
+            # Necesita una función que genere nuevos nombres aleatorios para
+            # los videos: "".join([str(random.randint(0, 9)) for i in range(25)])
+            text: "*nombre del video a grabar"
+        # El botón que abre el archivo.
+        Button:
+            text: "Open filepath"
+
+    GridLayout: # Layout de configuración de video
+        rows: 9
+        cols: 1
+        # size_hint_y: 0.7
+        spacing: 5
+        row_force_default: True
+        row_default_height: row_height
+
+        Label:
+            text: "Video Configuration"
+        Button: # tal config widget
+        Button: # tal config widget
+        Button: # tal config widget
+        Button: # tal config widget

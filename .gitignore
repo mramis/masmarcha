@@ -3,5 +3,5 @@
 *.npz
 .pytest_cache/
 .coverage
-__pychache__/
+*pychache
 htmlcov/
