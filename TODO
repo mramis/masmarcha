@@ -1,8 +1,0 @@
-masmarcha2019
-
-[x] Se generó una uneva interfáz (video.Pics) para poder vizualizar los ciclos.
-
-A seguir:
-[] Se tiene que modificar el manejo de los arreglos de datos.
-[] Se tiene que mejorar la interfaz, para poder contemplar por separado caminatas, ciclos, y parámetros.
-[] Se tiene que modificar la base de datos sqlite (que no está siendo implemetada), para almacenar datos de procesamiento.
