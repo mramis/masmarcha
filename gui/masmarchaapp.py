@@ -18,16 +18,15 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
 from kivy.app import App
 from kivy.uix.gridlayout import GridLayout
-# from kivy.uix.relativelayout import RelativeLayout
 
 from settings import config
+from gui.video import VideoUtil
 
 
 class MasMarchaApp(App):
-    config = config
+    usrconfig = config
 
     def build(self):
         u"""Construye la interfaz gráfica."""

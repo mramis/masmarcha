@@ -52,7 +52,7 @@ with open(configfile, "w") as fh:
 # creación de directorios de app
 if not os.path.isdir(config.get("paths", "app")):
     os.mkdir(config.get("paths", "app"))
-    os.mkdir(config.get("paths", "videos"))
+    os.mkdir(config.get("paths", "video"))
     os.mkdir(config.get("paths", "session"))
     shutil.copy(configfile, config.get("paths", "configfile"))
     shutil.copy(schemafile, config.get("paths", "schemafile"))

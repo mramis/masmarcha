@@ -15,18 +15,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#:set minheight 35
 
-<DisplayFrame>:
+<Frame>:
   rows: 1
   cols: 1
-  core: app.core
-  padding: 10
-  spacing: 0, 10
-  rows_minimum: {0: app.core.config.getint("video", "frameheight") + 50}
-  default_image: "/home/mariano/Imágenes/logo.png"
-  row_force_default:True
-  row_default_height: minheight
+  config: app.usrconfig
+  rows_minimum: {0: app.usrconfig.getint("frame", "height") + 100}
+  default_image: "static/images/default.jpg"
+  writing_image: "static/images/writing.jpg"
   Image:
     id: display
     source: root.default_image

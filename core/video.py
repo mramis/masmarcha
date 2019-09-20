@@ -18,317 +18,396 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import logging
+import os
+import sys
+import time
+import queue
+import threading
 
 import cv2
 import numpy as np
 
-from .settings import SCHEMA as schema
 from .walk import Walk
 
 
-def contours(frame, threshold, dilate):
-    u"""Encuentra dentro del cuadro los contornos de los marcadores."""
-    gray = cv2.cvtColor(frame, 6)
-    binary = cv2.threshold(gray, threshold, 255., 0)[1]
-    if dilate:
-        kernel = np.ones((3, 3), np.uint8)
-        binary = cv2.dilate(binary, kernel, iterations=5)
-    contours, __ = cv2.findContours(binary, 0, 2)
-    return [[], ] if contours is None else contours
+FOURCC = cv2.VideoWriter_fourcc(*"XVID")
 
 
-def centers(contours):
-    u"""Obtiene los centros de los contornos como un arreglo de numpy."""
+class VideoReader:  # producer
+
+    def __init__(self, buffer, stopper, config=None):
+        self.config = config
+        self.buffer = buffer
+        self.stopper = stopper
+        self.is_opened = False
+
+    def __del__(self):
+        self.capture.release()
+
+    @property
+    def fps(self):  # Este tiene que salir de la base de datos.
+        u"""Devuelve la cantidad de cuadros por segundo que tiene el video."""
+        if self.is_opened:
+            return int(self.capture.get(cv2.CAP_PROP_FPS))
+
+    @property
+    def posframe(self):
+        u"""Devuelve la posición del cuadro a leer."""
+        if self.is_opened:
+            return int(self.capture.get(cv2.CAP_PROP_POS_FRAMES))
+
+    @posframe.setter
+    def posframe(self, position):
+        u"""Establece la pocisión inicial (cuadro) de lectura de video."""
+        if self.is_opened:
+            self.capture.set(cv2.CAP_PROP_POS_FRAMES, position)
+
+    @property
+    def numframes(self):
+        """Devuelve la cantidad de cuadros del video."""
+        if self.is_opened:
+            return int(self.capture.get(cv2.CAP_PROP_FRAME_COUNT))
+
+    def open(self, source):
+        """Inicializa la captura."""
+        self.capture = cv2.VideoCapture(source)
+        width = int(self.capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+        self.config.set("frame", "width", str(width))
+        self.config.set("frame", "height", str(height))
+        self.is_opened = True
+
+    def read(self):
+        """Lee el cuadro actual de video."""
+        return self.capture.read()
+
+    def start(self):
+        try:
+            # la fuente es un dispositivo.
+            source = self.config.getint("video", "source")
+        except:
+            # la fuente es un archivo.
+            source = self.config.get("video", "source")
+
+        self.open(source)
+        threading.Thread(target=self.threadingRead, args=()).start()
+        return self
+
+    def threadingRead(self):
+        while not self.stopper.is_set():
+            ret, frame = self.read()
+            if not ret:
+                self.stopper.set()
+                break
+
+            # Voltea la imagen de la cámara.
+            self.buffer.put(cv2.flip(frame, 0))
+        self.capture.release()
+
+
+class VideoWriter:  # consumer
+    final_time = None
+    initial_time = None
+    writed_frames = 0
+
+    def __init__(self, buffer, stopper, config=None):
+        self.config = config
+        self.buffer = buffer
+        self.stopper = stopper
+
+    def __del__(self):
+        self.writer.release()
+
+    def setRealFPS(self):  # hay que ver estoooo....
+        fps_calc = self.writed_frames / (self.final_time - self.initial_time)
+        self.config.set("video", "fps_real", str(fps_calc))
+        with open(self.config.get("paths", "configfile"), "w") as fh:
+            self.config.write(fh)
+        return fps_calc
+
+    def open(self):
+        w = self.config.getint("frame", "width")
+        h = self.config.getint("frame", "height")
+        filename = os.path.join(
+            self.config.get("paths", "video"),
+            self.config.get("video", "video_name")
+        )
+        self.writer = cv2.VideoWriter("%s.avi" % filename, FOURCC, 120, (w, h))
+
+    def write(self, frame):
+        self.writer.write(frame)
+        self.writed_frames += 1
+
+    def start(self):
+        self.open()
+        threading.Thread(target=self.threadingWrite, args=()).start()
+        return self
+
+    def threadingWrite(self):
+        self.initial_time = time.time()
+        while not self.stopper.is_set():
+            frame = self.buffer.get()
+            self.write(frame)
+        self.final_time = time.time()
+        self.setRealFPS()
+
+
+# FILE CONFIG
+# image_dilate int
+# image_threshold int
+# image_kernel_size int
+
+
+class Frame:
+    __slots__ = "pos", "array"
+
+    def __init__(self, pos, array):
+        self.pos = pos
+        self.array = array
+
+
+class RawFrame:
+    __slots__ = "nmarkers", "mpoints"
+
+    def __init__(self, n, points):
+        self.nmarkers = n
+        self.mpoints = points
+
+
+class MarkersFinder:
+
+    def __init__(self, config):
+        self.config = config
+        self.dilate = config.getint("image", "dilate")
+        self.threshold = config.getint("image", "threshold")
+        self.kernel_size = config.getint("image", "kernel_size")
+
+    def binaryTransform(self, image):
+        u"""Transforma la imagen en binaria."""
+        gray = cv2.cvtColor(image, 6)
+        binary = cv2.threshold(gray, self.threshold, 255., 0)[1]
+        if self.dilate:
+            kernel = np.ones((3, 3), np.uint8)
+            binary = cv2.dilate(binary, self.kernel_size, iterations=5)
+        return binary
+
+    @staticmethod
+    def contours(image):
+        u"""Encuentra dentro del cuadro los contornos de los marcadores."""
+        contours, __ = cv2.findContours(image, 0, 2)
+        return [[], ] if contours is None else contours
+
+    @staticmethod
     def contour_center(contour):
         u"""Devuelve el centro del contorno."""
         x, y, w, h = cv2.boundingRect(contour)
         return x + w/2, y + h/2
-    ccenters = [contour_center(c) for c in contours]
-    return len(ccenters), (np.array(ccenters, dtype=np.int16)[::-1]).ravel()
+
+    def centers(self, contours):
+        u"""Obtiene los centros de los contornos como un arreglo de numpy."""
+        ccenters = [self.contour_center(c) for c in contours]
+        arraycenters = np.array(ccenters, dtype=np.int16)[::-1]
+        return len(ccenters), arraycenters.ravel()
+
+    def findMarkers(self, frame):
+        u"""Devuelve el número de marcadores encontrados y sus centros."""
+        contours = self.contours(self.binaryTransform(frame.frame))
+        return self.centers(contours)
 
 
-def colormap(n):
-    u"""Generador de colores."""
-    colors = [(60, 76, 231), (219, 152, 52), (113, 204, 46)]
-    count = 0
-    while count < n:
-        c = colors.pop()
-        yield c
-        colors.insert(0, c)
-        count += 1
+# schema_markers_num
+# schema_regions_num
 
+class FrameDrawings:
 
-def markers_colors(schema):
-    u"""Colores de markadores por región."""
-    return [c for n in schema["markersxroi"] for c in colormap(n)]
+    def __init__(self, config):
+        self.markers_num = config.getint("schema", "markers_num")
+        self.regions_num = config.getint("schema", "regions_num")
 
+    def reshape(array, kind):
+        u"""Modifica la forma del arreglo. Las opciones son marcadores o regiones"""
+        shape = {
+            "markers": (self.markers_num, 2),
+            "regions": (self.regions_num, 2, 2)
+        }
+        return np.reshape(array, shape[kind])
 
-class Video(object):
-
-    def __init__(self, config, schema):
-        self.config = config
-        self.schema = schema
-        self.capture = None
-
-    def __del__(self):
-        if self.capture is not None:
-            self.capture.release()
-
-    def open(self, filepath):
-        u"""Inicializa la captura de video."""
-        extensions = self.config.get("video", "extensions").split("-")
-        if filepath.split(".")[-1] not in extensions:
-            raise Exception(u"Extensión no valiada.")
-
-        self.capture = cv2.VideoCapture(filepath)
-        self.config.set("video", "startframe", "0")
-        self.config.set("video", "endframe", str(self.duration))
-        return self
-
-    @property
-    def fps(self):
-        if self.captue.isOpened():
-            return int(self.capture.get(cv2.CAP_PROP_FPS))
-
-    @property
-    def pos(self):
-        if self.capture.isOpened():
-            return int(self.capture.get(cv2.CAP_PROP_POS_FRAMES))
-
-    @property
-    def duration(self):
-        if self.capture.isOpened():
-            return int(self.capture.get(cv2.CAP_PROP_FRAME_COUNT))
-
-    def read(self):
-        u"""Lectura de cuadro de video."""
-        ret, framearray = self.capture.read()
-        posframe = int(self.capture.get(cv2.CAP_PROP_POS_FRAMES))
-        return ret, posframe, Frame(framearray, posframe, self.config)
-
-    def setPosition(self, pos):
-        u"""Establece la pocisión inicial (cuadro) de lectura de video."""
-        self.capture.set(cv2.CAP_PROP_POS_FRAMES, pos)
-
-    def searchForWalks(self):
-        u"""Busca las caminatas dentro de un video."""
-        VideoExplorer.restart()
-        explorer = VideoExplorer(self.config)
-
-        self.setPosition(0)
-        ret, posframe, frame = self.read()
-        while ret:
-            nmarkers, centers = frame.getMarkersPositions()
-            isfullschema = (nmarkers == self.schema["n"])
-            if isfullschema is True and explorer.walking is False:
-                explorer.startWalking()
-            else:
-                if explorer.walkGetEnd(nmarkers) is True:
-                    yield posframe, explorer.walk
-            explorer.walkInsert(posframe, isfullschema, centers)
-            ret, posframe, frame = self.read()
-
-
-class WalkMonitor(object):
-    walking = False
-    empty_count = 0
-
-    def __init__(self, explorer, config):
-        self.explorer = explorer
-        self.empty_limit = config.getint("explorer", "emptyframelimit")
-        self.expected_count = config.getint("explorer", "expectedmarkerscount")
-
-    def activeWalk(self):
-        u"""Activa el estado de caminata."""
-        self.walking = True
-        self.explorer.newWalk()
-
-    def deactivateWalk(self):
-        u"""Desactiva el estado de caminta."""
-        self.walking = False
-        self.explorer.stopWalk()
-
-    def incrementEmptyCount(self):
-        u"""Incrementa el contador de cuadros vacios."""
-        self.empty_count += 1
-
-    def clearEmptyCount(self):
-        u"""Reinicia el contador de cuadros vacios."""
-        self.empty_count = 0
-
-    def checkWalkGettingStarted(self, markers_count):
-        u"""Verifica si debe comenzar la camianta."""
-        if markers_count == self.expected_count:
-            self.activeWalk()
-
-    def checkForBreak(self):
-        u"""Verifica la condición de finalización de caminata."""
-        if self.empty_count == self.empty_limit:
-            self.deactivateWalk()
+    def getColors(self, num_of_markers, sameforall=True):
+        u"""."""
+        if sameforall:
+            return np.repeat((0, 0, 255), num_of_markers)
         else:
-            self.incrementEmptyCount()
+            colors = np.zeros((num_of_markers, 3))
+            variation = np.linspace(0, 255, num_of_markers)
+            colors[:, 1] = variation
+            colors[:, 2] = variation[::-1]
+            return colors
 
-    def checkWalkGettingEnded(self, markers_count):
-        u"""Verifica si debe finalizar la caminata."""
-        if markers_count == 0:
-            self.checkForBreak()
-        else:
-            self.clearEmptyCount()
+    def drawMarkers(self, image, markers, colors):
+        u"""Dibuja los marcadores en la imagen."""
+        for m, c in zip(self.reshape(markers, "markers"), colors):
+            cv2.drawMarker(image, tuple(m), 10, c, 1, 30)
 
-    def statusMonitoring(self, markers_count):
-        u"""Monitorea la creación y finalización de caminatas."""
-        if self.walking:
-            self.checkWalkGettingEnded(markers_count)
-        else:
-            self.checkWalkGettingStarted(markers_count)
+    def drawRegions(self, image, regions, condition):
+        u"""Dibuja las regiones de agrupamiento en la imagen."""
+        color = (
+            (0, 0, 255),  # rojo para condición 0
+            (0, 255, 0)  # verde para condición 1
+        )
+        for (p0, p1), c in zip(self.reshape(regions, "regions"), condition):
+            cv2.rectangle(image, tuple(p0), tuple(p1), color[c], 3)
 
-
-class Explorer(object):
-    current_walk = None
-
-    def __init__(self, config, container=[]):
-        self.config = config
-        self.monitor = WalkMonitor(self, config)
-        self.container = container
-
-    def newWalk(self):
-        u"""Inicializa una nueva caminata."""
-        self.current_walk = Walk(self.config)
-        self.container.append(self.current_walk)
-
-    def stopWalk(self):
-        u"""Finaliza la caminata corriente."""
-        self.current_walk.stop()
-        self.current_walk = None
-
-    def walkIsActive(self):
-        u"""Devuelve el estado de caminata."""
-        return self.monitor.walking
-
-    def monitoring(self, nmarkers):
-        u"""Monitorea la actividad de caminata."""
-        self.monitor.statusMonitoring(nmarkers)
-
-    def addData(self, data):
-        u"""Intenta agregar datos de cuadro de video. Caminata debe estar activa."""
-        if self.walkIsActive():
-            self.current_walk.insert(*data)
-
-    def explore(self, video):
-        u"""Explora el video en búsqueda de caminatas."""
-        video.setPosition(0)
-        expected_count = self.config.getint("explorer", "expectedmarkerscount")
-        ret, posframe, frame = video.read()
-        while ret:
-            nmarkers, markers = frame.getMarkersPositions()
-            fullschema = (nmarkers == expected_count)
-
-            self.monitoring(nmarkers)
-            self.addData(posframe, fullschema, markers)
-            ret, posframe, frame = self.read()
+    def drawNumIndicator(self, image, num_of_markers):
+        u"""Dibuja el indicador de marcadores encontrados."""
+        backward = {
+            "color": (0, 0, 0),
+            "center": (100, 100),
+            "radius": 50
+        }
+        facetext = {
+            "org": (80, 115),
+            "fontFace": 0,
+            "fontScale": 2,
+            "color": (255, 255, 255)
+        }
+        cv2.circle(image, **backward)
+        cv2.putText(image, str(num_of_markers), **facetext)
 
 
-class Frame(object):
+class Player(VideoReader):
 
-    def __init__(self, frame, position, config):
-        self._frame = frame
-        self.config = config
-        self.position = position
-        self.width = None
-        self.height = None
+    def __init__(self, config):
+        super().__init__(config)
+        self.drawings = FrameDrawings(config)
 
-    @property
-    def frame(self):
-        return self._frame
+    def play(self, source, kind="raw", duration="raw", **kwargs):
+        u"""Generador de cuadros de video para la reproducción en GUI.
 
-    def getMarkersPositions(self):
-        u"""Devuelve los marcadores que encontro en el cuadro."""
-        dilate = self.config.getboolean("explorer", "dilate")
-        threshold = self.config.getint("explorer", "threshold")
-        return centers(contours(self._frame, threshold, dilate))
+        arguments:
+        =========
+            source: ruta del archivo de video.
+            kind: tipo de reproducción de video [raw, walk, cycle].
+            duration: la duración en cuadros de video.
+            kwargs: diccionario que contiene órdenes de dibujo.
+                 - rawframe: objeto para dibujar cuadros sin información
+                   específica.
+                 - walk: objeto con información de caminata.
+                 - cycle: objeto con información de ciclo.
+        """
+        self.open(source)
 
-    def drawMarkers(self, markers, colors=[]):
-        u"""Dibuja sobre el cuadro la posición de los marcadores."""
-        if colors == []:
-            colors = ((0,0,255) for __ in range(markers.shape[0]))
-        for m, c in zip(markers, colors):
-            print(m, c)
-            cv2.circle(self.frame, tuple(m), 10, c, -1)
+        drawing_kind = {
+        "raw": self.rawFrame,
+        "walk": self.walkFrame,
+        "cycle": self.cycleFrame
+        }
 
-    def drawRegions(self, regions, condition):
-        u"""Dibuja las regiones de marcadores sobre el cuadro"""
-        cmap = tuple(colormap(3))
-        color = {0: cmap[0], 1: cmap[2]}
-        for (p0, p1), c in zip(regions, condition):
-            cv2.rectangle(self._frame, tuple(p0), tuple(p1), color[c], 3)
+        draw = drawing_kind[options["kind"]]
 
-    def drawText(self, n):
-        u"""Escribe un mensaje en el video."""
-        # NOTE: por ahora queda como la antigua versión.
-        def draw_n(frame, n):
-            u"""Dibuja en la esquina superior izquierda el número de marcadores."""
-            cv2.circle(self._frame, (100, 100), 75, (0, 0, 0), -1)
-            cv2.putText(self._frame, str(n), (80, 115), 0, 2, (255, 255, 255), 2, 16)
-        draw_n(self._frame, n)
+        duration_option = {
+            "raw": (0, self.reader.numframes),
+            "walk": (kwargs["walk"].startframe, kwargs["walk"].stopframe),
+            "cycle": (kwargs["cycle"].startframe, kwargs["cycle"].stopframe),
+        }
 
-    def resize(self):
-        u"""Modifica el tamaño del cuadro."""
-        if self.config.getboolean("video", "resize"):
-            self.width = self.config.getint("video", "framewidth")
-            self.height = self.config.getint("video", "frameheight")
-            self._frame = cv2.resize(self._frame, (self.width, self.height))
+        start, stop = duration_option[duration]
+        self.posframe = start
 
-    def vflip(self):
-        u"""Volteo vertical del cuadro."""
-        if self.config.getboolean("video", "flip"):
-            self._frame = cv2.flip(self._frame, 0)
-
-
-class View(object):
-
-    def __init__(self, config, schema):
-        self.config = config
-        self.schema = schema
-
-    def player(self, video, walk=None, cycle=None):
-        u"""Generador de cuadros de video."""
-        start = self.config.getint("video", "startframe")
-        end = self.config.getint("video", "endframe")
-        video.setPosition(start)
-        for __ in range(end - start):
-            ret, pos, frame = video.read()
-            if not ret:
-                break
-            if cycle is not None:
-                return NotImplemented
-            elif walk is not None:
-                self.drawWalkMarkers(frame, walk)
-            else:
-                self.drawUnidentifiedMarkers(frame)
-            frame.resize()
-            frame.vflip()
+        for __ in range(stop - start):
+            __, pos, frame = self.read()
+            draw(frame, pos, **kwargs)
             yield frame
 
-    def drawUnidentifiedMarkers(self, frame):
-        u"""Dibuja los marcadores sin identificar sobre el cuadro."""
-        n, markers = frame.getMarkersPositions()
-        frame.drawText(n)
-        frame.drawMarkers(markers)
-        return frame
+    def rawFrame(self, frame, pos, **kwargs):
+        u"""Dibuja los marcadores sin identificar."""
+        rawframe = kwargs["rawframe"]
+        self.drawings.drawNumIndicator(frame, rawframe.nmarkers)
+        colors = self.drawings.getColors(rawframe.nmarkers)
+        self.drawings.drawMarkers(frame, rawframe.mpoints, colors)
 
-    def drawWalkMarkers(self, frame, walk):
-        u"""Dibuja los marcadores identificados y las regiones sobre el cuadro."""
-        try:
-            pos = walk.getStartPos(frame.position)
-            markers = np.reshape(walk.markersView[pos], (self.schema["n"], 2))
-            regions = np.reshape(walk.regionsView[pos], (self.schema["r"], 2, 2))
-            frame.drawMarkers(markers, markers_colors(self.schema))
-            frame.drawRegions(regions, walk.interpolation_indicators[int(pos)])
-        except ValueError:
-            mssg = "Caminata fuera de cuadro."
-            logging.warning(mssg)
-        return frame
+    def walkFrame(self, frame, pos, **kwargs):
+        u"""Dibuja los marcadores identificados por región."""
+        walk = kwargs["walk"]
+        colors = self.drawings.getColors(walk.nmarkers, False)
+        self.drawings.drawMarkers(frame, walk.mpoints[pos])
+        self.drawings.drawRegions(frame, walk.rpoints[pos], walk.condition[pos])
 
-    def drawCycleMarkers(self, frame, cycle):
+    def cycleFrame(self, frame, pos, **kwargs):
+        u"""Dibuja los marcadores dentro del ciclo."""
         return NotImplemented
+
+
+# explorer_empty_frame_limit
+class Explorer(VideoReader):
+
+    def __init__(self, config, container=[]):
+        super().__init__(config)
+        self.finder = MarkersFinder(config)
+        self.container = container
+
+        # FLAGS
+        self.walking = False
+        self.zero_flag = 0
+        self.current_walk = None
+        self.limit_zero_flag = config.getint("explorer", "empty_frame_limit")
+        self.expected_markers_count = config.getint("schema", "markers_num")
+
+    def read(self):  # se sobreescribe el método original.
+        u"""Lectura de cuadro de video."""
+        ret, array = self.capture.read()
+        pos = int(self.capture.get(cv2.CAP_PROP_POS_FRAMES))
+        return ret, pos, Frame(pos, array)
+
+    def initializingWalkingState(self):
+        u"""Inicializa una caminata."""
+        self.current_walk = Walk(self.config)
+        self.container.append(self.current_walk)
+        self.walking = True
+
+    def finishingWalkingState(self):
+        u"""Finaliza la caminata activa."""
+        self.current_walk.stop()
+        self.current_walk = None
+        self.walking = False
+
+    def checkingStopWalking(self, num_of_markers):
+        u"""Establece la condición de detener la caminata a verdadero."""
+        if num_of_markers == 0:
+            self.zero_flag += 1
+        else:
+            self.zero_flag = 0
+
+        if self.zero_flag > self.limit_zero_flag:
+            return True
+        else:
+            return False
+
+    def findWalks(self, source,):
+        u"""Realiza la búsqueda de caminatas dentro del video."""
+        self.open(source)
+
+        while True:
+            ret, pos, frame = self.read()
+            if not ret:
+                break
+
+            # getting markers data.
+            markers_num, markers_points = self.finder.findMarkers(frame)
+            frame_is_fullschema = (markers_num == self.expected_markers_count)
+            walking_data = (pos, frame_is_fullschema, markers_points)
+
+            # exploring walking state.
+            if not self.walking and frame_is_fullschema:
+                self.initializingWalkingState()
+                # adding first walking_data
+                self.current_walk.insert(*walking_data)
+
+            else:
+                # adding regular walking data
+                self.current_walk.insert(*walking_data)
+
+                # check for stop signal.
+                stop_walking = self.checkingStopWalking(markers_num)
+                if stop_walking:
+                    self.finishingWalkingState()
