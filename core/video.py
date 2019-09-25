@@ -83,13 +83,11 @@ class VideoReader:  # producer
         return self.capture.read()
 
     def start(self):
-        try:
-            # la fuente es un dispositivo.
-            source = self.config.getint("video", "source")
-        except:
-            # la fuente es un archivo.
-            source = self.config.get("video", "source")
-
+        u"""Inicia la captura en un hilo separado."""
+        try:  # dispositivo
+            source = self.config.getint("current", "source")
+        except:  # archivo de video
+            source = self.config.get("current", "source")
         self.open(source)
         threading.Thread(target=self.threadingRead, args=()).start()
         return self
@@ -131,7 +129,7 @@ class VideoWriter:  # consumer
         h = self.config.getint("frame", "height")
         filename = os.path.join(
             self.config.get("paths", "video"),
-            self.config.get("video", "video_name")
+            self.config.get("video", "filename")
         )
         self.writer = cv2.VideoWriter("%s.avi" % filename, FOURCC, 120, (w, h))
 

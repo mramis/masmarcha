@@ -23,6 +23,7 @@ import queue
 import threading
 
 from kivy.uix.gridlayout import GridLayout
+from kivy.logger import Logger
 
 from gui.frame import Frame
 from core.video import VideoReader, VideoWriter
@@ -37,19 +38,21 @@ class VideoUtil(GridLayout):
         u"""Limpia el buffer de video."""
         while not self.buffer.empty():
             self.buffer.get()
+        Logger.info("VideoUtil: buffer cleared")
 
     def play(self):
         u"""Muestra el archivo de video seleccionado."""
         self.state = "playing"
         self.stopper.clear()
         self.ids.frame.play_video(self.buffer)
+        # NOTE: acá se tiene que agregar el dibujo de contornos...
         VideoReader(self.buffer, self.stopper, self.config).start()
 
     def stop(self):
         u"""Detiene la actividad."""
         which_stop = {
-        "playing": self.ids.frame.stop_playing,
-        "recording": self.ids.frame.stop_recording
+            "playing": self.ids.frame.stop_playing,
+            "recording": self.ids.frame.stop_recording
         }
         self.stopper.set()
         self.clear_buffer()
@@ -60,5 +63,5 @@ class VideoUtil(GridLayout):
         self.state = "recording"
         self.stopper.clear()
         self.ids.frame.record_video()
-        reader = VideoReader(self.buffer, self.stopper, self.config).start()
-        writer = VideoWriter(self.buffer, self.stopper, self.config).start()
+        VideoReader(self.buffer, self.stopper, self.config).start()
+        VideoWriter(self.buffer, self.stopper, self.config).start()

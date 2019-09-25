@@ -3,7 +3,7 @@
 
 """Docstring."""
 
-# Copyright (C) 2018  Mariano Ramis
+# Copyright (C) 2019  Mariano Ramis
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -23,6 +23,7 @@ from kivy.uix.gridlayout import GridLayout
 
 from settings import config
 from gui.video import VideoUtil
+from gui.sections import SectionsControl
 
 
 class MasMarchaApp(App):
@@ -32,6 +33,7 @@ class MasMarchaApp(App):
         u"""Construye la interfaz gráfica."""
         root = Main()
         return root
+
 
 class Main(GridLayout):
     pass
