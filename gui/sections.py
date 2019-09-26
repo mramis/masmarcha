@@ -18,26 +18,26 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
 import time
 
 from kivy.uix.tabbedpanel import TabbedPanel
 from kivy.uix.gridlayout import GridLayout
 from kivy.properties import StringProperty
-from kivy.logger import Logger
 
 
-class SectionsControl(TabbedPanel):
+class Sections(TabbedPanel):
     mode = StringProperty("video")
     do_default_tab = False
 
     def on_current_tab(self, instance, tab):
         u"""Cuando se selecciona la pestaña, activa contenido específico."""
-        tab.content.setVariables()
+        tab.content.setTabbState()
 
 
 class SubSection(GridLayout):
 
-    def setVariables(self):
+    def setTabbState(self):
         return NotImplemented
 
     def writeConfig(self):
@@ -48,10 +48,11 @@ class SubSection(GridLayout):
 class VideoSubSection(SubSection):
     devices = {"webcam": "0", "usb_camera": "2"}
 
-    def setVariables(self):
+    def setTabbState(self):
         u"""."""
         self.setDevice()
         self.setVideoName()
+        self.setEnableDisabled()
 
     def setDevice(self, dev=None):
         u"""."""
@@ -65,23 +66,49 @@ class VideoSubSection(SubSection):
     def setVideoName(self, name=None):
         u"""."""
         if name is None:
-            name = time.strftime("%d%m%y%H%M%S")
+            name = "%s.avi" % time.strftime("%d%m%y%H%M%S")
+        else:
+            name = "%s.avi" % name.replace(' ', '_')
         self.ids.videoname.text = name
-        self.config.set("video", "filename", "%s.avi" % name)
+        self.config.set("video", "filename", name)
         self.writeConfig()
+
+    def setEnableDisabled(self):
+        # Enabled Buttons
+        self.vu_buttons["record"].disabled = False
+        self.vu_buttons["play"].disabled = False
+        self.vu_buttons["stop"].disabled = False
+        # Disabled Buttons
+        self.vu_buttons["back"].disabled = True
+        self.vu_buttons["next"].disabled = True
 
 
 class ExplorerSubSection(SubSection):
 
-    def set_config(self):
+    def setTabbState(self):
         u"""."""
-        source = self.config.get("video", "filepath")
-        self.config.set("current", "source", source)
-        self.write_config()
+        self.setFilepath()
+        self.setEnableDisabled()
+
+    def setFilepath(self):
+        u"""."""
+        dirpath = self.config.get("paths", "video")
+        filename = self.config.get("video", "filename")
+        self.config.set("current", "source", os.path.join(dirpath, filename))
+        self.writeConfig()
+
+    def setEnableDisabled(self):
+        # Enabled Buttons
+        self.vu_buttons["play"].disabled = False
+        self.vu_buttons["stop"].disabled = False
+        # Disabled Buttons
+        self.vu_buttons["record"].disabled = True
+        self.vu_buttons["back"].disabled = True
+        self.vu_buttons["next"].disabled = True
 
 
 class KinematicsSubSection(SubSection):
 
-    def set_variables(self):
+    def setTabbState(self):
         u"""."""
-        print(self)
+        pass

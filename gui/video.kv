@@ -15,46 +15,63 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#:include gui/frame.kv
-
+# variables
 #:set row_height 50
+
+<Frame>:
+  rows: 1
+  cols: 1
+  config: app.usrconfig
+  rows_minimum: {0: app.usrconfig.getint("frame", "height") + 100}
+  default_image: "static/images/default.jpg"
+  writing_image: "static/images/writing.jpg"
+  Image:
+    id: display
+    source: root.default_image
 
 
 <VideoUtil>:  # video-image widget
-    rows: 4
-    cols: 1
-    config: app.usrconfig
-    # mensaje de display
-    Label:
-        size_hint_y: 0.1
-        text: "acá va un texto que muestra la ruta del archivo"
-    # display image widget
-    Frame:
-        id: frame
-    # status progress bar
-    ProgressBar:
-        size_hint_y: 0.05
-    # video - image command buttons
-    GridLayout:
-        rows: 1
-        cols: 5
-        spacing: 5
-        size_hint_y: 0.05
-        row_force_default: True
-        row_default_height: row_height
-        # boton de grabar video
-        Button:
-            text: "record"
-            on_release: root.record()
-        # boton de reproducir video
-        Button:
-            text: "play"
-            on_release: root.play()
-        # boton de detener reproducción y grabación.
-        Button:
-            text: "stop"
-            on_release: root.stop()
-        Button:
-            text: "next"
-        Button:
-            text: "back"
+  rows: 4
+  cols: 1
+  config: app.usrconfig
+  buttons: {"record": record, "play": play, "stop": stop, "back": back, "next": next}
+
+  # mensaje de display
+  Label:
+    size_hint_y: 0.1
+    text: "acá va un texto que muestra la ruta del archivo"
+  # display image widget
+  Frame:
+    id: frame
+  # status progress bar
+  ProgressBar:
+    size_hint_y: 0.05
+  # video - image command buttons
+  GridLayout:
+    rows: 1
+    cols: 5
+    spacing: 5
+    size_hint_y: 0.05
+    row_force_default: True
+    row_default_height: row_height
+    # boton de grabar video
+    Button:
+      id: record
+      text: "record"
+      on_release: root.record()
+    # boton de reproducir video
+    Button:
+      id: play
+      text: "play"
+      on_release: root.play()
+    # boton de detener reproducción y grabación.
+    Button:
+      id: stop
+      text: "stop"
+      on_release: root.stop()
+    Button:
+      id: back
+      text: "back"
+    Button:
+      id: next
+      text: "next"

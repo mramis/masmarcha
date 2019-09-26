@@ -20,67 +20,71 @@
 #:set pannel_padding 5
 
 
-<SectionsControl>:
-    do_default_tab: False
-    TabbedPanelItem:
-        text: "Video"
-        VideoSubSection
+<Sections>:
+  vu_buttons: {}
+  do_default_tab: False
+  TabbedPanelItem:
+    text: "Video"
+    VideoSubSection
+      vu_buttons: root.vu_buttons
 
-    TabbedPanelItem:
-        text: "Explorer"
-        ExplorerSubSection
+  TabbedPanelItem:
+    text: "Explorer"
+    ExplorerSubSection:
+      vu_buttons: root.vu_buttons
 
-    TabbedPanelItem:
-        text: "Kinematics"
-        KinematicsSubSection
-
+  TabbedPanelItem:
+    text: "Kinematics"
+    KinematicsSubSection:
+      vu_buttons: root.vu_buttons
 
 <VideoSubSection>:
-    rows: 3
-    cols: 1
-    config: app.usrconfig
+  rows: 3
+  cols: 1
+  config: app.usrconfig
 
-    spacing: pannel_spacing
-    padding: pannel_padding
+  spacing: pannel_spacing
+  padding: pannel_padding
+  row_force_default: True
+  row_default_height: pannel_text_height
+
+  GridLayout:  # Seleccionar dispositivo.
+    rows: 1
+    cols: 2
+    spacing: 5
     row_force_default: True
     row_default_height: pannel_text_height
+    Label:
+      text: "seleccionar dispositivo:"
+      halign: "left"
+      valign: "center"
+      text_size: self.size
+      size_hint_x: 0.6
+    Spinner:
+      id: device
+      text: root.config.get("video", "device")
+      values: ["webcam", "usb_camera"]
+      on_text: root.setDevice(self.text)
 
-    GridLayout:  # Seleccionar dispositivo.
-        rows: 1
-        cols: 2
-        spacing: 5
-        row_force_default: True
-        row_default_height: pannel_text_height
-        Label:
-            text: "seleccionar dispositivo:"
-            halign: "left"
-            valign: "center"
-            text_size: self.size
-            size_hint_x: 0.6
-        Spinner:
-            id: device
-            text: root.config.get("video", "device")
-            values: ["webcam", "usb_camera"]
-            on_text: root.setDevice(self.text)
-    GridLayout:  # Nombre del archivo de video a capturar.
-        rows: 2
-        cols: 1
-        spacing: 5
-        row_force_default: True
-        row_default_height: pannel_text_height
-        Label:
-            text: "ingresar nombre del archivo de video:"
-            halign: "left"
-            text_size: self.size
-        TextInput:
-            id: videoname
-            multiline: False
-            on_text_validate: root.setVideoName(self.text)
+  GridLayout:  # Nombre del archivo de video a capturar.
+    rows: 2
+    cols: 1
+    spacing: 5
+    row_force_default: True
+    row_default_height: pannel_text_height
+    Label:
+      text: "ingresar nombre del archivo de video:"
+      halign: "left"
+      text_size: self.size
+    TextInput:
+      id: videoname
+      multiline: False
+      on_text_validate: root.setVideoName(self.text)
 
 
 <ExplorerSubSection>:
-    config: app.usrconfig
+  config: app.usrconfig
 
 
 <KinematicsSubSection>:
-    config: app.usrconfig
+  config: app.usrconfig

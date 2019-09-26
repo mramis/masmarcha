@@ -22,8 +22,6 @@ from kivy.app import App
 from kivy.uix.gridlayout import GridLayout
 
 from settings import config
-from gui.video import VideoUtil
-from gui.sections import SectionsControl
 
 
 class MasMarchaApp(App):

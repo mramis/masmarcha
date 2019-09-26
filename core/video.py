@@ -19,9 +19,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
-import sys
 import time
-import queue
 import threading
 
 import cv2
@@ -82,25 +80,34 @@ class VideoReader:  # producer
         """Lee el cuadro actual de video."""
         return self.capture.read()
 
-    def start(self):
+    def flipRead(self):
+        """Lee el cuadro actual de video."""
+        grab, frame = self.capture.read()
+        return grab, cv2.flip(frame, 0)
+
+    def start(self, flipped=False):
         u"""Inicia la captura en un hilo separado."""
         try:  # dispositivo
             source = self.config.getint("current", "source")
-        except:  # archivo de video
+        except ValueError:  # archivo de video
             source = self.config.get("current", "source")
+
+        readfunc = {False: self.read, True: self.flipRead}[flipped]
+
         self.open(source)
-        threading.Thread(target=self.threadingRead, args=()).start()
+        threading.Thread(target=self.threadingRead, args=(readfunc,)).start()
         return self
 
-    def threadingRead(self):
+    def threadingRead(self, read_function):
         while not self.stopper.is_set():
-            ret, frame = self.read()
+            ret, frame = read_function()
+
             if not ret:
                 self.stopper.set()
                 break
 
-            # Voltea la imagen de la cámara.
-            self.buffer.put(cv2.flip(frame, 0))
+            self.buffer.put(frame)
+
         self.capture.release()
 
 
@@ -117,7 +124,7 @@ class VideoWriter:  # consumer
     def __del__(self):
         self.writer.release()
 
-    def setRealFPS(self):  # hay que ver estoooo....
+    def setRealFPS(self):  # NOTE: Un estilo feo
         fps_calc = self.writed_frames / (self.final_time - self.initial_time)
         self.config.set("video", "fps_real", str(fps_calc))
         with open(self.config.get("paths", "configfile"), "w") as fh:
@@ -131,7 +138,7 @@ class VideoWriter:  # consumer
             self.config.get("paths", "video"),
             self.config.get("video", "filename")
         )
-        self.writer = cv2.VideoWriter("%s.avi" % filename, FOURCC, 120, (w, h))
+        self.writer = cv2.VideoWriter(filename, FOURCC, 120, (w, h))
 
     def write(self, frame):
         self.writer.write(frame)
@@ -144,9 +151,11 @@ class VideoWriter:  # consumer
 
     def threadingWrite(self):
         self.initial_time = time.time()
+
         while not self.stopper.is_set():
             frame = self.buffer.get()
             self.write(frame)
+
         self.final_time = time.time()
         self.setRealFPS()
 
