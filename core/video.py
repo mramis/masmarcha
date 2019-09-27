@@ -31,13 +31,16 @@ from .walk import Walk
 FOURCC = cv2.VideoWriter_fourcc(*"XVID")
 
 
-class VideoReader:  # producer
+class VideoReader:
 
-    def __init__(self, buffer, stopper, config=None):
+    def __init__(self, buffer, stopper, config):
         self.config = config
         self.buffer = buffer
         self.stopper = stopper
         self.is_opened = False
+        #
+        self.finder = MarkersFinder(config)
+        self.drawings = Drawings(config)
 
     def __del__(self):
         self.capture.release()
@@ -76,23 +79,28 @@ class VideoReader:  # producer
         self.config.set("frame", "height", str(height))
         self.is_opened = True
 
-    def read(self):
-        """Lee el cuadro actual de video."""
+    def readToWrite(self):
+        """Lee el cuadro actual de video para escribir en disco."""
         return self.capture.read()
 
-    def flipRead(self):
-        """Lee el cuadro actual de video."""
+    def readToDisplay(self):
+        """Lee el cuadro actual de video para mostrar en pantalla."""
+        # NOTE: Quizás a medida que demande otras formas de mostrar haya que
+        # crear una clase especial para manejar lo que se dibuja.
         grab, frame = self.capture.read()
+        num, markers = self.finder.find(frame)
+        self.drawings.drawMarkers(frame, markers, num,
+                                  self.drawings.getColors(num, True))
         return grab, cv2.flip(frame, 0)
 
-    def start(self, flipped=False):
+    def start(self, display=False):
         u"""Inicia la captura en un hilo separado."""
         try:  # dispositivo
             source = self.config.getint("current", "source")
         except ValueError:  # archivo de video
             source = self.config.get("current", "source")
 
-        readfunc = {False: self.read, True: self.flipRead}[flipped]
+        readfunc = {False: self.readToWrite, True: self.readToDisplay}[display]
 
         self.open(source)
         threading.Thread(target=self.threadingRead, args=(readfunc,)).start()
@@ -111,7 +119,9 @@ class VideoReader:  # producer
         self.capture.release()
 
 
-class VideoWriter:  # consumer
+# NOTE: Esta clase debera ademas escribir en la base de datos los parámetros
+# que se utilizaron en la captura y escritura en disco.
+class VideoWriter:
     final_time = None
     initial_time = None
     writed_frames = 0
@@ -160,43 +170,33 @@ class VideoWriter:  # consumer
         self.setRealFPS()
 
 
-# FILE CONFIG
-# image_dilate int
-# image_threshold int
-# image_kernel_size int
-
-
-class Frame:
-    __slots__ = "pos", "array"
-
-    def __init__(self, pos, array):
-        self.pos = pos
-        self.array = array
-
-
-class RawFrame:
-    __slots__ = "nmarkers", "mpoints"
-
-    def __init__(self, n, points):
-        self.nmarkers = n
-        self.mpoints = points
-
-
 class MarkersFinder:
 
     def __init__(self, config):
         self.config = config
-        self.dilate = config.getint("image", "dilate")
-        self.threshold = config.getint("image", "threshold")
-        self.kernel_size = config.getint("image", "kernel_size")
+        self.dilate = config.getboolean("image", "dilate")
+
+    def find(self, frame):
+        u"""Devuelve el número de marcadores encontrados y sus centros."""
+        btfunc = {True: self.dilatedBinaryTransform,
+                  False: self.binaryTransform}
+        contours = self.contours(btfunc[self.dilate](frame))
+        return self.centers(contours)
 
     def binaryTransform(self, image):
         u"""Transforma la imagen en binaria."""
         gray = cv2.cvtColor(image, 6)
-        binary = cv2.threshold(gray, self.threshold, 255., 0)[1]
-        if self.dilate:
-            kernel = np.ones((3, 3), np.uint8)
-            binary = cv2.dilate(binary, self.kernel_size, iterations=5)
+        thres = self.config.getint("image", "threshold")
+        binary = cv2.threshold(gray, thres, 255, 0)[1]
+        return binary
+
+    def dilatedBinaryTransform(self, image):
+        u"""Transforma la imagen en binaria."""
+        niterations = self.config.getint("image", "dilate_iterations")
+        kernel_size = self.config.getint("image", "dilate_kernel_size")
+        kernel = np.ones((kernel_size,  kernel_size), np.uint8)
+        binary = cv2.dilate(self.binaryTransform(image),
+                            kernel, iterations=niterations)
         return binary
 
     @staticmethod
@@ -217,44 +217,36 @@ class MarkersFinder:
         arraycenters = np.array(ccenters, dtype=np.int16)[::-1]
         return len(ccenters), arraycenters.ravel()
 
-    def findMarkers(self, frame):
-        u"""Devuelve el número de marcadores encontrados y sus centros."""
-        contours = self.contours(self.binaryTransform(frame.frame))
-        return self.centers(contours)
 
-
-# schema_markers_num
-# schema_regions_num
-
-class FrameDrawings:
+# NOTE: No funciona la creación de colores. opencv no detecta el arreglo
+# de numpy [0 0 0] como numérico.
+class Drawings:
 
     def __init__(self, config):
         self.markers_num = config.getint("schema", "markers_num")
         self.regions_num = config.getint("schema", "regions_num")
 
-    def reshape(array, kind):
-        u"""Modifica la forma del arreglo. Las opciones son marcadores o regiones"""
-        shape = {
-            "markers": (self.markers_num, 2),
-            "regions": (self.regions_num, 2, 2)
-        }
+    def reshape(self, kind, array, num):
+        u"""Modifica la forma del arreglo."""
+        shape = {"markers": (num, 2), "regions": (num, 2, 2)}
         return np.reshape(array, shape[kind])
 
-    def getColors(self, num_of_markers, sameforall=True):
-        u"""."""
+    def getColors(self, num, sameforall=True):
+        u"""Colores para los marcadores."""
         if sameforall:
-            return np.repeat((0, 0, 255), num_of_markers)
+            return np.repeat((0, 0, 255), num).reshape(num, 3)
         else:
-            colors = np.zeros((num_of_markers, 3))
-            variation = np.linspace(0, 255, num_of_markers)
+            colors = np.zeros((num, 3))
+            variation = np.linspace(0, 255, num)
             colors[:, 1] = variation
             colors[:, 2] = variation[::-1]
             return colors
 
-    def drawMarkers(self, image, markers, colors):
+    def drawMarkers(self, image, markers_array, markers_num, colors):
         u"""Dibuja los marcadores en la imagen."""
-        for m, c in zip(self.reshape(markers, "markers"), colors):
-            cv2.drawMarker(image, tuple(m), 10, c, 1, 30)
+        markers = self.reshape("markers", markers_array, markers_num)
+        for marker, c in zip(markers, colors):
+            cv2.circle(image, tuple(marker), 10, (0, 0, 255), -1)
 
     def drawRegions(self, image, regions, condition):
         u"""Dibuja las regiones de agrupamiento en la imagen."""
@@ -282,67 +274,22 @@ class FrameDrawings:
         cv2.putText(image, str(num_of_markers), **facetext)
 
 
-class Player(VideoReader):
+# MAS ADELANTE >>
 
-    def __init__(self, config):
-        super().__init__(config)
-        self.drawings = FrameDrawings(config)
+class Frame:
+    __slots__ = "pos", "frame"
 
-    def play(self, source, kind="raw", duration="raw", **kwargs):
-        u"""Generador de cuadros de video para la reproducción en GUI.
+    def __init__(self, pos, frame):
+        self.pos = pos
+        self.frame = frame
 
-        arguments:
-        =========
-            source: ruta del archivo de video.
-            kind: tipo de reproducción de video [raw, walk, cycle].
-            duration: la duración en cuadros de video.
-            kwargs: diccionario que contiene órdenes de dibujo.
-                 - rawframe: objeto para dibujar cuadros sin información
-                   específica.
-                 - walk: objeto con información de caminata.
-                 - cycle: objeto con información de ciclo.
-        """
-        self.open(source)
 
-        drawing_kind = {
-        "raw": self.rawFrame,
-        "walk": self.walkFrame,
-        "cycle": self.cycleFrame
-        }
+class RawFrame:
+    __slots__ = "nmarkers", "mpoints"
 
-        draw = drawing_kind[options["kind"]]
-
-        duration_option = {
-            "raw": (0, self.reader.numframes),
-            "walk": (kwargs["walk"].startframe, kwargs["walk"].stopframe),
-            "cycle": (kwargs["cycle"].startframe, kwargs["cycle"].stopframe),
-        }
-
-        start, stop = duration_option[duration]
-        self.posframe = start
-
-        for __ in range(stop - start):
-            __, pos, frame = self.read()
-            draw(frame, pos, **kwargs)
-            yield frame
-
-    def rawFrame(self, frame, pos, **kwargs):
-        u"""Dibuja los marcadores sin identificar."""
-        rawframe = kwargs["rawframe"]
-        self.drawings.drawNumIndicator(frame, rawframe.nmarkers)
-        colors = self.drawings.getColors(rawframe.nmarkers)
-        self.drawings.drawMarkers(frame, rawframe.mpoints, colors)
-
-    def walkFrame(self, frame, pos, **kwargs):
-        u"""Dibuja los marcadores identificados por región."""
-        walk = kwargs["walk"]
-        colors = self.drawings.getColors(walk.nmarkers, False)
-        self.drawings.drawMarkers(frame, walk.mpoints[pos])
-        self.drawings.drawRegions(frame, walk.rpoints[pos], walk.condition[pos])
-
-    def cycleFrame(self, frame, pos, **kwargs):
-        u"""Dibuja los marcadores dentro del ciclo."""
-        return NotImplemented
+    def __init__(self, n, points):
+        self.nmarkers = n
+        self.mpoints = points
 
 
 # explorer_empty_frame_limit
