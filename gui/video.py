@@ -45,6 +45,7 @@ class VideoUtil(GridLayout):
     def play(self):
         u"""Muestra el archivo de video seleccionado."""
         self.state = "playing"
+        self.clear_buffer()
         self.stopper.clear()
         self.ids.frame.play_video(self.buffer)
         # NOTE: acá se tiene que agregar el dibujo de contornos...
@@ -52,17 +53,17 @@ class VideoUtil(GridLayout):
 
     def stop(self):
         u"""Detiene la actividad."""
-        which_stop = {
+        stop = {
             "playing": self.ids.frame.stop_playing,
             "recording": self.ids.frame.stop_recording
         }
         self.stopper.set()
-        self.clear_buffer()
-        which_stop[self.activity]()
+        stop[self.activity]()
 
     def record(self):
         u"""Inicia la grabación de video (sin visualización)."""
         self.state = "recording"
+        self.clear_buffer()
         self.stopper.clear()
         self.ids.frame.record_video()
         VideoReader(self.buffer, self.stopper, self.config).start()

@@ -38,7 +38,7 @@ class VideoReader:
         self.buffer = buffer
         self.stopper = stopper
         self.is_opened = False
-        #
+
         self.finder = MarkersFinder(config)
         self.drawings = Drawings(config)
 
@@ -84,9 +84,7 @@ class VideoReader:
         return self.capture.read()
 
     def readToDisplay(self):
-        """Lee el cuadro actual de video para mostrar en pantalla."""
-        # NOTE: Quizás a medida que demande otras formas de mostrar haya que
-        # crear una clase especial para manejar lo que se dibuja.
+        u"""Lee el cuadro actual de video para mostrar en pantalla."""
         grab, frame = self.capture.read()
         num, markers = self.finder.find(frame)
         self.drawings.drawMarkers(frame, markers, num,
@@ -95,9 +93,9 @@ class VideoReader:
 
     def start(self, display=False):
         u"""Inicia la captura en un hilo separado."""
-        try:  # dispositivo
+        try:  # dispositivo (int)
             source = self.config.getint("current", "source")
-        except ValueError:  # archivo de video
+        except ValueError:  # archivo de video (string)
             source = self.config.get("current", "source")
 
         readfunc = {False: self.readToWrite, True: self.readToDisplay}[display]
@@ -107,6 +105,9 @@ class VideoReader:
         return self
 
     def threadingRead(self, read_function):
+        u"""Lee los cuadros de video según la función que se le pase y agreaga
+        el cuadro al buffer.
+        """
         while not self.stopper.is_set():
             ret, frame = read_function()
 
@@ -119,8 +120,6 @@ class VideoReader:
         self.capture.release()
 
 
-# NOTE: Esta clase debera ademas escribir en la base de datos los parámetros
-# que se utilizaron en la captura y escritura en disco.
 class VideoWriter:
     final_time = None
     initial_time = None
@@ -135,6 +134,9 @@ class VideoWriter:
         self.writer.release()
 
     def setRealFPS(self):  # NOTE: Un estilo feo
+        u"""Establece la tasa de cuadros por segundos real, medida durante la
+        escritura en disco.
+        """
         fps_calc = self.writed_frames / (self.final_time - self.initial_time)
         self.config.set("video", "fps_real", str(fps_calc))
         with open(self.config.get("paths", "configfile"), "w") as fh:
@@ -142,6 +144,7 @@ class VideoWriter:
         return fps_calc
 
     def open(self):
+        u"""Inicializa el objeto que escribe en disco."""
         w = self.config.getint("frame", "width")
         h = self.config.getint("frame", "height")
         filename = os.path.join(
@@ -151,15 +154,18 @@ class VideoWriter:
         self.writer = cv2.VideoWriter(filename, FOURCC, 120, (w, h))
 
     def write(self, frame):
+        u"""Escribe el cuadro de video."""
         self.writer.write(frame)
         self.writed_frames += 1
 
     def start(self):
+        u"""Incializa el hilo de escritura."""
         self.open()
         threading.Thread(target=self.threadingWrite, args=()).start()
         return self
 
     def threadingWrite(self):
+        u"""Captura los cuadros del buffer y los escribe en disco."""
         self.initial_time = time.time()
 
         while not self.stopper.is_set():
@@ -191,7 +197,8 @@ class MarkersFinder:
         return binary
 
     def dilatedBinaryTransform(self, image):
-        u"""Transforma la imagen en binaria."""
+        u"""Toma la imagen binaria y la dilata según indicaciones del usuario.
+        """
         niterations = self.config.getint("image", "dilate_iterations")
         kernel_size = self.config.getint("image", "dilate_kernel_size")
         kernel = np.ones((kernel_size,  kernel_size), np.uint8)
@@ -212,14 +219,12 @@ class MarkersFinder:
         return x + w/2, y + h/2
 
     def centers(self, contours):
-        u"""Obtiene los centros de los contornos como un arreglo de numpy."""
+        u"""Devuelve los centros de los contornos como un arreglo de numpy."""
         ccenters = [self.contour_center(c) for c in contours]
         arraycenters = np.array(ccenters, dtype=np.int16)[::-1]
         return len(ccenters), arraycenters.ravel()
 
 
-# NOTE: No funciona la creación de colores. opencv no detecta el arreglo
-# de numpy [0 0 0] como numérico.
 class Drawings:
 
     def __init__(self, config):
@@ -227,15 +232,17 @@ class Drawings:
         self.regions_num = config.getint("schema", "regions_num")
 
     def reshape(self, kind, array, num):
-        u"""Modifica la forma del arreglo."""
+        u"""Modifica la forma del arreglo según sea marcadores o regiones."""
         shape = {"markers": (num, 2), "regions": (num, 2, 2)}
         return np.reshape(array, shape[kind])
 
     def getColors(self, num, sameforall=True):
         u"""Colores para los marcadores."""
         if sameforall:
-            return np.repeat((0, 0, 255), num).reshape(num, 3)
+            red_color = (0, 0, 255)
+            return (red_color for __ in range(num))
         else:
+            colors = ((0, 0, 255), (0, 255, 0), (255, 0, 0))
             colors = np.zeros((num, 3))
             variation = np.linspace(0, 255, num)
             colors[:, 1] = variation
@@ -245,8 +252,8 @@ class Drawings:
     def drawMarkers(self, image, markers_array, markers_num, colors):
         u"""Dibuja los marcadores en la imagen."""
         markers = self.reshape("markers", markers_array, markers_num)
-        for marker, c in zip(markers, colors):
-            cv2.circle(image, tuple(marker), 10, (0, 0, 255), -1)
+        for marker, color in zip(markers, colors):
+            cv2.circle(image, tuple(marker), 10, color, -1)
 
     def drawRegions(self, image, regions, condition):
         u"""Dibuja las regiones de agrupamiento en la imagen."""
@@ -273,8 +280,6 @@ class Drawings:
         cv2.circle(image, **backward)
         cv2.putText(image, str(num_of_markers), **facetext)
 
-
-# MAS ADELANTE >>
 
 class Frame:
     __slots__ = "pos", "frame"

@@ -21,6 +21,8 @@ import sys
 import shutil
 import configparser as cp
 
+from core.database import SqliteCreator
+
 
 # Se establece el valor de la variable home según sea linux o windows
 if sys.platform == "linux":
@@ -42,7 +44,7 @@ schemafile = os.path.join(CONFIG_DIR, "schema.json")
 with open(configfile) as fh:
     config.read_file(fh)
 
-if (config.get("paths", "usr") is ''):
+if (config.get("paths", "usr") == ''):
     config.set("paths", "usr", os.environ[home])
 
 with open(configfile, "w") as fh:
@@ -56,3 +58,7 @@ if not os.path.isdir(config.get("paths", "app")):
     os.mkdir(config.get("paths", "session"))
     shutil.copy(configfile, config.get("paths", "configfile"))
     shutil.copy(schemafile, config.get("paths", "schemafile"))
+
+
+# creación de las tablas de la base de datos
+SqliteCreator(config).create()
