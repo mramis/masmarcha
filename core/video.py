@@ -26,6 +26,7 @@ import cv2
 import numpy as np
 
 from .walk import Walk
+from .database import SqliterInserter
 
 
 FOURCC = cv2.VideoWriter_fourcc(*"XVID")
@@ -121,27 +122,18 @@ class VideoReader:
 
 
 class VideoWriter:
-    final_time = None
-    initial_time = None
-    writed_frames = 0
 
     def __init__(self, buffer, stopper, config=None):
         self.config = config
         self.buffer = buffer
         self.stopper = stopper
+        # para obtener una lectura real de fps:
+        self.final_time = 1
+        self.initial_time = 0
+        self.writed_frames = 0
 
     def __del__(self):
         self.writer.release()
-
-    def setRealFPS(self):  # NOTE: Un estilo feo
-        u"""Establece la tasa de cuadros por segundos real, medida durante la
-        escritura en disco.
-        """
-        fps_calc = self.writed_frames / (self.final_time - self.initial_time)
-        self.config.set("video", "fps_real", str(fps_calc))
-        with open(self.config.get("paths", "configfile"), "w") as fh:
-            self.config.write(fh)
-        return fps_calc
 
     def open(self):
         u"""Inicializa el objeto que escribe en disco."""
@@ -158,6 +150,16 @@ class VideoWriter:
         self.writer.write(frame)
         self.writed_frames += 1
 
+    def writeDataBase(self):
+        u"""Almacena en la base de datos información de la captura."""
+        values = (
+            self.config.get("video", "filename"),
+            time.strftime("%d/%m/%y"),
+            self.writed_frames,
+            self.final_time - self.initial_time,
+        )
+        SqliterInserter(self.config).insertVideo(values)
+
     def start(self):
         u"""Incializa el hilo de escritura."""
         self.open()
@@ -167,13 +169,11 @@ class VideoWriter:
     def threadingWrite(self):
         u"""Captura los cuadros del buffer y los escribe en disco."""
         self.initial_time = time.time()
-
         while not self.stopper.is_set():
             frame = self.buffer.get()
             self.write(frame)
-
         self.final_time = time.time()
-        self.setRealFPS()
+        self.writeDataBase()
 
 
 class MarkersFinder:

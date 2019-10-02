@@ -19,6 +19,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import sqlite3
+import logging
 import io
 
 import numpy as np
@@ -59,21 +60,26 @@ class SqliteCreator:
     def createVideo(self):
         u"""Crea un archivo sqlite."""
         try:
-            with sqlite3.connect(self.database, detect_types=1) as conn:
+            with sqlite3.connect(self.database) as conn:
                 conn.execute("""
                     CREATE TABLE video(
                     id TEXT PRIMARY KEY NOT NULL,
                     date TEXT NOT NULL,
                     fduration INTERGER NOT NULL,
-                    sduration REAL NOT NULL,
-                    fps INTERGER NOT NULL)
+                    sduration REAL NOT NULL)
                 """)
-        except sqlite3.OperationalError:
-            pass
+        except sqlite3.OperationalError as error:
+            logging.warning(error)
 
 
 class SqliterInserter(SqliteCreator):
 
-    def insertVideo(self, *kwargs):
+    def insertVideo(self, row_values):
         u"""."""
-        pass
+        command = "INSERT INTO video VALUES (?, ?, ?, ?);"
+        try:
+            with sqlite3.connect(self.database) as conn:
+                cur = conn.cursor()
+                cur.execute(command, row_values)
+        except sqlite3.OperationalError as error:
+            logging.error(error)
