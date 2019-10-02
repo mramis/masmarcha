@@ -180,13 +180,13 @@ class MarkersFinder:
 
     def __init__(self, config):
         self.config = config
-        self.dilate = config.getboolean("image", "dilate")
 
     def find(self, frame):
         u"""Devuelve el número de marcadores encontrados y sus centros."""
+        dilate = self.config.getboolean("image", "dilate")
         btfunc = {True: self.dilatedBinaryTransform,
                   False: self.binaryTransform}
-        contours = self.contours(btfunc[self.dilate](frame))
+        contours = self.contours(btfunc[dilate](frame))
         return self.centers(contours)
 
     def binaryTransform(self, image):

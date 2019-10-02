@@ -50,6 +50,12 @@ if (config.get("paths", "usr") == ''):
 with open(configfile, "w") as fh:
     config.write(fh)
 
+# si existe agrego el archivo de configuración desde el directorio de la app.
+app_configfile = config.get("paths", "configfile")
+if os.path.isfile(app_configfile):
+    with open(app_configfile) as fh:
+        config.read_file(fh)
+
 
 # creación de directorios de app
 if not os.path.isdir(config.get("paths", "app")):

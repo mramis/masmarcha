@@ -34,8 +34,16 @@ class ConfigWidget(GridLayout):
         self.ids.label.text = value
 
     def on_section_variable(self, instance, value):
-        self.section, self.variable = value.split("-")
+        self.section, self.variable = value.split(":")
         self.current_value = self.config.get(self.section, self.variable)
+
+    def on_current_value(self, instance, value):
+        return NotImplemented
+
+    def writeConfig(self):
+        with open(self.config.get("paths", "configfile"), "w") as fh:
+            self.config.write(fh)
+
 
 class BoolOption(ConfigWidget):
     u"""Widget para ajustes de configuración de tipo Boleano."""
@@ -46,9 +54,10 @@ class BoolOption(ConfigWidget):
             value = True if value == "True" else False
         self.config.set(self.section, self.variable, str(value))
         self.ids.toggle.state = "down" if value is True else "normal"
+        self.writeConfig()
 
     def change_option(self, state):
-        self.current_value = True if state is "down" else False
+        self.current_value = True if state == "down" else False
 
 
 class IntegerOption(ConfigWidget):
@@ -59,6 +68,7 @@ class IntegerOption(ConfigWidget):
     def on_current_value(self, instance, value):
         self.config.set(self.section, self.variable, str(int(value)))
         self.ids.input.text = "{:.2f}".format(self.current_value)
+        self.writeConfig()
 
     def on_option_values(self, instance, values):
         self.minvalue, self.maxvalue, self.interval = values
@@ -93,6 +103,7 @@ class FloatOption(IntegerOption):
     def on_current_value(self, instance, value):
         self.config.set(self.section, self.variable, str(float(value)))
         self.ids.input.text = "{:.2f}".format(self.current_value)
+        self.writeConfig()
 
     def validate_input(self):
         try:
@@ -107,6 +118,7 @@ class listOption(ConfigWidget):
 
     def on_current_value(self, instance, value):
         self.config.set(self.section, self.variable, str(value))
+        self.writeConfig()
 
     def change_option(self):
         self.current_value = self.ids.optionsvalue.text

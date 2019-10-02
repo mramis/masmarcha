@@ -15,6 +15,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#:import BoolOption gui.configw.BoolOption
+#:import FloatOption gui.configw.FloatOption
+#:import IntegerOption gui.configw.IntegerOption
+#:include gui/configw.kv
+
 #:set pannel_text_height 30
 #:set pannel_spacing 25
 #:set pannel_padding 5
@@ -80,6 +85,30 @@
       id: videoname
       multiline: False
       on_text_validate: root.setVideoName(self.text)
+
+  GridLayout:  # Configuración de captura.
+    rows:
+    cols: 2
+    spacing: pannel_spacing + 30
+    padding: [0, pannel_padding + 30, 0, 0]
+    row_force_default: True
+    row_default_height: pannel_text_height
+    IntegerOption:
+      label: u"Umbral de blanco"
+      section_variable: "image:threshold"
+      option_values: [200, 255, 1]
+    BoolOption:
+      label: u"Expandir detección"
+      section_variable: "image:dilate"
+    IntegerOption:
+      label: u"Iteraciones de dilatación"
+      section_variable: "image:dilate_iterations"
+      option_values: [3, 10, 1]
+    IntegerOption:
+      label: u"Escala de dilatación"
+      section_variable: "image:dilate_kernel_size"
+      option_values: [3, 11, 2]
+
 
 
 <ExplorerSubSection>:
