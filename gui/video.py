@@ -28,28 +28,23 @@ from kivy.core.image import Image
 from kivy.uix.gridlayout import GridLayout
 from kivy.graphics.texture import Texture
 
-from core.video import VideoReader, VideoWriter
+from core.video import VideoReader, VideoDrawings, VideoWriter
 
 
 class VideoUtil(GridLayout):
-    buffer = queue.Queue(maxsize=1)
-    stopper = threading.Event()
+    stopper = None
     activity = "playing"
-
-    def clear_buffer(self):
-        u"""Limpia el buffer de video."""
-        while not self.buffer.empty():
-            self.buffer.get()
-        Logger.info("VideoUtil: buffer cleared")
-
+    
     def play(self):
         u"""Muestra el archivo de video seleccionado."""
         self.state = "playing"
-        self.clear_buffer()
-        self.stopper.clear()
-        self.ids.frame.play_video(self.buffer)
-        # NOTE: acá se tiene que agregar el dibujo de contornos...
-        VideoReader(self.buffer, self.stopper, self.config).start(True)
+        rbuffer = queue.Queue(maxsize=1)
+        sbuffer = queue.Queue(maxsize=1)
+        self.stopper = threading.Event()
+        VideoReader(rbuffer, self.stopper, self.config).start()
+        VideoDrawings(rbuffer, sbuffer, self.stopper, self.config).start()
+
+        self.ids.frame.play_video(sbuffer)
 
     def stop(self):
         u"""Detiene la actividad."""
@@ -63,12 +58,12 @@ class VideoUtil(GridLayout):
     def record(self):
         u"""Inicia la grabación de video (sin visualización)."""
         self.state = "recording"
-        self.clear_buffer()
-        self.stopper.clear()
-        self.ids.frame.record_video()
-        VideoReader(self.buffer, self.stopper, self.config).start()
-        VideoWriter(self.buffer, self.stopper, self.config).start()
+        self.stopper = threading.Event()
+        wbuffer = queue.Queue(maxsize=1)
+        VideoReader(wbuffer, self.stopper, self.config).start()
+        VideoWriter(wbuffer, self.stopper, self.config).start()
 
+        self.ids.frame.record_video()
 
 class Frame(GridLayout):
     playing_task = None

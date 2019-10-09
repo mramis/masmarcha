@@ -40,17 +40,8 @@ class VideoReader:
         self.stopper = stopper
         self.is_opened = False
 
-        self.finder = MarkersFinder(config)
-        self.drawings = Drawings(config)
-
     def __del__(self):
         self.capture.release()
-
-    @property
-    def fps(self):  # Este tiene que salir de la base de datos.
-        u"""Devuelve la cantidad de cuadros por segundo que tiene el video."""
-        if self.is_opened:
-            return int(self.capture.get(cv2.CAP_PROP_FPS))
 
     @property
     def posframe(self):
@@ -80,50 +71,36 @@ class VideoReader:
         self.config.set("frame", "height", str(height))
         self.is_opened = True
 
-    def readToWrite(self):
+    def read(self):
         """Lee el cuadro actual de video para escribir en disco."""
-        return self.capture.read()
+        return (self.posframe, *self.capture.read())
 
-    def readToDisplay(self):
-        u"""Lee el cuadro actual de video para mostrar en pantalla."""
-        grab, frame = self.capture.read()
-        num, markers = self.finder.find(frame)
-        self.drawings.drawMarkers(frame, markers, num,
-                                  self.drawings.getColors(num, True))
-        return grab, cv2.flip(frame, 0)
-
-    def start(self, display=False):
+    def start(self):
         u"""Inicia la captura en un hilo separado."""
         try:  # dispositivo (int)
             source = self.config.getint("current", "source")
         except ValueError:  # archivo de video (string)
             source = self.config.get("current", "source")
-
-        readfunc = {False: self.readToWrite, True: self.readToDisplay}[display]
-
         self.open(source)
-        threading.Thread(target=self.threadingRead, args=(readfunc,)).start()
+        threading.Thread(target=self.threadingRead, args=()).start()
         return self
 
-    def threadingRead(self, read_function):
+    def threadingRead(self):
         u"""Lee los cuadros de video según la función que se le pase y agreaga
         el cuadro al buffer.
         """
         while not self.stopper.is_set():
-            ret, frame = read_function()
-
+            pos, ret, frame = self.read()
             if not ret:
                 self.stopper.set()
                 break
-
-            self.buffer.put(frame)
-
+            self.buffer.put((pos, frame))
         self.capture.release()
 
 
 class VideoWriter:
 
-    def __init__(self, buffer, stopper, config=None):
+    def __init__(self, buffer, stopper, config):
         self.config = config
         self.buffer = buffer
         self.stopper = stopper
@@ -170,7 +147,7 @@ class VideoWriter:
         u"""Captura los cuadros del buffer y los escribe en disco."""
         self.initial_time = time.time()
         while not self.stopper.is_set():
-            frame = self.buffer.get()
+            __, frame = self.buffer.get()
             self.write(frame)
         self.final_time = time.time()
         self.writeDataBase()
@@ -180,6 +157,9 @@ class MarkersFinder:
 
     def __init__(self, config):
         self.config = config
+
+    def __call__(self, frame):
+        return self.find(frame)
 
     def find(self, frame):
         u"""Devuelve el número de marcadores encontrados y sus centros."""
@@ -225,11 +205,33 @@ class MarkersFinder:
         return len(ccenters), arraycenters.ravel()
 
 
-class Drawings:
+class VideoDrawings:
 
-    def __init__(self, config):
+    def __init__(self, rbuffer, sbuffer,  stopper, config):
+        self.config = config
+        self.reader_buffer = rbuffer
+        self.screen_buffer = sbuffer
+        self.stopper = stopper
+
         self.markers_num = config.getint("schema", "markers_num")
         self.regions_num = config.getint("schema", "regions_num")
+
+    def start(self):
+        u"""."""
+        kind = self.config.get("current", "screen_kind")
+        threading.Thread(target=self.draw, args=(kind, )).start()
+
+    def draw(self, kind):
+        #NOTE: hay que seguir desde acá para los dibujos en el cuadro de video...
+        self.find = MarkersFinder(self.config)
+        # choose the screen kind...
+        while not self.stopper.is_set():
+            pos, frame = self.reader_buffer.get()
+            
+            num, markers = self.find(frame)
+            self.drawMarkers(frame, markers, num, self.getColors(num, True))
+            # Se introduce nuevamente el cuadro volteado verticalmente.
+            self.screen_buffer.put(cv2.flip(frame, 0))
 
     def reshape(self, kind, array, num):
         u"""Modifica la forma del arreglo según sea marcadores o regiones."""
@@ -248,6 +250,14 @@ class Drawings:
             colors[:, 1] = variation
             colors[:, 2] = variation[::-1]
             return colors
+    
+    def rawDrawing(self, image, **kwargs):
+
+
+        self.drawMarkers(image,
+                         kwargs['markers_array'],
+                         kwargs['markers_num'],
+                         kwargs['colors'])
 
     def drawMarkers(self, image, markers_array, markers_num, colors):
         u"""Dibuja los marcadores en la imagen."""
@@ -281,27 +291,11 @@ class Drawings:
         cv2.putText(image, str(num_of_markers), **facetext)
 
 
-class Frame:
-    __slots__ = "pos", "frame"
-
-    def __init__(self, pos, frame):
-        self.pos = pos
-        self.frame = frame
-
-
-class RawFrame:
-    __slots__ = "nmarkers", "mpoints"
-
-    def __init__(self, n, points):
-        self.nmarkers = n
-        self.mpoints = points
-
-
 # explorer_empty_frame_limit
-class Explorer(VideoReader):
+class Explorer:
 
-    def __init__(self, config, container=[]):
-        super().__init__(config)
+    def __init__(self, config, buffer, container=[]):
+        self.buffer = buffer
         self.finder = MarkersFinder(config)
         self.container = container
 
@@ -311,12 +305,6 @@ class Explorer(VideoReader):
         self.current_walk = None
         self.limit_zero_flag = config.getint("explorer", "empty_frame_limit")
         self.expected_markers_count = config.getint("schema", "markers_num")
-
-    def read(self):  # se sobreescribe el método original.
-        u"""Lectura de cuadro de video."""
-        ret, array = self.capture.read()
-        pos = int(self.capture.get(cv2.CAP_PROP_POS_FRAMES))
-        return ret, pos, Frame(pos, array)
 
     def initializingWalkingState(self):
         u"""Inicializa una caminata."""
@@ -330,29 +318,28 @@ class Explorer(VideoReader):
         self.current_walk = None
         self.walking = False
 
-    def checkingStopWalking(self, num_of_markers):
+    def shouldStopWalking(self, num_of_markers):
         u"""Establece la condición de detener la caminata a verdadero."""
-        if num_of_markers == 0:
-            self.zero_flag += 1
-        else:
-            self.zero_flag = 0
-
+        self.checkStopFlag(num_of_markers)
         if self.zero_flag > self.limit_zero_flag:
             return True
         else:
             return False
 
+    def checkStopFlag(self, num_of_markers):
+        u"""Regula el valor de la señal de detener la caminata."""
+        if num_of_markers == 0:
+            self.zero_flag += 1
+        else:
+            self.zero_flag = 0
+
     def findWalks(self, source,):
         u"""Realiza la búsqueda de caminatas dentro del video."""
-        self.open(source)
-
-        while True:
-            ret, pos, frame = self.read()
-            if not ret:
-                break
+        while not self.stopper.is_set():
+            pos, frame = self.buffer.get()
 
             # getting markers data.
-            markers_num, markers_points = self.finder.findMarkers(frame)
+            markers_num, markers_points = self.finder.find(frame)
             frame_is_fullschema = (markers_num == self.expected_markers_count)
             walking_data = (pos, frame_is_fullschema, markers_points)
 
@@ -362,11 +349,12 @@ class Explorer(VideoReader):
                 # adding first walking_data
                 self.current_walk.insert(*walking_data)
 
-            else:
+            elif self.walking:
                 # adding regular walking data
                 self.current_walk.insert(*walking_data)
 
                 # check for stop signal.
-                stop_walking = self.checkingStopWalking(markers_num)
+                stop_walking = self.shouldStopWalking(markers_num)
+
                 if stop_walking:
                     self.finishingWalkingState()
