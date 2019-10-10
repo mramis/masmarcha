@@ -64,6 +64,7 @@ class SqliteCreator:
                 conn.execute("""
                     CREATE TABLE video(
                     id TEXT PRIMARY KEY NOT NULL,
+                    name TEXT NOT NULL,
                     date TEXT NOT NULL,
                     fduration INTERGER NOT NULL,
                     sduration REAL NOT NULL)
@@ -76,10 +77,13 @@ class SqliterInserter(SqliteCreator):
 
     def insertVideo(self, row_values):
         u"""."""
-        command = "INSERT INTO video VALUES (?, ?, ?, ?);"
+        command = "INSERT INTO video VALUES (?, ?, ?, ?, ?);"
         try:
             with sqlite3.connect(self.database) as conn:
                 cur = conn.cursor()
                 cur.execute(command, row_values)
         except sqlite3.OperationalError as error:
             logging.error(error)
+        except sqlite3.IntegrityError as error:
+            logging.error(error)
+

@@ -41,6 +41,8 @@ class VideoReader:
         self.is_opened = False
 
     def __del__(self):
+        print(f"{self.__class__.__name__} dieying...")
+        self.buffer.task_done()
         self.capture.release()
 
     @property
@@ -50,7 +52,7 @@ class VideoReader:
             return int(self.capture.get(cv2.CAP_PROP_POS_FRAMES))
 
     @posframe.setter
-    def posframe(self, position):
+    def setPosFrame(self, position):
         u"""Establece la pocisión inicial (cuadro) de lectura de video."""
         if self.is_opened:
             self.capture.set(cv2.CAP_PROP_POS_FRAMES, position)
@@ -73,7 +75,7 @@ class VideoReader:
 
     def read(self):
         """Lee el cuadro actual de video para escribir en disco."""
-        return (self.posframe, *self.capture.read())
+        return (None, *self.capture.read())
 
     def start(self):
         u"""Inicia la captura en un hilo separado."""
@@ -98,6 +100,27 @@ class VideoReader:
         self.capture.release()
 
 
+class FrameCounter:
+    u"""Esta clase esta hecha para contar los frames por segundos en la
+        escritura de video."""
+
+    def __init__(self):
+        self.start_time = 0
+        self.final_time = 1
+        self.frame_counter = 0
+
+    def __call__(self):
+        self.frame_counter += 1
+
+    def start(self):
+        u"""Inicia el contador de tiempo."""
+        self.start_time = time.time()
+    
+    def stop(self):
+        u"""Finaliza el contador de tiempo."""
+        self.final_time = time.time()
+
+
 class VideoWriter:
 
     def __init__(self, buffer, stopper, config):
@@ -105,11 +128,10 @@ class VideoWriter:
         self.buffer = buffer
         self.stopper = stopper
         # para obtener una lectura real de fps:
-        self.final_time = 1
-        self.initial_time = 0
-        self.writed_frames = 0
+        self.counter = FrameCounter()
 
     def __del__(self):
+        print(f"{self.__class__.__name__} diying...")
         self.writer.release()
 
     def open(self):
@@ -125,15 +147,16 @@ class VideoWriter:
     def write(self, frame):
         u"""Escribe el cuadro de video."""
         self.writer.write(frame)
-        self.writed_frames += 1
+        self.counter()
 
     def writeDataBase(self):
         u"""Almacena en la base de datos información de la captura."""
         values = (
+            time.strftime("%d%m%y%H%M%S"),
             self.config.get("video", "filename"),
             time.strftime("%d/%m/%y"),
-            self.writed_frames,
-            self.final_time - self.initial_time,
+            self.counter.frame_counter,
+            self.counter.final_time - self.counter.start_time,
         )
         SqliterInserter(self.config).insertVideo(values)
 
@@ -145,11 +168,11 @@ class VideoWriter:
 
     def threadingWrite(self):
         u"""Captura los cuadros del buffer y los escribe en disco."""
-        self.initial_time = time.time()
+        self.counter.start()
         while not self.stopper.is_set():
             __, frame = self.buffer.get()
             self.write(frame)
-        self.final_time = time.time()
+        self.counter.stop()
         self.writeDataBase()
 
 
@@ -205,6 +228,12 @@ class MarkersFinder:
         return len(ccenters), arraycenters.ravel()
 
 
+class Color:
+
+    def redColor(self, num):
+        return ((0, 0, 255) for __ in range(num))
+
+
 class VideoDrawings:
 
     def __init__(self, rbuffer, sbuffer,  stopper, config):
@@ -216,21 +245,22 @@ class VideoDrawings:
         self.markers_num = config.getint("schema", "markers_num")
         self.regions_num = config.getint("schema", "regions_num")
 
+    def __del__(self):
+        print(f"{self.__class__.__name__} dying...")
+
     def start(self):
         u"""."""
         kind = self.config.get("current", "screen_kind")
         threading.Thread(target=self.draw, args=(kind, )).start()
 
     def draw(self, kind):
-        #NOTE: hay que seguir desde acá para los dibujos en el cuadro de video...
-        self.find = MarkersFinder(self.config)
-        # choose the screen kind...
+        u"""Dibuja sobre el cuadro de video."""
+        draw = { "raw": self.rawDrawing}
         while not self.stopper.is_set():
-            pos, frame = self.reader_buffer.get()
-            
-            num, markers = self.find(frame)
-            self.drawMarkers(frame, markers, num, self.getColors(num, True))
-            # Se introduce nuevamente el cuadro volteado verticalmente.
+            # obtine el cuadro del buffer de lectura.
+            __, frame = self.reader_buffer.get()
+            draw[kind](frame)
+            # introduce el cuadro ya dibujado en el buffer de la pantalla.
             self.screen_buffer.put(cv2.flip(frame, 0))
 
     def reshape(self, kind, array, num):
@@ -238,26 +268,11 @@ class VideoDrawings:
         shape = {"markers": (num, 2), "regions": (num, 2, 2)}
         return np.reshape(array, shape[kind])
 
-    def getColors(self, num, sameforall=True):
-        u"""Colores para los marcadores."""
-        if sameforall:
-            red_color = (0, 0, 255)
-            return (red_color for __ in range(num))
-        else:
-            colors = ((0, 0, 255), (0, 255, 0), (255, 0, 0))
-            colors = np.zeros((num, 3))
-            variation = np.linspace(0, 255, num)
-            colors[:, 1] = variation
-            colors[:, 2] = variation[::-1]
-            return colors
-    
-    def rawDrawing(self, image, **kwargs):
-
-
-        self.drawMarkers(image,
-                         kwargs['markers_array'],
-                         kwargs['markers_num'],
-                         kwargs['colors'])
+    def rawDrawing(self, image):
+        u"""Se dibujan los marcadores encontrados en el cuadro de video."""
+        color = Color()
+        num, markers =  MarkersFinder(self.config)(image)
+        self.drawMarkers(image, markers, num, color.redColor(num))
 
     def drawMarkers(self, image, markers_array, markers_num, colors):
         u"""Dibuja los marcadores en la imagen."""
@@ -274,30 +289,12 @@ class VideoDrawings:
         for (p0, p1), c in zip(self.reshape(regions, "regions"), condition):
             cv2.rectangle(image, tuple(p0), tuple(p1), color[c], 3)
 
-    def drawNumIndicator(self, image, num_of_markers):
-        u"""Dibuja el indicador de marcadores encontrados."""
-        backward = {
-            "color": (0, 0, 0),
-            "center": (100, 100),
-            "radius": 50
-        }
-        facetext = {
-            "org": (80, 115),
-            "fontFace": 0,
-            "fontScale": 2,
-            "color": (255, 255, 255)
-        }
-        cv2.circle(image, **backward)
-        cv2.putText(image, str(num_of_markers), **facetext)
 
+class WalkFinder:
 
-# explorer_empty_frame_limit
-class Explorer:
-
-    def __init__(self, config, buffer, container=[]):
+    def __init__(self, config, buffer, walks_container=[]):
         self.buffer = buffer
-        self.finder = MarkersFinder(config)
-        self.container = container
+        self.container = walks_container
 
         # FLAGS
         self.walking = False
@@ -333,18 +330,19 @@ class Explorer:
         else:
             self.zero_flag = 0
 
-    def findWalks(self, source,):
+    def findWalks(self):
         u"""Realiza la búsqueda de caminatas dentro del video."""
+        finder = MarkersFinder(self.config)
+
         while not self.stopper.is_set():
             pos, frame = self.buffer.get()
-
             # getting markers data.
-            markers_num, markers_points = self.finder.find(frame)
-            frame_is_fullschema = (markers_num == self.expected_markers_count)
-            walking_data = (pos, frame_is_fullschema, markers_points)
+            num, markers = finder(frame)
+            fullschema = (num == self.expected_markers_count)
+            walking_data = (pos, fullschema, markers)
 
             # exploring walking state.
-            if not self.walking and frame_is_fullschema:
+            if not self.walking and fullschema:
                 self.initializingWalkingState()
                 # adding first walking_data
                 self.current_walk.insert(*walking_data)

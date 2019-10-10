@@ -32,15 +32,15 @@ from core.video import VideoReader, VideoDrawings, VideoWriter
 
 
 class VideoUtil(GridLayout):
-    stopper = None
+    stopper = threading.Event()
     activity = "playing"
     
     def play(self):
         u"""Muestra el archivo de video seleccionado."""
         self.state = "playing"
         rbuffer = queue.Queue(maxsize=1)
-        sbuffer = queue.Queue(maxsize=1)
-        self.stopper = threading.Event()
+        sbuffer = queue.Queue(maxsize=100)
+        self.stopper.clear()
         VideoReader(rbuffer, self.stopper, self.config).start()
         VideoDrawings(rbuffer, sbuffer, self.stopper, self.config).start()
 
@@ -58,12 +58,13 @@ class VideoUtil(GridLayout):
     def record(self):
         u"""Inicia la grabación de video (sin visualización)."""
         self.state = "recording"
-        self.stopper = threading.Event()
+        self.stopper.clear()
         wbuffer = queue.Queue(maxsize=1)
         VideoReader(wbuffer, self.stopper, self.config).start()
         VideoWriter(wbuffer, self.stopper, self.config).start()
 
         self.ids.frame.record_video()
+
 
 class Frame(GridLayout):
     playing_task = None
