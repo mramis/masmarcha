@@ -22,8 +22,10 @@ import os
 import time
 
 from kivy.uix.tabbedpanel import TabbedPanel
+from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.gridlayout import GridLayout
-from kivy.properties import StringProperty
+from kivy.uix.popup import Popup
+from kivy.properties import StringProperty, ObjectProperty
 
 
 class Sections(TabbedPanel):
@@ -83,7 +85,46 @@ class VideoSubSection(SubSection):
         self.vu_buttons["next"].disabled = True
 
 
-class ExplorerSubSection(SubSection):
+class LoadDialog(FloatLayout):
+    load = ObjectProperty(None)
+    source = StringProperty(None)
+
+
+class OpenFile:
+    config = None
+
+    def showLoad(self):
+        u"""Popup para buscar la ruta del video."""
+        if self.config is None:
+            return
+        sourcedir = self.config.get("paths", "video")
+        self._content = LoadDialog(load=self.load, source=sourcedir)
+        self._popup = Popup(title='Seleccionar Video', content=self._content)
+        self._popup.open()
+
+    def dismissPopup(self):
+        u"""Destruye el popup de archivos."""
+        self._popup.dismiss()
+
+    def load(self, filepath_list):
+        u"""Establece la ruta del archivo fuente de video en el sistema."""
+        value = filepath_list.pop(0) if filepath_list != [] else None
+        if value is None:
+            return
+        self.config.set("video", "filename", value)
+        self.setFilepath()
+        self.dismissPopup()
+
+    def setFilepath(self):
+        return NotImplemented
+
+
+class ExplorerSubSection(SubSection, OpenFile):
+
+    def setLabel(self, value):
+        u"""."""
+        base = "Archivo: %s"
+        self.ids.filepath_label.text = base % os.path.basename(value)
 
     def setTabbState(self):
         u"""."""
@@ -92,19 +133,25 @@ class ExplorerSubSection(SubSection):
 
     def setFilepath(self):
         u"""."""
-        dirpath = self.config.get("paths", "video")
-        filename = self.config.get("video", "filename")
-        self.config.set("current", "source", os.path.join(dirpath, filename))
-        self.writeConfig()
+        filepath = os.path.join(
+            self.config.get("paths", "video"),
+            self.config.get("video", "filename")
+        )
+        if os.path.isfile(filepath):
+            self.setLabel(filepath)
+            self.config.set("current", "source", filepath)
+            self.writeConfig()
+        else:
+            self.setLabel(u"No se ha seleccionado archivo válido")
 
     def setEnableDisabled(self):
         # Enabled Buttons
         self.vu_buttons["play"].disabled = False
         self.vu_buttons["stop"].disabled = False
+        self.vu_buttons["back"].disabled = False
+        self.vu_buttons["next"].disabled = False
         # Disabled Buttons
         self.vu_buttons["record"].disabled = True
-        self.vu_buttons["back"].disabled = True
-        self.vu_buttons["next"].disabled = True
 
 
 class KinematicsSubSection(SubSection):

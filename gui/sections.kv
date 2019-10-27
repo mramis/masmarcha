@@ -110,9 +110,55 @@
       option_values: [3, 11, 2]
 
 
-
 <ExplorerSubSection>:
+  rows: 4
+  cols: 1
   config: app.usrconfig
+
+  spacing: pannel_spacing
+  padding: pannel_padding
+  row_force_default: True
+  row_default_height: pannel_text_height
+
+  GridLayout:  # Selección de archivos de video.
+    rows: 2
+    cols: 1
+    spacing: 5
+    row_force_default: True
+    row_default_height: pannel_text_height
+    GridLayout:
+      rows: 1
+      cols: 2
+      Label:
+        text: "seleccionar archivo:"
+        halign: "left"
+        valign: "center"
+        text_size: self.size
+        size_hint_x: 0.6
+      Button:
+        text: "abrir"
+        on_release: root.showLoad()
+    Label:
+      id: filepath_label
+      halign: "left"
+      valign: "center"
+      text_size: self.size
+
+
+<LoadDialog>:
+  BoxLayout:
+    size: root.size
+    pos: root.pos
+    orientation: "vertical"
+    FileChooserListView:
+      id: filechooser
+      rootpath: root.source
+    BoxLayout:
+      size_hint_y: None
+      height: pannel_text_height
+      Button:
+        text: "Seleccionar"
+        on_release: root.load(filechooser.selection)
 
 
 <KinematicsSubSection>:
