@@ -18,9 +18,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+
+import io
 import sqlite3
 import logging
-import io
 
 import numpy as np
 
@@ -65,7 +66,6 @@ class SqliteCreator:
                     CREATE TABLE video(
                     id TEXT PRIMARY KEY NOT NULL,
                     name TEXT NOT NULL,
-                    date TEXT NOT NULL,
                     fduration INTERGER NOT NULL,
                     sduration REAL NOT NULL)
                 """)
@@ -77,7 +77,7 @@ class SqliterInserter(SqliteCreator):
 
     def insertVideo(self, row_values):
         u"""."""
-        command = "INSERT INTO video VALUES (?, ?, ?, ?, ?);"
+        command = "INSERT INTO video VALUES (?, ?, ?, ?);"
         try:
             with sqlite3.connect(self.database) as conn:
                 cur = conn.cursor()
@@ -86,4 +86,3 @@ class SqliterInserter(SqliteCreator):
             logging.error(error)
         except sqlite3.IntegrityError as error:
             logging.error(error)
-

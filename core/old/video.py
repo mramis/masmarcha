@@ -20,26 +20,29 @@
 
 import os
 import time
+import threading
 
 import cv2
 import numpy as np
 
 from .walk import Walk
-from .threads import Producer, Consumer
 from .database import SqliterInserter
 
 
 FOURCC = cv2.VideoWriter_fourcc(*"XVID")
 
 
-class VideoReader(Producer):
-    capture = None
-    is_opened = False
+class VideoReader:
+
+    def __init__(self, buffer, stopper, config):
+        self.config = config
+        self.buffer = buffer
+        self.stopper = stopper
+        self.is_opened = False
 
     def __del__(self):
-        super().__del__()
-        if self.is_opened:
-            self.capture.release()
+        self.buffer.task_done()
+        self.capture.release()
 
     @property
     def posframe(self):
@@ -70,32 +73,31 @@ class VideoReader(Producer):
         self.is_opened = True
 
     def read(self):
-        """Lectura de un cuadro de video de la captura inicializada por open.
-        """
-        return (time.time_ns(), *self.capture.read())
+        """Lee el cuadro actual de video para escribir en disco."""
+        return (None, *self.capture.read())
 
-    def findSource(self):
+    def start(self):
         u"""Inicia la captura en un hilo separado."""
         try:  # dispositivo (int)
             source = self.config.getint("current", "source")
         except ValueError:  # archivo de video (string)
             source = self.config.get("current", "source")
-        return source
+        self.open(source)
+        threading.Thread(target=self.threadingRead, args=()).start()
+        return self
 
-    # NOTE: Sobreescribiendo
-    def setup(self):
-        """Inicializa el objeto de captura cuando se llama a Producer.start
+    def threadingRead(self):
+        u"""Lee los cuadros de video según la función que se le pase y agreaga
+        el cuadro al buffer.
         """
-        self.open(self.findSource())
-
-    # NOTE: Sobreescribiendo
-    def produce(self):
-        timestamp, retrieve, frame = self.read()
-        if not retrieve:
-            self.resource_avaible = False
-            return False
-        self.resource = (timestamp, frame)
-        return True
+        while not self.stopper.is_set():
+            pos, ret, frame = self.read()
+            if not ret:
+                self.buffer.put((-1, None))
+                self.stopper.set()
+                break
+            self.buffer.put((pos, frame))
+        self.capture.release()
 
 
 class FrameCounter:
@@ -105,10 +107,10 @@ class FrameCounter:
     def __init__(self):
         self.start_time = 0
         self.final_time = 1
-        self.count = 0
+        self.frame_counter = 0
 
     def __call__(self):
-        self.count += 1
+        self.frame_counter += 1
 
     def start(self):
         u"""Inicia el contador de tiempo."""
@@ -119,9 +121,17 @@ class FrameCounter:
         self.final_time = time.time()
 
 
-class VideoWriter(Consumer):
-    count = FrameCounter()
-    is_opened = False
+class VideoWriter:
+
+    def __init__(self, buffer, stopper, config):
+        self.config = config
+        self.buffer = buffer
+        self.stopper = stopper
+        # para obtener una lectura real de fps:
+        self.counter = FrameCounter()
+
+    def __del__(self):
+        self.writer.release()
 
     def open(self):
         u"""Inicializa el objeto que escribe en disco."""
@@ -132,41 +142,37 @@ class VideoWriter(Consumer):
             self.config.get("video", "filename")
         )
         self.writer = cv2.VideoWriter(filename, FOURCC, 120, (w, h))
-        self.is_opened = True
-        self.count.start()
 
     def write(self, frame):
         u"""Escribe el cuadro de video."""
         self.writer.write(frame)
-        self.count()
+        self.counter()
 
-    def sqliteInsert(self):
+    def writeDataBase(self):
         u"""Almacena en la base de datos información de la captura."""
         values = (
             time.strftime("%d%m%y%H%M%S"),
             self.config.get("video", "filename"),
             time.strftime("%d/%m/%y"),
-            self.count.count,
-            self.count.final_time - self.count.start_time,
+            self.counter.frame_counter,
+            self.counter.final_time - self.counter.start_time,
         )
         SqliterInserter(self.config).insertVideo(values)
 
-    # NOTE: Sobreescribiendo Base
-    def setup(self):
-        """Inicializa el objeto de captura cuando se llama a Consumer.start
-        """
+    def start(self):
+        u"""Incializa el hilo de escritura."""
         self.open()
+        threading.Thread(target=self.threadingWrite, args=()).start()
+        return self
 
-    # NOTE: Sobreescribiendo Base
-    def consume(self, value):
-        __, frame = value
-        self.write(frame)
-
-    # NOTE: Sobreescribiendo Base
-    def after_run(self):
-        self.count.stop()
-        self.sqliteInsert()
-        self.writer.release()
+    def threadingWrite(self):
+        u"""Captura los cuadros del buffer y los escribe en disco."""
+        self.counter.start()
+        while not self.stopper.is_set():
+            __, frame = self.buffer.get()
+            self.write(frame)
+        self.counter.stop()
+        self.writeDataBase()
 
 
 class MarkersFinder:
@@ -227,25 +233,35 @@ class Color:
         return ((0, 0, 255) for __ in range(num))
 
 
-class VideoDrawings(Consumer):
+class VideoDrawings:
 
-    def __init__(self, cqueue, cevent, pqueue, pevent, config):
-        super().__init__(cqueue, cevent, config=config)
-        self.become_intermediary(pqueue, pevent, name="Drawings")
+    def __init__(self, rbuffer, sbuffer,  stopper, config):
+        self.config = config
+        self.reader_buffer = rbuffer
+        self.screen_buffer = sbuffer
+        self.stopper = stopper
+
         self.markers_num = config.getint("schema", "markers_num")
         self.regions_num = config.getint("schema", "regions_num")
 
-        self.kind = self.config.get("current", "draw_kind")
+    def start(self):
+        u"""."""
+        kind = self.config.get("current", "screen_kind")
+        threading.Thread(target=self.draw, args=(kind, )).start()
 
-    # NOTE: se sobreescribe el método del thread.
-    def consume(self, value):
-        __, frame = value
-        self.draw(frame)
-        return cv2.flip(frame, 0)
-
-    def draw(self, image):
+    def draw(self, kind):
+        u"""Dibuja sobre el cuadro de video."""
         draw = {"raw": self.rawDrawing}
-        draw[self.kind](image)
+        while not self.stopper.is_set():
+            # obtine el cuadro del buffer de lectura.
+            __, frame = self.reader_buffer.get()
+            if frame is None:
+                break
+            draw[kind](frame)
+            # introduce el cuadro ya dibujado en el buffer de la pantalla.
+            if not self.screen_buffer.empty():
+                self.screen_buffer.get()
+            self.screen_buffer.put(cv2.flip(frame, 0))
 
     def reshape(self, kind, array, num):
         u"""Modifica la forma del arreglo según sea marcadores o regiones."""
@@ -264,17 +280,17 @@ class VideoDrawings(Consumer):
         for marker, color in zip(markers, colors):
             cv2.circle(image, tuple(marker), 10, color, -1)
 
-#    def drawRegions(self, image, regions, condition):
-#        u"""Dibuja las regiones de agrupamiento en la imagen."""
-#        color = (
-#            (0, 0, 255),  # rojo para condición 0
-#            (0, 255, 0)  # verde para condición 1
-#        )
-#        for (p0, p1), c in zip(self.reshape(regions, "regions"), condition):
-#            cv2.rectangle(image, tuple(p0), tuple(p1), color[c], 3)
+    def drawRegions(self, image, regions, condition):
+        u"""Dibuja las regiones de agrupamiento en la imagen."""
+        color = (
+            (0, 0, 255),  # rojo para condición 0
+            (0, 255, 0)  # verde para condición 1
+        )
+        for (p0, p1), c in zip(self.reshape(regions, "regions"), condition):
+            cv2.rectangle(image, tuple(p0), tuple(p1), color[c], 3)
 
 
-class WalkFinder(Consumer):
+class WalkFinder:
 
     def __init__(self, config, buffer, walks_container=[]):
         self.buffer = buffer

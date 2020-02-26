@@ -47,18 +47,14 @@
   rows: 3
   cols: 1
   config: app.usrconfig
+  spacing: 50
 
-  spacing: pannel_spacing
-  padding: pannel_padding
   row_force_default: True
   row_default_height: pannel_text_height
 
   GridLayout:  # Seleccionar dispositivo.
     rows: 1
     cols: 2
-    spacing: 5
-    row_force_default: True
-    row_default_height: pannel_text_height
     Label:
       text: "seleccionar dispositivo:"
       halign: "left"
@@ -74,7 +70,6 @@
   GridLayout:  # Nombre del archivo de video a capturar.
     rows: 2
     cols: 1
-    spacing: 5
     row_force_default: True
     row_default_height: pannel_text_height
     Label:
@@ -89,14 +84,13 @@
   GridLayout:  # Configuración de captura.
     rows:
     cols: 2
-    spacing: pannel_spacing + 30
-    padding: [0, pannel_padding + 30, 0, 0]
+    spacing: 35
     row_force_default: True
     row_default_height: pannel_text_height
     IntegerOption:
       label: u"Umbral de blanco"
       section_variable: "image:threshold"
-      option_values: [200, 255, 1]
+      option_values: [150, 255, 1]
     BoolOption:
       label: u"Expandir detección"
       section_variable: "image:dilate"
@@ -111,19 +105,16 @@
 
 
 <ExplorerSubSection>:
-  rows: 4
+  rows: 8
   cols: 1
   config: app.usrconfig
-
-  spacing: pannel_spacing
-  padding: pannel_padding
+  spacing: 50
   row_force_default: True
   row_default_height: pannel_text_height
 
   GridLayout:  # Selección de archivos de video.
     rows: 2
     cols: 1
-    spacing: 5
     row_force_default: True
     row_default_height: pannel_text_height
     GridLayout:
@@ -143,6 +134,39 @@
       halign: "left"
       valign: "center"
       text_size: self.size
+
+  GridLayout:  # Configuración de captura.
+    rows: 3
+    cols: 2
+    spacing: 35
+    row_force_default: True
+    row_default_height: pannel_text_height
+    IntegerOption:
+      label: u"Umbral de blanco"
+      section_variable: "image:threshold"
+      option_values: [150, 255, 1]
+    BoolOption:
+      label: u"Expandir detección"
+      section_variable: "image:dilate"
+    IntegerOption:
+      label: u"Iteraciones de dilatación"
+      section_variable: "image:dilate_iterations"
+      option_values: [3, 10, 1]
+    IntegerOption:
+      label: u"Escala de dilatación"
+      section_variable: "image:dilate_kernel_size"
+      option_values: [3, 11, 2]
+    FloatOption:
+      label: u"Retardo en reproducción"
+      section_variable: "video:delay"
+      option_values: [0., 1., 0.05]
+  # Se agregan como espaciadores
+  GridLayout
+  GridLayout
+
+  Button:  # Botón de exploración
+    text: "Explorar"
+    on_release: print(f"EXPLORANDOOOO")
 
 
 <LoadDialog>:

@@ -54,6 +54,7 @@ class VideoSubSection(SubSection):
         u"""."""
         self.setDevice()
         self.setVideoName()
+        self.setVideoDelay()
         self.setEnableDisabled()
 
     def setDevice(self, dev=None):
@@ -83,6 +84,12 @@ class VideoSubSection(SubSection):
         # Disabled Buttons
         self.vu_buttons["back"].disabled = True
         self.vu_buttons["next"].disabled = True
+
+    def setVideoDelay(self):
+        # En la pestaña de video no puede modificarse la demora, tanto para
+        # la reproducción (tiempo real), como para la grabación (pérdida de
+        # fps).
+        self.config.set("video", "delay", "0")
 
 
 class LoadDialog(FloatLayout):

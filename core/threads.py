@@ -3,7 +3,7 @@
 
 """Docstring."""
 
-# Copyright (C) 2019  Mariano Ramis
+# Copyright (C) 2018  Mariano Ramis
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,164 +18,116 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import queue
+
+import time
+import random
 import logging
 import threading
 
 
 class Producer:
-    u"""Hilo productor genérico para correr en conjunto con al menos un
-    consumidor.
-
-    Debe sobeescribirse el método Producer.produce en la implementación.
-    """
-    resource_avaible = True
-    resource = None
     nproduce = 0
 
-    def __init__(self, pqueue, pevent, name="Producer", config=None):
-        self.name = f"\u001b[37;1m{name}\u001b[0m"
-        self.pqueue = pqueue
-        self.pevent = pevent
-        self.config = config
+    def __init__(self, name="Producer"):
+        self.name = name
+        self.queue = None
+        self.event = None
         self.thread = None
 
     def __del__(self):
-        logging.debug("[terminate]")
+        logging.debug(f"{self.name} terminate")
 
-    def start(self, setup_function=None):
-        self.setup()
+    def start_thread(self, queue, event):
+        self.queue = queue
+        self.event = event
+
+        self.setup_thread()
+
         self.thread = threading.Thread(name=self.name, target=self.run)
         self.thread.start()
 
-    def join(self):
+    def join_thread(self):
         self.thread.join()
 
     def run(self):
-        logging.info("running")
-        while self.resource_avaible and not self.pevent.is_set():
+        logging.info(f"{self.name} running")
 
-            retrieve = self.produce()
-            if not retrieve:
+        while not self.event.is_set():
+
+            ret, product = self.produce_in_thread()
+            if not ret:
+                self.event.set()
                 break
-            logging.debug(f"\u001b[37mproducing\u001b[0m {self.nproduce}")
 
-            self.pqueue.put(self.resource)
+            self.queue.put(product)
             self.nproduce += 1
 
-        self.pevent.set()
-        self.after_run()
+        self.last_inthread_execution()
 
     # NOTE: este método que hay que sobre-escribir:
-    def setup(self):
-        return
+    def setup_thread(self):
+        logging.debug(f"{self.name} setup thread")
 
     # NOTE: este método que hay que sobre-escribir:
-    def produce(self):
+    def produce_in_thread(self):
         u"""Método de producción."""
-        self.resource = self.nproduce
-        if self.nproduce == 50:
-            self.resource_avaible = False
-        return True
+        logging.debug(f"{self.name} producing")
+
+        if self.nproduce == 15:
+            return False, None
+
+        time.sleep(random.random())
+        return True, self.nproduce
 
     # NOTE: este método que hay que sobre-escribir:
-    def after_run(self):
-        return
+    def last_inthread_execution(self):
+        logging.debug(f"{self.name} last thread execution")
 
 
 class Consumer:
 
-    def __init__(self, cqueue, cevent, name="Consumer", config=None):
-        self.name = f"\u001b[33;1m{name}\u001b[0m"
-        self.cevent = cevent
-        self.cqueue = cqueue
-        self.config = config
+    def __init__(self, name="Consumer"):
+        self.name = name
+        self.event = None
+        self.queue = None
         self.thread = None
         self.nconsume = 0
-        self.intermediate = False
 
     def __del__(self):
-        logging.debug("[terminate]")
+        logging.debug(f"{self.name} terminate")
 
-    def become_intermediary(self, pqueue, pevent, name="Intermediary"):
-        self.name = f"\u001b[33;1m{name}\u001b[0m"
-        self.pqueue = pqueue
-        self.pevent = pevent
-        self.intermediate = True
+    def start_thread(self, queue, event):
+        self.queue = queue
+        self.event = event
 
-    def start(self):
-        self.setup()
+        self.setup_thread()
+
         self.thread = threading.Thread(name=self.name, target=self.run)
         self.thread.start()
 
-    def join(self):
+    def join_thread(self):
         self.thread.join()
 
     def run(self):
-        logging.info("running")
-        while (not self.cevent.is_set()) or (not self.cqueue.empty()):
+        logging.info(f"{self.name} running")
+        while (not self.event.is_set()) or (not self.queue.empty()):
 
-            product = self.consume(self.cqueue.get())
-            logging.debug(f"\u001b[33mconsuming\u001b[0m {self.nconsume}")
-
-            if self.intermediate:
-                self.pqueue.put(product)
+            self.consume_in_thread(self.queue.get())
+            self.queue.task_done()
             self.nconsume += 1
 
-        if self.intermediate:
-            self.pevent.set()
-        self.after_run()
+        self.last_inthread_execution()
 
     # NOTE: este método que hay que sobre-escribir:
-    def setup(self):
-        return
+    def setup_thread(self):
+        logging.debug(f"{self.name} setup thread")
 
     # NOTE: este método que hay que sobre-escribir:
-    def consume(self, value):
-        u"""Método de consumo. Devuelve valor si es intermediario."""
-        return value
+    def consume_in_thread(self, value):
+        u"""Método de consumo."""
+        logging.debug(f"{self.name} consuming")
+        time.sleep(random.random())
 
     # NOTE: este método que hay que sobre-escribir:
-    def after_run(self):
-        return
-
-
-if __name__ == '__main__':
-    import time
-
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format='[%(levelname)-s] %(threadName)-20s: %(message)s'
-    )
-    t1 = time.perf_counter()
-
-    q1 = queue.Queue(maxsize=1)
-    e1 = threading.Event()
-
-    q2 = queue.Queue(maxsize=1)
-    e2 = threading.Event()
-
-    q3 = queue.Queue(maxsize=1)
-    e3 = threading.Event()
-
-    producer = Producer(q1, e1)
-
-    consumer1 = Consumer(q1, e1)
-    consumer2 = Consumer(q2, e2)
-    consumer3 = Consumer(q3, e3)
-    consumer1.becomeIntermediary(q2, e2, name="inter1")
-    consumer2.becomeIntermediary(q3, e3, name="inter2")
-
-    producer.start()
-    consumer1.start()
-    consumer2.start()
-    consumer3.start()
-
-    producer.join()
-    consumer1.join()
-    consumer2.join()
-    consumer3.join()
-
-    t2 = time.perf_counter()
-
-    print(f"Proceso con dos intermediario finalizado en {t2-t1} segundos")
+    def last_inthread_execution(self):
+        logging.debug(f"{self.name} last thread execution")

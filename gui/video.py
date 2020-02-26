@@ -18,8 +18,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
-import time
 import queue
 import threading
 
@@ -28,25 +26,13 @@ from kivy.core.image import Image
 from kivy.uix.gridlayout import GridLayout
 from kivy.graphics.texture import Texture
 
-from core.video import VideoReader, VideoDrawings, VideoWriter
-from core.threads import Consumer
+from core.image import Drawings
+from core.videoio import VideoReader, VideoWriter
 
 
 class Frame(GridLayout):
 
-    def show(self, image):
-        u"""Presenta la imagen de video en el display."""
-        self.ids.display.texture = self.image_to_texture(image)
-
-    def image_to_texture(self, image):
-        u"""Imagen(numpy.array) a textura."""
-        height, width = image.shape[:2]
-        texture = Texture.create(size=(width, height), colorfmt="bgr")
-        texture.blit_buffer(
-            image.tostring(), colorfmt='bgr', bufferfmt='ubyte')
-        return texture
-
-    def default_texture(self, wich="default"):
+    def default_texture(self):
         u"""Textura de imagen-logo de masmarcha reproductor."""
         return Image(self.default_image).texture
 
@@ -62,42 +48,53 @@ class Frame(GridLayout):
         u"""Muestra la imagen de "grabación en proceso" en pantalla."""
         self.ids.display.texture = self.writing_texture()
 
-    def stop_showing(self):
-        u"""Detiene la reproducción de imágenes en pantalla."""
-        self.set_default_screen()
+    def image_to_texture(self, image):
+        u"""Imagen(numpy.array) a textura."""
+        height, width = image.shape[:2]
+        texture = Texture.create(size=(width, height), colorfmt="bgr")
+        texture.blit_buffer(
+            image.tostring(), colorfmt='bgr', bufferfmt='ubyte')
+        return texture
+
+    def show(self, image):
+        u"""Presenta la imagen de video en el display."""
+        self.ids.display.texture = self.image_to_texture(image)
 
 
-class VideoImagePlayer(Consumer):
+class VideoPlayer:
 
-    def __init__(self, frame, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, frame, config):
         self.task = None
-        self.image = None
         self.frame = frame
+        self.config = config
 
-    def update(self, dt):
-        if self.image is not None:
-            self.frame.show(self.image)
+        self.reader = VideoReader(config)
+        self.drawing = Drawings(self.config)
+        self.reader.open(self.reader.find_source())
 
-    # NOTE: sobreescribiendo Base
-    def setup(self):
-        dt = self.config.getfloat("video", "delay")
-        self.task = Clock.schedule_interval(self.update, dt)
-
-    # NOTE: sobreescribiendo Base
-    def consume(self, image):
-        self.image = image
-
-    # NOTE: sobreescribiendo Base
-    def after_run(self):
+    def stop_playing(self):
         Clock.unschedule(self.task)
-        time.sleep(0.1)
-        self.frame.stop_showing()
+        self.reader.capture.release()
+        self.frame.set_default_screen()
+        self.task = None
+
+    def start_playing(self):
+        dt = self.config.getfloat("video", "delay")
+        self.task = Clock.schedule_interval(self.update_frame, dt)
+
+    def update_frame(self, dt):
+        __, ret, image = self.reader.read()
+        if ret is False:
+            self.stop_playing()
+            return
+        self.frame.show(self.drawing.draw(image))
 
 
 class VideoUtil(GridLayout):
-    state = None
-    stop_flag = None
+    state = "stopped"
+    queue = None
+    event = None
+    player = None
 
     @property
     def frame(self):
@@ -105,47 +102,37 @@ class VideoUtil(GridLayout):
 
     def play(self):
         u"""Reproduce en pantalla el archivo de video seleccionado."""
-        reading_queue = queue.Queue(maxsize=1)
-        drawing_queue = queue.Queue(maxsize=1)
-        stop_reading_flag = threading.Event()
-        stop_showing_flag = threading.Event()
-
-        r = VideoReader(
-            reading_queue, stop_reading_flag, config=self.config)
-
-        d = VideoDrawings(
-            reading_queue, stop_reading_flag,
-            drawing_queue, stop_showing_flag, config=self.config)
-
-        p = VideoImagePlayer(
-            self.frame,
-            drawing_queue, stop_showing_flag, config=self.config)
-
-        r.start()
-        d.start()
-        p.start()
-
+        if self.state == "recording":
+            return
+        self.player = VideoPlayer(self.frame, self.config)
+        self.player.start_playing()
         self.state = "playing"
-        self.stop_flag = stop_reading_flag
 
     def record(self):
         u"""Inicia la grabación de video (sin visualización)."""
+        if self.state == "playing":
+            return
+
+        self.queue = queue.Queue(maxsize=1)
+        self.event = threading.Event()
+
+        r = VideoReader(self.config)
+        w = VideoWriter(self.config)
+
+        r.start_thread(self.queue, self.event)
+        w.start_thread(self.queue, self.event)
+
         self.frame.set_writing_screen()
-
-        reading_queue = queue.Queue(maxsize=1)
-        stop_reading_flag = threading.Event()
-
-        r = VideoReader(reading_queue, stop_reading_flag, config=self.config)
-        w = VideoWriter(reading_queue, stop_reading_flag, config=self.config)
-
-        r.start()
-        w.start()
-
         self.state = "recording"
-        self.stop_flag = stop_reading_flag
 
     def stop(self):
         u"""Detiene la actividad."""
-        self.stop_flag.set()
-        time.sleep(0.1)
-        self.frame.stop_showing()
+        if self.state == "playing":
+            self.player.stop_playing()
+
+        elif self.state == "recording":
+            self.event.set()
+            self.queue.join()
+            self.frame.set_default_screen()
+
+        self.state = "stopped"

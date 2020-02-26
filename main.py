@@ -5,7 +5,7 @@
 import logging
 from gui.masmarchaapp import MasMarchaApp
 
-logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
+logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG)
 
 app = MasMarchaApp()
 app.run()

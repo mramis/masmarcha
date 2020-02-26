@@ -19,13 +19,11 @@ u"""Los arreglos de datos de marcha."""
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+import json
 import numpy as np
 
 
-WALKSHAPE = (300, 59)
-
 WALKFIELDS = {
-    "framepos": 0,
     "indicators": {
         "all": slice(1, 5),
         "initial": 1,
@@ -87,18 +85,40 @@ WALKFIELDS = {
 }
 
 
-class FieldParser(object):
-    regions = [0, 1, 2]
-    num_of_markers_columns = 14
-    num_of_markers_per_region = [2, 2, 3]
-    num_of_breakmarkers_columns = 28
+class ColumnsParser:
 
     def __init__(self, fields):
         self.fields = fields
         self.subfield = None
 
+    @property
+    def video_columns(self):
+        cols = [
+            self.config.get("schema", "markers_num") * 2 +
+            self.config.get("schema", "markers_ext") * 2 +
+        ]
+        return sum(cols), cols
+        
+    @property
+    def walk_columns(self):
+        cols [
+            1 +  # posición
+            1 +  # completitud de esquema
+            self.config.get("schema", "regions_num") * 3 +
+            self.config.get("schema", "markers_num") * 2 +
+            self.config.get("schema", "markers_ext") * 2 +
+            self.config.get("schema", "regions_num") * 4
+        ]
+        return sum(cols), cols
+
+    def __build_level(self, level, array):
+        pass
+
+
+
+
     def get(self, levels):
-        u"""Explora el campo hasta devolver el último de los niveles."""
+        """Explora el campo hasta devolver el último de los niveles."""
         field = self.fields if self.subfield is None else self.subfield
         value = field[levels.pop(0)]
         if levels == []:
@@ -110,7 +130,7 @@ class FieldParser(object):
 
     @staticmethod
     def sliceToRange(slice):
-        u"""Convierte al objeto built-in slice en un objecto built-in range."""
+        """Convierte al objeto built-in slice en un objecto built-in range."""
         return range(
             slice.start,
             slice.stop,
@@ -118,97 +138,81 @@ class FieldParser(object):
         )
 
 
-class Constructor(object):
-    u"""Construye el arreglo y maneja los cambios de tamaño del mismo."""
+class VideoArray:
+    """Arreglo de datos 2D.
 
-    def __init__(self, shape):
-        self.shape = shape
-        self.array = np.zeros(shape, dtype=int)
+    Este arreglo está diseñado para almacenar los marcadores encontrados
+    durante el procesamiento de video. Contiene tantas filas como cuadros
+    de video, y el número de columnas está definido por la cantidad de
+    marcadores que presenta el esquema.
 
-    def build(self):
-        u"""Devuelve el arreglo."""
-        return self.array
+    Arreglo General (numpy 2d array):
 
-    def resize(self):
-        u"""Aumenta el tamaño de filas del arreglo."""
-        nrows, __ = self.array.shape
-        default_nrows, default_ncols = self.shape
-        self.array.resize(default_nrows + nrows, default_ncols, refcheck=False)
+    [t0, x0, y0, x1, y1, x2, ... xm, ym, xm+1, ym+1, xm+2, ym+2, ..., xu, yu]
+    [t1, x0, y0, x1, y1, x2, ... xm, ym, xm+1, ym+1, xm+2, ym+2, ..., xu, yu]
+    [t2, x0, y0, x1, y1, x2, ... xm, ym, xm+1, ym+1, xm+2, ym+2, ..., xu, yu]
+    ...
+    [tf, x0, y0, x1, y1, x2, ... xm, ym, xm+1, ym+1, xm+2, ym+2, ..., xu, yu]
+    
+    donde, t es la marca temporal, x e y las coordenadas en el plano del
+    marcador, m es el número de marcadores del esquema, y u es el número
+    de marcadores extras que el usuario desea agregar.
+    """
 
+    def __init__(self, nframes, config):
+        self.__row = 0
+        self.config = config
+        self.parser = ColumnsParser(config)
+        self.__array = np.zeros((nframes, self.parser.video_columns), int)
 
-class InsertionRow(object):
-    u"""Es la fila activa durante el proceso de inserción de datos."""
+    def __repr__(self):
+        return f"General Markers array {self.__array.shape}"
 
-    def __init__(self, constructor):
-        self.constructor = constructor
-        self.index = 0
+    @property
+    def view(self):
+        """Devuelve un acceso al arreglo principal."""
+        return self.__array.view()
 
-    def increment(self):
-        u"""Incrementa el índice de fila."""
-        self.index += 1
-        self.checkIndexError()
+    @property
+    def index(self):
+        """Devuelve una arreglo de índices de fila del arreglo principal."""
+        nrows, __ = self.__array.shape
+        return np.arange(nrows)
 
-    def checkIndexError(self):
-        u"""Vigila la posición del índice de fila respecto al final del arreglo."""
-        if self.index == self.constructor.array.shape[0] - 1:
-            self.constructor.resize()
+    def insert(self, markers):
+        """Agrega elementos al arreglo principal."""
+        m = len(markers)
+        ncols = min(m, self.paser.video_columns)
+        self.__array[self.__row, ncols] = markers[:ncols]
+        self.__row += 1
 
-
-class Inserter(object):
-    u"""Inserta datos en arreglo a medida que el explorador los provee."""
-
-    def __init__(self, constructor, fieldparser):
-        self.last_fullschema_row = 0
-        self.constructor = constructor
-        self.fields = fieldparser
-        self.row = InsertionRow(constructor)
-
-    def insert(self, framepos, fullschema, markerscoordinates):
-        u"""Inserta datos en el arreglo."""
-        self.setPosition(framepos)
-        self.setFullSchema(fullschema)
-        self.setCoordinates(fullschema, markerscoordinates)
-        self.row.increment()
-
-    def setPosition(self, position):
-        u"""Inserta el dato de posición de cuadro de video."""
-        col = self.fields.get(["framepos"])
-        self.constructor.array[self.row.index, col] = position
-
-    def setFullSchema(self, fullschema):
-        u"""Inserta el dato de "Esquema Completo"."""
-        col = self.fields.get(["indicators", "initial"])
-        self.constructor.array[self.row.index, col] = fullschema
-        if fullschema:
-            self.last_fullschema_row = self.row.index
-
-    def setCoordinates(self, fullschema, markerscoordinates):
-        u"""Inserta los centros de los contornos de marcadores."""
-        if fullschema:
-            self.setMarkers(markerscoordinates)
-        else:
-            self.setBreakMarkers(markerscoordinates)
-
-    def setMarkers(self, markerscoordinates):
-        u"""Inserta los centros de los contornos que cumplen con el esquema."""
-        cols = self.fields.get(["markers", "all"])
-        self.constructor.array[self.row.index, cols] = markerscoordinates
-
-    def setBreakMarkers(self, markerscoordinates):
-        u"""Inserta los centros de los contornos que no cumplen con el
-        esquema.
+    def nonzero(self):
+        """Devuelve un arreglo con los índices de fila que no son cero.
+        :return: arreglo 1d.
         """
-        size = self.fields.num_of_breakmarkers_columns
-        cols = self.fields.get(["breakmarkers", "all"])
-        markers = np.hstack((markerscoordinates, np.zeros(size)))
-        self.constructor.array[self.row.index, cols] = markers[:size]
+        rows, __ = np.nonzero(self.__array)
+        return np.unique(rows)
 
-    def fitToLastFullSchemaRow(self):
-        u"""Despues de finalizada la inserción, cierra los datos al último
-        ingresado con esquema completo.
+    def fullschema(self):
+        """Devuelve un arreglo de índices de fila que son de esquema completo.
         """
-        row = self.last_fullschema_row + 1
-        self.constructor.array = self.constructor.array[:row]
+        n = self.config.getint("schema", "markers_num")
+        rows = np.sum(np.not_equal(self.__array, 0), axis=1)
+        return self.index[np.equal(rows, n * 2)]
+
+
+class WalkArray:
+
+    def __init__(self, config):
+        self.config = config
+        self.parser = FieldParser(config)
+        self.__array = None
+
+    def build(self, video_subarray):
+        nrows, __ = video_subarray.shape
+        self.__array = np.zeros((nrows, self.parser.walk_columns), dtype=int)
+        return self
+
 
 
 class WalkArray(object):

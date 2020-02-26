@@ -1,6 +1,16 @@
 {
+  "test/test_array.py": true,
+  "test/test_database.py": true,
+  "test/test_kinematics.py": true,
+  "test/test_markers.py": true,
+  "test/test_regions.py": true,
   "test/test_repr.py": true,
+  "test/test_representation.py": true,
+  "test/test_threads.py": true,
+  "test/test_uix.py": true,
   "test/test_uix.py::test_main": true,
   "test/test_uix.py::test_sections": true,
-  "test/test_video.py::test_markers": true
+  "test/test_video.py": true,
+  "test/test_video.py::test_markers": true,
+  "test/test_walk.py": true
 }

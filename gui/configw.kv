@@ -25,6 +25,7 @@
   col_force_default: True
   col_default_width: 180
 
+
 <BoolOption>:
   Label:
     id: label
@@ -33,6 +34,7 @@
     id: toggle
     text: "Desactivado/Activado"
     on_press: root.change_option(self.state)
+
 
 <IntegerOption>:
   Label:
@@ -55,6 +57,7 @@
       Button:
         text: "Bajar"
         on_press: root.down_change_option()
+
 
 <listOption>:
   Label:

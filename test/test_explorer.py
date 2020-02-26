@@ -19,43 +19,30 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+import os
 import time
-import queue
-import threading
 
-from src.core.videoio import VideoReader, VideoWriter
-from src.core.settings import config
+from core.explorer import *
+from settings import config
 
 
-def test_videoreader():
-    reader = VideoReader(config)
 
-    config.set("current", "source", "0")
-    reader.find_source()
+app_path = config.get("paths", "video")
+video_path = os.path.join(app_path, "Jorge_Moviglia/281019140712.avi")
 
-    reader.open()
-    reader.read()
+config.set("current", "source", video_path)
+config.set("explorer", "empty_frame_limit", "50")
 
 
-def test_videowriter():
-    writer = VideoWriter(config)
+def test_explorer():
 
-    writer.open()
-    writer.write()
+	explorer = VideoExplorer(config)
 
-    writer.sqlite_insert_video()
+	t = time.perf_counter()
+	gma = explorer.explore()
 
+	print(list(gma.get_walks()))
+	
 
-def test_thread_execution():
-
-    reader = VideoReader(config)
-    writer = VideoWriter(config)
-
-    q = queue.Queue(maxsize=1)
-    e = threading.Event()
-
-    reader.start_thread(q, e)
-    writer.start_thread(q, e)
-
-    time.sleep(3)
-    e.set()
+	perf = time.perf_counter() - t
+	print(f"{len(gma.index)} frames explored in {perf} seconds")

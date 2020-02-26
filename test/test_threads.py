@@ -18,44 +18,34 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
 import time
 import queue
+import logging
 import threading
 
-from src.core.videoio import VideoReader, VideoWriter
-from src.core.settings import config
+from core.threads import Producer, Consumer
 
 
-def test_videoreader():
-    reader = VideoReader(config)
-
-    config.set("current", "source", "0")
-    reader.find_source()
-
-    reader.open()
-    reader.read()
+logging.basicConfig(level=logging.DEBUG, format='[%(levelname)-s] %(message)s')
 
 
-def test_videowriter():
-    writer = VideoWriter(config)
+def test_main():
+    t1 = time.perf_counter()
 
-    writer.open()
-    writer.write()
+    q1 = queue.Queue(maxsize=5)
+    e1 = threading.Event()
 
-    writer.sqlite_insert_video()
+    p = Producer()
+    c = Consumer()
 
+    threads = [p, c]
 
-def test_thread_execution():
+    for t in threads:
+        t.start_thread(q1, e1)
 
-    reader = VideoReader(config)
-    writer = VideoWriter(config)
+    for t in threads:
+        t.join_thread()
 
-    q = queue.Queue(maxsize=1)
-    e = threading.Event()
+    t2 = time.perf_counter()
 
-    reader.start_thread(q, e)
-    writer.start_thread(q, e)
-
-    time.sleep(3)
-    e.set()
+    print(f"Finalizado en {t2-t1} segundos")
